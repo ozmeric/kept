@@ -1,5 +1,5 @@
 // Kept service worker — cache-first app shell, network for API
-const CACHE = "kept-v1";
+const CACHE = "kept-v2";
 const SHELL = ["./", "./index.html", "./config.js", "./manifest.json", "./icon-192.png", "./icon-512.png", "./buildflow-logo.png",
   "https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"];
