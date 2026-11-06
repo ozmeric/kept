@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kept">
+<title>Kept — Gig Earnings & Costs</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body,#root{height:100%}
+  body{background:#0B1220;color:#EAF2FF;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  input,select,textarea,button{font-family:inherit}
+  select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#7F93B5 50%),linear-gradient(135deg,#7F93B5 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px!important}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#1E2A44;border-radius:8px}
+  .bottom-nav{display:none}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .tap:active{transform:scale(.98)}
+  .pulse{animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,230,166,.5)}70%{box-shadow:0 0 0 10px rgba(46,230,166,0)}100%{box-shadow:0 0 0 0 rgba(46,230,166,0)}}
+  @media(max-width:760px){
+    .desktop-sidebar{display:none!important}
+    .bottom-nav{display:flex}
+    .cols{grid-template-columns:1fr}
+    .grid4{grid-template-columns:1fr 1fr}
+    .hide-m{display:none!important}
+  }
+  @media print{
+    .desktop-sidebar,.bottom-nav,.no-print,header{display:none!important}
+    body,#root{background:#fff!important;color:#000!important;height:auto}
+    .print-area *{color:#000!important;background:transparent!important;border-color:#bbb!important}
+    .app-root{height:auto!important;overflow:visible!important}
+    .app-content{overflow:visible!important}
+  }
+</style>
+<script src="./config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+//<![CDATA[
+// ════════════════════════════════════════════════════════════════
+//  CONFIG — everything client-specific lives here
+// ════════════════════════════════════════════════════════════════
+const CONFIG = {
+  appName:      "Kept",
+  tagline:      "Know what you earn. Know what you keep.",
+  primaryColor: "#0B1220",
+  accentColor:  "#2EE6A6",
+  logoText:     "K",
+  apiUrl:       (window.KEPT_CONFIG && window.KEPT_CONFIG.apiUrl) || "",   // empty = local-only mode
+
+  defaults: { name:"", lang:"en", country:"NL", currency:"EUR", unit:"km", setAsidePct:30,
+              dailyGoal:150, costMode:"estimated", defaultVehicleId:"" },
+
+  languages: [ ["en","English"], ["nl","Nederlands"], ["tr","Türkçe"] ],
+  countries: [ ["NL","Netherlands (ZZP)"], ["US","United States (1099)"], ["OTHER","Other / no tax module"] ],
+  currencies: ["EUR","USD","GBP","TRY"],
+
+  platforms: ["Uber","Uber Eats","Lyft","DoorDash","Deliveroo","Thuisbezorgd / Just Eat","Bolt","Grubhub","Instacart","Flink","Cash / private","Other"],
+
+  // vehicle:true = vehicle running cost (compared against the vehicle profile, not double-counted)
+  expenseCategories: [
+    {id:"fuel",        vehicle:true,  qty:"L"},
+    {id:"electricity", vehicle:true,  qty:"kWh"},
+    {id:"maintenance", vehicle:true},
+    {id:"tyres",       vehicle:true},
+    {id:"insurance",   vehicle:true},
+    {id:"rental",      vehicle:true},
+    {id:"phone",       vehicle:false},
+    {id:"parking",     vehicle:false},
+    {id:"equipment",   vehicle:false},
+    {id:"other",       vehicle:false},
+  ],
+
+  // Vehicle presets — example numbers only, users edit them
+  vehicleTypes: {
+    car:      {icon:"🚗", energy:"fuel",     purchase:20000, resale:8000, lifeKm:120000, cons:6.5, price:1.95, battPrice:0,   battKm:0,
+               fixed:{insurance:120,rent:0,other:20},
+               parts:[["Tyres",600,40000],["Brakes",350,50000],["Service / oil",250,15000]]},
+    motorcycle:{icon:"🏍️", energy:"fuel",    purchase:4000,  resale:1500, lifeKm:60000,  cons:3.0, price:1.95, battPrice:0,   battKm:0,
+               fixed:{insurance:40,rent:0,other:10},
+               parts:[["Tyres",250,15000],["Chain & sprockets",180,20000],["Brakes",120,15000],["Service / oil",150,6000]]},
+    escooter: {icon:"🛵", energy:"electric", purchase:3000,  resale:800,  lifeKm:40000,  cons:4.0, price:0.30, battPrice:900, battKm:30000,
+               fixed:{insurance:25,rent:0,other:0},
+               parts:[["Tyres",120,10000],["Brakes",80,10000],["Service",100,5000]]},
+    ebike:    {icon:"⚡", energy:"electric", purchase:2000,  resale:400,  lifeKm:30000,  cons:1.2, price:0.30, battPrice:500, battKm:20000,
+               fixed:{insurance:10,rent:0,other:0},
+               parts:[["Chain",40,3000],["Brake pads",30,2500],["Tyres",80,5000],["Service",80,2000]]},
+    bike:     {icon:"🚲", energy:"none",     purchase:600,   resale:150,  lifeKm:25000,  cons:0,   price:0,    battPrice:0,   battKm:0,
+               fixed:{insurance:0,rent:0,other:0},
+               parts:[["Chain",25,3000],["Brake pads",20,2500],["Tyres",60,5000],["Service",50,2000]]},
+  },
+
+  // Versioned tax rates — check every January
+  tax: {
+    US: { unit:"mi", appliesTo:["car"], source:"IRS Notice 2026-10 + mid-year update",
+          rates:[ {from:"2025-01-01",to:"2025-12-31",rate:0.70},
+                  {from:"2026-01-01",to:"2026-06-30",rate:0.725},
+                  {from:"2026-07-01",to:"2026-12-31",rate:0.76} ],
+          seTax:0.153, seBase:0.9235 },
+    NL: { unit:"km", appliesTo:["car","motorcycle","escooter","ebike","bike"], source:"Belastingdienst — privé vervoermiddel, zakelijke km",
+          rates:[ {from:"2025-01-01",to:"2025-12-31",rate:0.23},
+                  {from:"2026-01-01",to:"2026-12-31",rate:0.25} ] },
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+//  i18n  — [en, nl, tr]
+// ════════════════════════════════════════════════════════════════
+const I18N = {
+  today:["Today","Vandaag","Bugün"], week:["Week","Week","Hafta"], month:["Month","Maand","Ay"], year:["Year","Jaar","Yıl"], all:["All","Alles","Tümü"],
+  shifts:["Shifts","Diensten","Vardiyalar"], expenses:["Expenses","Kosten","Giderler"], vehicles:["Vehicles","Voertuigen","Araçlar"],
+  insights:["Insights","Inzichten","Analiz"], compare:["Compare","Vergelijk","Karşılaştır"], tax:["Tax","Belasting","Vergi"],
+  settings:["Settings","Instellingen","Ayarlar"], more:["More","Meer","Daha fazla"], home:["Today","Vandaag","Bugün"],
+  netEarnings:["Net earnings","Netto verdiensten","Net kazanç"], gross:["Gross","Bruto","Brüt"], costs:["Costs","Kosten","Maliyet"], fees:["Fees","Kosten platform","Kesintiler"],
+  distance:["Distance","Afstand","Mesafe"], workTime:["Work time","Werktijd","Çalışma süresi"], perHour:["Per hour","Per uur","Saatlik"], per100:["Per 100","Per 100","100 başına"],
+  startShift:["Start shift","Start dienst","Vardiyayı başlat"], endShift:["End shift","Stop dienst","Vardiyayı bitir"],
+  addManual:["Add shift manually","Dienst handmatig toevoegen","Manuel vardiya ekle"],
+  onJob:["On a job","Met opdracht","Siparişte"], betweenJobs:["Between jobs","Tussen opdrachten","Sipariş bekliyor"],
+  emptyKm:["Empty distance","Lege afstand","Boş mesafe"], personalKm:["Personal distance","Privé afstand","Özel mesafe"],
+  gpsWaiting:["Waiting for GPS…","Wachten op GPS…","GPS bekleniyor…"], gpsOff:["GPS unavailable — enter distance at the end","GPS niet beschikbaar — vul afstand in","GPS yok — mesafeyi sonunda girin"],
+  keepOpen:["Keep Kept open with the screen on while you work. Background tracking needs the native app (coming).","Houd Kept open met scherm aan. Achtergrond-tracking komt in de native app.","Çalışırken Kept'i ekranı açık tutun. Arka plan takibi yerel uygulamada gelecek."],
+  vehicle:["Vehicle","Voertuig","Araç"], platform:["Platform","Platform","Platform"], base:["Pay","Uitbetaling","Ücret"], tips:["Tips","Fooi","Bahşiş"], bonus:["Bonus","Bonus","Bonus"], trips:["Trips","Ritten","Teslimat"],
+  addPlatform:["+ Add platform","+ Platform toevoegen","+ Platform ekle"], notes:["Notes","Notities","Notlar"],
+  date:["Date","Datum","Tarih"], start:["Start","Start","Başlangıç"], end:["End","Einde","Bitiş"], save:["Save","Opslaan","Kaydet"], cancel:["Cancel","Annuleren","İptal"],
+  delete:["Delete","Verwijderen","Sil"], discard:["Discard shift","Dienst weggooien","Vardiyayı sil"], add:["Add","Toevoegen","Ekle"], edit:["Edit","Bewerken","Düzenle"],
+  amount:["Amount","Bedrag","Tutar"], category:["Category","Categorie","Kategori"], quantity:["Quantity","Hoeveelheid","Miktar"], optional:["optional","optioneel","isteğe bağlı"],
+  noShifts:["No shifts yet. Start one above or add it manually.","Nog geen diensten.","Henüz vardiya yok."], noExpenses:["No expenses in this period.","Geen kosten in deze periode.","Bu dönemde gider yok."],
+  addVehicle:["Add vehicle","Voertuig toevoegen","Araç ekle"], costPerKm:["Cost per","Kosten per","Maliyet /"], fixedMonthly:["Fixed per month","Vast per maand","Aylık sabit"],
+  depreciation:["Depreciation","Afschrijving","Değer kaybı"], energy:["Fuel / energy","Brandstof / energie","Yakıt / enerji"], battery:["Battery wear","Accuslijtage","Batarya yıpranması"], parts:["Parts & service","Onderdelen & onderhoud","Parça & bakım"],
+  maintenanceDue:["Maintenance","Onderhoud","Bakım"], replaced:["Replaced","Vervangen","Değiştirildi"], dueIn:["due in","over","kalan"], overdue:["overdue","te laat","gecikti"],
+  odometer:["Odometer","Kilometerstand","Kilometre sayacı"],
+  purchase:["Purchase price","Aankoopprijs","Alış fiyatı"], resale:["Expected resale","Verwachte restwaarde","Tahmini satış değeri"], lifeKm:["Lifetime distance","Levensduur afstand","Kullanım ömrü"],
+  consumption:["Consumption","Verbruik","Tüketim"], energyPrice:["Energy price","Energieprijs","Enerji fiyatı"], battPrice:["Battery price","Accuprijs","Batarya fiyatı"], battLife:["Battery life","Levensduur accu","Batarya ömrü"],
+  insurance:["Insurance / month","Verzekering / maand","Sigorta / ay"], rent:["Rent or lease / month","Huur of lease / maand","Kira / ay"], otherFixed:["Other fixed / month","Overig vast / maand","Diğer sabit / ay"],
+  name:["Name","Naam","Ad"], type:["Type","Type","Tür"], energyType:["Energy","Energie","Enerji"], fuel:["Fuel","Brandstof","Yakıt"], electric:["Electric","Elektrisch","Elektrik"], none:["None","Geen","Yok"],
+  interval:["Every","Elke","Her"], lastAt:["Last at","Laatst bij","Son değişim"], partName:["Part","Onderdeel","Parça"], addPart:["+ Add part","+ Onderdeel","+ Parça ekle"],
+  privatelyOwned:["Privately owned (not a business asset)","Privé eigendom (geen bedrijfsmiddel)","Özel mülk (işletme varlığı değil)"],
+  active:["Active","Actief","Aktif"],
+  t_car:["Car","Auto","Otomobil"], t_motorcycle:["Motorcycle / scooter","Motor / scooter","Motosiklet / scooter"], t_escooter:["E-scooter / e-moped","E-scooter","Elektrikli scooter"], t_ebike:["E-bike","E-bike","Elektrikli bisiklet"], t_bike:["Bicycle","Fiets","Bisiklet"],
+  c_fuel:["Fuel","Brandstof","Yakıt"], c_electricity:["Charging","Laden","Şarj"], c_maintenance:["Maintenance","Onderhoud","Bakım"], c_tyres:["Tyres / brakes","Banden / remmen","Lastik / fren"],
+  c_insurance:["Insurance","Verzekering","Sigorta"], c_rental:["Vehicle rental","Voertuighuur","Araç kiralama"], c_phone:["Phone / data","Telefoon / data","Telefon / internet"],
+  c_parking:["Parking / tolls","Parkeren / tol","Park / otoyol"], c_equipment:["Equipment","Uitrusting","Ekipman"], c_other:["Other","Overig","Diğer"],
+  vehicleRunning:["Vehicle running costs (logged)","Voertuigkosten (gelogd)","Araç giderleri (kayıtlı)"], vsEstimate:["vs. profile estimate","vs. schatting profiel","profil tahminine göre"],
+  byPlatform:["By platform","Per platform","Platforma göre"], byWeekday:["Net per hour by weekday","Netto per uur per dag","Güne göre saatlik net"], byHour:["Net per hour by start time","Netto per uur per starttijd","Başlangıç saatine göre saatlik net"],
+  byVehicle:["By vehicle","Per voertuig","Araca göre"], keyInsights:["What the numbers say","Wat de cijfers zeggen","Rakamlar ne diyor"], notEnough:["Log a few more shifts to unlock insights.","Log meer diensten voor inzichten.","Analiz için birkaç vardiya daha kaydedin."],
+  share:["Share","Aandeel","Pay"], last7:["Last 7 days — net","Laatste 7 dagen — netto","Son 7 gün — net"], goal:["Daily goal","Dagdoel","Günlük hedef"],
+  compareTitle:["Which vehicle pays best?","Welk voertuig levert het meest op?","Hangi araç daha kârlı?"],
+  compareNote:["Same gross earnings assumed for every vehicle. In reality bikes cover fewer km per hour — adjust the gross to test.","Zelfde bruto aangenomen. Fietsen rijden minder km per uur — pas bruto aan.","Tüm araçlar için aynı brüt varsayılır. Bisikletler saatte daha az km yapar — brütü değiştirerek deneyin."],
+  kmPerDay:["Distance per day","Afstand per dag","Günlük mesafe"], daysPerMonth:["Work days / month","Werkdagen / maand","Aylık iş günü"], grossPerDay:["Gross per day","Bruto per dag","Günlük brüt"],
+  monthlyCost:["Monthly cost","Maandkosten","Aylık maliyet"], monthlyNet:["Monthly net","Netto per maand","Aylık net"], yours:["yours","jouw","sizin"], example:["example","voorbeeld","örnek"], best:["Best","Beste","En iyi"],
+  taxTitle:["Tax estimate","Belastingschatting","Vergi tahmini"], economicVsTax:["Economic profit and tax deduction are different numbers — Kept keeps them apart.","Economische winst en fiscale aftrek zijn verschillende getallen.","Ekonomik kâr ve vergi indirimi farklı rakamlardır — Kept bunları ayırır."],
+  businessDist:["Business distance","Zakelijke afstand","İş mesafesi"], mileageDeduction:["Mileage deduction","Kilometeraftrek","Kilometre indirimi"], otherBizExp:["Other business expenses","Overige zakelijke kosten","Diğer iş giderleri"],
+  taxableProfit:["Estimated taxable profit","Geschatte belastbare winst","Tahmini vergilendirilebilir kâr"], setAside:["Set aside for tax","Reserveren voor belasting","Vergi için ayır"],
+  seTax:["Self-employment tax (est.)","Self-employment tax (schatting)","Serbest meslek vergisi (tahmini)"],
+  taxDisclaimer:["Estimate only — not tax advice. Rates are versioned by date; confirm with your accountant before filing.","Alleen een schatting — geen belastingadvies. Controleer met je boekhouder.","Yalnızca tahmindir — vergi tavsiyesi değildir. Beyandan önce muhasebecinize danışın."],
+  rateNotConfirmed:["No confirmed rate for this date yet — using latest known rate.","Nog geen bevestigd tarief — laatste tarief gebruikt.","Bu tarih için onaylı oran yok — son bilinen oran kullanıldı."],
+  notEligible:["Not eligible for the standard rate (cars, vans and pickups only)","Niet van toepassing","Standart orana uygun değil (yalnızca otomobil/van)"],
+  printReport:["Print / save PDF","Afdrukken / PDF","Yazdır / PDF"],
+  profile:["Profile","Profiel","Profil"], language:["Language","Taal","Dil"], country:["Tax country","Belastingland","Vergi ülkesi"], currency:["Currency","Valuta","Para birimi"], units:["Distance unit","Afstandseenheid","Mesafe birimi"],
+  setAsidePct:["Tax set-aside %","Belastingreserve %","Vergi payı %"], costMode:["Net earnings use","Netto gebruikt","Net kazanç hesabı"],
+  costEstimated:["Vehicle profile (estimated)","Voertuigprofiel (geschat)","Araç profili (tahmini)"], costActual:["Logged expenses + depreciation","Gelogde kosten + afschrijving","Kayıtlı giderler + değer kaybı"],
+  data:["Data","Gegevens","Veriler"], exportShifts:["Export shifts (CSV)","Diensten exporteren (CSV)","Vardiyaları indir (CSV)"], exportExpenses:["Export expenses (CSV)","Kosten exporteren (CSV)","Giderleri indir (CSV)"],
+  backup:["Download backup (JSON)","Back-up downloaden","Yedek indir (JSON)"], restore:["Restore backup","Back-up herstellen","Yedeği geri yükle"],
+  changePin:["Change PIN","PIN wijzigen","PIN değiştir"], newPin:["New PIN (4–8 digits)","Nieuwe PIN","Yeni PIN"], logout:["Lock app","App vergrendelen","Kilitle"],
+  enterPin:["Enter your PIN","Voer je PIN in","PIN girin"], unlock:["Unlock","Ontgrendelen","Aç"], wrongPin:["Wrong PIN","Onjuiste PIN","Hatalı PIN"],
+  saved:["Saved","Opgeslagen","Kaydedildi"], deleted:["Deleted","Verwijderd","Silindi"], synced:["Synced","Gesynchroniseerd","Senkronize"], offline:["Offline — will sync later","Offline — synchroniseert later","Çevrimdışı — sonra senkronize edilecek"], localMode:["Local mode (no cloud)","Lokale modus","Yerel mod (bulut yok)"],
+  confirmDelete:["Delete this item?","Dit item verwijderen?","Bu kaydı silmek istiyor musunuz?"],
+  fixedAlloc:["Fixed costs (pro-rata)","Vaste kosten (naar rato)","Sabit giderler (oransal)"], vehicleWear:["Vehicle cost","Voertuigkosten","Araç maliyeti"], otherCosts:["Other expenses","Overige kosten","Diğer giderler"],
+  emptyShare:["of your distance was driven empty","van je afstand was leeg","mesafenin boş gidildi"],
+  insBestDay:["Your best day is","Je beste dag is","En iyi gününüz"], insBestHour:["Shifts starting around","Diensten rond","Şu saatlerde başlayan vardiyalar"], insBestHour2:["earn the most per hour","verdienen het meest per uur","saatlik en çok kazandırıyor"],
+  insBestPlatform:["pays you the most per hour","betaalt het meest per uur","saatlik en çok kazandırıyor"], insCostShare:["Vehicle costs eat","Voertuigkosten kosten","Araç maliyetleri brütün"], insCostShare2:["of your gross","van je bruto","kadarını yiyor"],
+  welcome:["Welcome to Kept","Welkom bij Kept","Kept'e hoş geldiniz"], setupHint:["Add your vehicle so Kept can calculate what each km really costs you.","Voeg je voertuig toe.","Her km'nin size gerçek maliyetini hesaplamak için aracınızı ekleyin."],
+  hours:["h","u","sa"], estNet:["est. net","geschat netto","tahmini net"],
+};
+
+// ════════════════════════════════════════════════════════════════
+//  Helpers
+// ════════════════════════════════════════════════════════════════
+const { useState, useEffect, useRef, useMemo } = React;
+const e = React.createElement;
+const KM_PER_MI = 1.609344;
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (x) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (x) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (x) {} },
+};
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const pad = n => String(n).padStart(2, "0");
+const dISO = d => { const z = new Date(d); return z.getFullYear() + "-" + pad(z.getMonth() + 1) + "-" + pad(z.getDate()); };
+const tHM = d => { const z = new Date(d); return pad(z.getHours()) + ":" + pad(z.getMinutes()); };
+const num = v => { const n = parseFloat(String(v == null ? "" : v).replace(",", ".")); return isFinite(n) ? n : 0; };
+const sum = (arr, f) => arr.reduce((a, x) => a + (f ? f(x) : x), 0);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmtDur = mins => { mins = Math.max(0, Math.round(mins)); return Math.floor(mins / 60) + "h " + pad(mins % 60) + "m"; };
+const haversine = (a, b) => {
+  const R = 6371000, r = x => x * Math.PI / 180;
+  const dLat = r(b.lat - a.lat), dLon = r(b.lon - a.lon);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+};
+const LOCALES = { en: "en-US", nl: "nl-NL", tr: "tr-TR" };
+
+// money / gross for a shift
+const shiftGross = s => sum(s.platforms || [], p => num(p.base) + num(p.tips) + num(p.bonus));
+const shiftTips  = s => sum(s.platforms || [], p => num(p.tips));
+const shiftFees  = s => sum(s.platforms || [], p => num(p.fees));
+const shiftMins  = s => Math.max(0, (new Date(s.end) - new Date(s.start)) / 60000);
+
+// vehicle cost model (per km, internal unit is always km)
+function vehicleCost(v) {
+  if (!v) return { dep: 0, energy: 0, battery: 0, parts: 0, total: 0, fixed: 0 };
+  const dep = num(v.lifeKm) > 0 ? Math.max(0, num(v.purchase) - num(v.resale)) / num(v.lifeKm) : 0;
+  const energy = v.energy === "none" ? 0 : num(v.cons) * num(v.price) / 100;
+  const battery = num(v.battKm) > 0 ? num(v.battPrice) / num(v.battKm) : 0;
+  const parts = sum(v.parts || [], p => num(p.interval) > 0 ? num(p.cost) / num(p.interval) : 0);
+  const fixed = num(v.insurance) + num(v.rent) + num(v.otherFixed);
+  return { dep, energy, battery, parts, total: dep + energy + battery + parts, fixed };
+}
+function presetVehicle(type) {
+  const p = CONFIG.vehicleTypes[type];
+  return {
+    id: genId(), type, name: "", active: true, privateOwned: true,
+    purchase: p.purchase, resale: p.resale, lifeKm: p.lifeKm, energy: p.energy, cons: p.cons, price: p.price,
+    battPrice: p.battPrice, battKm: p.battKm, startOdo: 0,
+    insurance: p.fixed.insurance, rent: p.fixed.rent, otherFixed: p.fixed.other,
+    parts: p.parts.map(x => ({ id: genId(), name: x[0], cost: x[1], interval: x[2], lastAt: 0 })),
+  };
+}
+
+// period ranges
+function periodRange(key, ref) {
+  const now = ref ? new Date(ref) : new Date();
+  const t = dISO(now);
+  if (key === "today") return [t, t];
+  if (key === "week") { const d = new Date(now); const wd = (d.getDay() + 6) % 7; d.setDate(d.getDate() - wd); return [dISO(d), t]; }
+  if (key === "month") return [t.slice(0, 8) + "01", t];
+  if (key === "year") return [t.slice(0, 5) + "01-01", t];
+  return ["1970-01-01", t];
+}
+function daysBetween(a, b) { return Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 86400000) + 1; }
+
+// core economics for a date range
+function computePeriod(data, from, to) {
+  const { shifts, expenses, vehicles, settings } = data;
+  const vmap = {}; vehicles.forEach(v => vmap[v.id] = v);
+  const S = shifts.filter(s => s.date >= from && s.date <= to);
+  const E = expenses.filter(x => x.date >= from && x.date <= to);
+  const catV = {}; CONFIG.expenseCategories.forEach(c => catV[c.id] = c.vehicle);
+  const gross = sum(S, shiftGross), tips = sum(S, shiftTips), fees = sum(S, shiftFees);
+  const mins = sum(S, shiftMins), km = sum(S, s => num(s.km)), emptyKm = sum(S, s => num(s.emptyKm));
+  const varCost = sum(S, s => num(s.km) * vehicleCost(vmap[s.vehicleId]).total);
+  const depCost = sum(S, s => num(s.km) * vehicleCost(vmap[s.vehicleId]).dep);
+  // fixed vehicle costs, pro-rata per calendar day — only from the first logged shift onward
+  let firstDay = shifts.length ? shifts.reduce((m, s) => s.date < m ? s.date : m, shifts[0].date) : to;
+  const effFrom = from > firstDay ? from : firstDay;
+  const days = (!shifts.length || effFrom > to) ? 0 : daysBetween(effFrom, to);
+  const fixed = sum(vehicles.filter(v => v.active !== false), v => vehicleCost(v).fixed) * days / 30.44;
+  const vehExp = sum(E.filter(x => catV[x.category]), x => num(x.amount));
+  const otherExp = sum(E.filter(x => !catV[x.category]), x => num(x.amount));
+  const vehicleCosts = settings.costMode === "actual" ? vehExp + depCost : varCost + fixed;
+  const costs = vehicleCosts + otherExp;
+  const net = gross - fees - costs;
+  return { S, E, gross, tips, fees, mins, km, emptyKm, varCost, fixed, vehExp, otherExp, vehicleCosts, costs, net,
+           perHour: mins > 0 ? net / (mins / 60) : 0, per100: km > 0 ? net / km * 100 : 0, days };
+}
+
+function taxRateFor(country, date) {
+  const t = CONFIG.tax[country]; if (!t) return null;
+  const r = t.rates.find(x => date >= x.from && date <= x.to);
+  if (r) return { rate: r.rate, confirmed: true };
+  const last = t.rates[t.rates.length - 1];
+  return { rate: last.rate, confirmed: false };
+}
+
+function downloadFile(name, content, type) {
+  const blob = new Blob([content], { type: type || "text/plain" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const csvCell = v => { const s = String(v == null ? "" : v); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\n");
+
+// ════════════════════════════════════════════════════════════════
+//  Styles
+// ════════════════════════════════════════════════════════════════
+const C = { bg: "#0B1220", card: "#111B2E", card2: "#0E1729", border: "#1E2A44", input: "#0A1020",
+            text: "#EAF2FF", sub: "#B6C4DC", muted: "#7F93B5", dim: "#4F6286",
+            accent: CONFIG.accentColor, accentDim: "rgba(46,230,166,.12)", red: "#F26B6B", amber: "#F5B544", blue: "#5B9CFF", purple: "#A98BFF" };
+const S = {
+  root: { display: "flex", flexDirection: "column", height: "100%", background: C.bg, color: C.text, overflow: "hidden" },
+  header: { background: C.card2, borderBottom: "1px solid " + C.border, padding: "0 16px", paddingTop: "env(safe-area-inset-top)", minHeight: 56, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 },
+  sidebar: { width: 220, background: C.card2, borderRight: "1px solid " + C.border, overflowY: "auto", flexShrink: 0, padding: "10px 0" },
+  content: { flex: 1, overflowY: "auto", padding: "16px 16px 110px" },
+  inner: { maxWidth: 980, margin: "0 auto" },
+  card: { background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: 16, marginBottom: 12 },
+  input: { width: "100%", background: C.input, border: "1px solid " + C.border, borderRadius: 10, padding: "11px 12px", color: C.text, fontSize: 15, outline: "none" },
+  label: { display: "block", fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 },
+  h1: { fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 12 },
+  h2: { fontSize: 15, fontWeight: 800, marginBottom: 10 },
+  small: { fontSize: 12, color: C.muted },
+  btn: v => v === "ghost"
+    ? { background: "transparent", border: "1px solid " + C.border, color: C.sub, borderRadius: 10, padding: "10px 14px", cursor: "pointer", fontSize: 14, fontWeight: 600 }
+    : v === "danger"
+    ? { background: "rgba(242,107,107,.12)", border: "1px solid rgba(242,107,107,.35)", color: C.red, borderRadius: 10, padding: "10px 14px", cursor: "pointer", fontSize: 14, fontWeight: 700 }
+    : { background: C.accent, color: "#05221A", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 800 },
+  chip: on => ({ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1px solid " + (on ? C.accent : C.border), background: on ? C.accentDim : "transparent", color: on ? C.accent : C.muted, whiteSpace: "nowrap" }),
+  sideLabel: { fontSize: 10, fontWeight: 800, color: C.dim, textTransform: "uppercase", letterSpacing: "0.12em", padding: "12px 18px 6px" },
+  sideItem: on => ({ padding: "10px 18px", cursor: "pointer", fontSize: 14, fontWeight: on ? 700 : 500, color: on ? C.accent : C.sub, background: on ? "rgba(46,230,166,.07)" : "transparent", borderLeft: "3px solid " + (on ? C.accent : "transparent"), display: "flex", alignItems: "center", gap: 10, userSelect: "none" }),
+  stat: { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 12px" },
+  statLabel: { fontSize: 11, color: C.muted, fontWeight: 600, marginBottom: 4 },
+  statVal: { fontSize: 17, fontWeight: 800 },
+  row: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
+};
+
+// minimal icon set (24px stroke)
+const ICONS = {
+  home: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+  list: "M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01",
+  receipt: "M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6",
+  chart: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+  car: "M5 16h14M6 16l1.5-5h9L18 16M7 19a1 1 0 1 0 0-.01M17 19a1 1 0 1 0 0-.01M4 16v3M20 16v3",
+  swap: "M7 4l-4 4 4 4M3 8h14M17 20l4-4-4-4M21 16H7",
+  tax: "M4 4h16v16H4zM8 15l8-6M8.5 9h.01M15.5 15h.01",
+  gear: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
+  plus: "M12 5v14M5 12h14",
+  x: "M6 6l12 12M18 6L6 18",
+  wrench: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z",
+  gps: "M12 2v3M12 19v3M2 12h3M19 12h3M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
+  cloud: "M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z",
+};
+const Icon = ({ n, s = 20, c = "currentColor", w = 2 }) =>
+  e("svg", { width: s, height: s, viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } },
+    e("path", { d: ICONS[n] }));
+
+const LogoMark = ({ s = 32 }) =>
+  e("svg", { width: s, height: s, viewBox: "0 0 512 512" },
+    e("defs", null,
+      e("linearGradient", { id: "kbg", x1: 0, y1: 0, x2: 1, y2: 1 }, e("stop", { offset: 0, stopColor: "#14264A" }), e("stop", { offset: 1, stopColor: "#0A1222" })),
+      e("linearGradient", { id: "krt", x1: 0, y1: 1, x2: 1, y2: 0 }, e("stop", { offset: 0, stopColor: "#22C79A" }), e("stop", { offset: 1, stopColor: "#5CFFC4" }))),
+    e("rect", { width: 512, height: 512, rx: 116, fill: "url(#kbg)", stroke: "#1E3358", strokeWidth: 10 }),
+    e("path", { d: "M132 372 C 214 372, 226 262, 286 262 S 352 166, 382 142", fill: "none", stroke: "url(#krt)", strokeWidth: 38, strokeLinecap: "round" }),
+    e("circle", { cx: 132, cy: 372, r: 30, fill: "#0A1222", stroke: "#5CFFC4", strokeWidth: 14 }),
+    e("path", { d: "M332 128 L 404 120 L 396 192", fill: "none", stroke: "#5CFFC4", strokeWidth: 38, strokeLinecap: "round", strokeLinejoin: "round" }));
+
+// ════════════════════════════════════════════════════════════════
+//  API + sync queue
+// ════════════════════════════════════════════════════════════════
+async function apiCall(pin, action, extra) {
+  const res = await fetch(CONFIG.apiUrl, { method: "POST", body: JSON.stringify(Object.assign({ pin, action }, extra || {})) });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+const EMPTY_DATA = { settings: Object.assign({}, CONFIG.defaults), vehicles: [], shifts: [], expenses: [] };
+
+// ════════════════════════════════════════════════════════════════
+//  APP
+// ════════════════════════════════════════════════════════════════
+function App() {
+  // ── state (all hooks first) ──
+  const localMode = !CONFIG.apiUrl;
+  const [pin, setPin] = useState(LS.get("kept_pin", ""));
+  const [authed, setAuthed] = useState(localMode);
+  const [loginErr, setLoginErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(() => {
+    const d = LS.get("kept_data", null);
+    return d ? Object.assign({}, EMPTY_DATA, d, { settings: Object.assign({}, CONFIG.defaults, d.settings || {}) }) : EMPTY_DATA;
+  });
+  const [view, setView] = useState("home");
+  const [modal, setModal] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [active, setActive] = useState(LS.get("kept_active", null));
+  const [tick, setTick] = useState(0);
+  const [syncState, setSyncState] = useState(localMode ? "local" : "idle");
+  const [homePeriod, setHomePeriod] = useState("today");
+  const watchRef = useRef(null);
+  const wakeRef = useRef(null);
+  const flushingRef = useRef(false);
+  const pinRef = useRef(pin);
+  pinRef.current = pin;
+  // stable component identities: views/modals are defined inside App (closures), but React must
+  // see the same component type every render or it remounts them (losing form state on every tick)
+  const implRef = useRef({});
+  const stableRef = useRef({});
+  const stable = (name, fn) => {
+    implRef.current[name] = fn;
+    if (!stableRef.current[name]) { const W = props => implRef.current[name](props); W.displayName = name; stableRef.current[name] = W; }
+    return stableRef.current[name];
+  };
+
+  const st = data.settings;
+  const L = Math.max(0, CONFIG.languages.findIndex(l => l[0] === st.lang));
+  const T = k => { const r = I18N[k]; return r ? (r[L] || r[0]) : k; };
+  const locale = LOCALES[st.lang] || "en-US";
+  const money = (v, dec) => { try { return new Intl.NumberFormat(locale, { style: "currency", currency: st.currency || "EUR", maximumFractionDigits: dec == null ? 2 : dec, minimumFractionDigits: dec == null ? 2 : dec }).format(v || 0); } catch (x) { return (v || 0).toFixed(2); } };
+  const unit = st.unit === "mi" ? "mi" : "km";
+  const dist = km => (unit === "mi" ? km / KM_PER_MI : km);
+  const toKm = v => (unit === "mi" ? num(v) * KM_PER_MI : num(v));
+  const fmtDist = (km, dec) => dist(km).toLocaleString(locale, { maximumFractionDigits: dec == null ? 1 : dec, minimumFractionDigits: dec == null ? 1 : dec }) + " " + unit;
+  const perUnit = perKm => (unit === "mi" ? perKm * KM_PER_MI : perKm);
+  const vmap = useMemo(() => { const m = {}; data.vehicles.forEach(v => m[v.id] = v); return m; }, [data.vehicles]);
+  const vName = v => v ? (v.name || T("t_" + v.type)) : "—";
+
+  // ── persistence ──
+  useEffect(() => { LS.set("kept_data", data); }, [data]);
+  useEffect(() => { if (active) LS.set("kept_active", active); else LS.del("kept_active"); }, [active]);
+  useEffect(() => { document.documentElement.lang = st.lang || "en"; }, [st.lang]);
+
+  const showToast = (msg, kind) => { setToast({ msg, kind }); setTimeout(() => setToast(null), 2200); };
+
+  // ── sync queue ──
+  const flush = async () => {
+    if (localMode || flushingRef.current || !pinRef.current) return;
+    const q = LS.get("kept_queue", []);
+    if (!q.length) { setSyncState("synced"); return; }
+    flushingRef.current = true; setSyncState("syncing");
+    try {
+      await apiCall(pinRef.current, "batch", { ops: q });
+      const rest = LS.get("kept_queue", []).slice(q.length);
+      LS.set("kept_queue", rest);
+      setSyncState(rest.length ? "idle" : "synced");
+    } catch (err) {
+      setSyncState("offline");
+    } finally { flushingRef.current = false; }
+  };
+  const enqueue = op => { if (localMode) return; const q = LS.get("kept_queue", []); q.push(op); LS.set("kept_queue", q); setTimeout(flush, 50); };
+  useEffect(() => {
+    if (localMode || !authed) return;
+    const on = () => flush();
+    window.addEventListener("online", on);
+    const iv = setInterval(flush, 60000);
+    return () => { window.removeEventListener("online", on); clearInterval(iv); };
+  }, [authed]);
+
+  const upsert = (coll, rec) => {
+    setData(d => { const list = d[coll].slice(); const i = list.findIndex(x => x.id === rec.id); if (i >= 0) list[i] = rec; else list.push(rec); return Object.assign({}, d, { [coll]: list }); });
+    enqueue({ op: "upsert", collection: coll, record: rec });
+  };
+  const remove = (coll, id) => {
+    setData(d => Object.assign({}, d, { [coll]: d[coll].filter(x => x.id !== id) }));
+    enqueue({ op: "remove", collection: coll, id });
+  };
+  const saveSettings = patch => {
+    const ns = Object.assign({}, data.settings, patch);
+    setData(d => Object.assign({}, d, { settings: ns }));
+    enqueue({ op: "settings", settings: ns });
+  };
+
+  // ── login ──
+  const doLogin = async p => {
+    setLoading(true); setLoginErr("");
+    try {
+      pinRef.current = p;
+      await flush();
+      const res = await apiCall(p, "getAll");
+      setData({ settings: Object.assign({}, CONFIG.defaults, res.settings || {}), vehicles: res.vehicles || [], shifts: res.shifts || [], expenses: res.expenses || [] });
+      setPin(p); LS.set("kept_pin", p); setAuthed(true); setSyncState("synced");
+    } catch (err) {
+      if (/Unauthorized/i.test(err.message)) { setLoginErr(T("wrongPin")); LS.del("kept_pin"); }
+      else if (LS.get("kept_data", null)) { setPin(p); setAuthed(true); setSyncState("offline"); }
+      else setLoginErr(err.message);
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { if (!localMode && pin && !authed) doLogin(pin); }, []);
+
+  // ── GPS tracking ──
+  const onPos = pos => {
+    const c = pos.coords, now = Date.now();
+    setActive(a => {
+      if (!a) return a;
+      const cur = { lat: c.latitude, lon: c.longitude, t: now };
+      const n = Object.assign({}, a, { acc: Math.round(c.accuracy), gps: "ok" });
+      if (c.accuracy > 50) return n;                       // too noisy
+      if (!a.last) { n.last = cur; return n; }
+      const d = haversine(a.last, cur), dt = Math.max(1, (now - a.last.t) / 1000);
+      if (d < 8) return n;                                 // jitter
+      if (d / dt > 70) { n.last = cur; return n; }         // teleport / bad fix
+      n.km = (a.km || 0) + d / 1000;
+      if (a.mode === "empty") n.emptyKm = (a.emptyKm || 0) + d / 1000;
+      n.last = cur;
+      return n;
+    });
+  };
+  const onPosErr = () => setActive(a => a ? Object.assign({}, a, { gps: "off" }) : a);
+  const startWatch = () => {
+    if (!navigator.geolocation) { onPosErr(); return; }
+    if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+    requestWake();
+  };
+  const stopWatch = () => {
+    if (watchRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = null;
+    try { wakeRef.current && wakeRef.current.release(); } catch (x) {}
+    wakeRef.current = null;
+  };
+  const requestWake = async () => { try { if ("wakeLock" in navigator) wakeRef.current = await navigator.wakeLock.request("screen"); } catch (x) {} };
+  useEffect(() => {
+    if (active) startWatch();
+    const vis = () => { if (document.visibilityState === "visible" && LS.get("kept_active", null)) requestWake(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { document.removeEventListener("visibilitychange", vis); };
+  }, []);
+  useEffect(() => { if (!active) return; const iv = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(iv); }, [!!active]);
+
+  const startShift = vehicleId => {
+    setActive({ start: new Date().toISOString(), vehicleId, km: 0, emptyKm: 0, mode: "empty", last: null, gps: "wait", acc: null });
+    setTimeout(startWatch, 0);
+    if (vehicleId && vehicleId !== st.defaultVehicleId) saveSettings({ defaultVehicleId: vehicleId });
+  };
+  const endShift = () => {
+    const a = active; if (!a) return;
+    setModal({ type: "shift", shift: {
+      id: genId(), date: dISO(a.start), start: a.start, end: new Date().toISOString(), vehicleId: a.vehicleId,
+      km: +(a.km || 0).toFixed(2), emptyKm: +(a.emptyKm || 0).toFixed(2), personalKm: 0,
+      platforms: [{ name: (LS.get("kept_lastPlatform", CONFIG.platforms[0])), base: "", tips: "", bonus: "", fees: "", trips: "" }], notes: "" }, fromTracking: true });
+  };
+  const finishTracking = () => { stopWatch(); setActive(null); };
+
+  // ════════════════════════════════════════════════════════════════
+  //  Small UI pieces
+  // ════════════════════════════════════════════════════════════════
+  const Field = (label, input, hint) => e("div", { style: { marginBottom: 12 } }, e("label", { style: S.label }, label), input, hint ? e("div", { style: Object.assign({}, S.small, { marginTop: 4 }) }, hint) : null);
+  const Stat = (label, val, color) => e("div", { style: S.stat }, e("div", { style: S.statLabel }, label), e("div", { style: Object.assign({}, S.statVal, color ? { color } : {}) }, val));
+  const Chips = (opts, val, set) => e("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 } },
+    opts.map(o => e("div", { key: o[0], className: "tap", style: S.chip(val === o[0]), onClick: () => set(o[0]) }, o[1])));
+  const Bars = (items, opts) => {
+    opts = opts || {};
+    const max = Math.max(1, ...items.map(i => Math.abs(i.v)));
+    return e("div", { style: { display: "flex", alignItems: "flex-end", gap: 6, height: opts.h || 120 } },
+      items.map((i, k) => e("div", { key: k, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%" } },
+        e("div", { style: { fontSize: 10, color: C.muted, whiteSpace: "nowrap" } }, i.label2 || ""),
+        e("div", { style: { flex: 1, width: "100%", display: "flex", alignItems: "flex-end" } },
+          e("div", { title: i.title || "", style: { width: "100%", height: Math.max(i.v ? 4 : 2, Math.abs(i.v) / max * 100) + "%", background: i.v < 0 ? C.red : (i.hi ? C.accent : "rgba(46,230,166,.45)"), borderRadius: 6 } })),
+        e("div", { style: { fontSize: 11, color: i.hi ? C.text : C.muted, fontWeight: i.hi ? 700 : 500 } }, i.label))));
+  };
+  const Progress = (pct, color) => e("div", { style: { height: 8, background: C.input, borderRadius: 8, overflow: "hidden" } },
+    e("div", { style: { width: clamp(pct, 0, 100) + "%", height: "100%", background: color || C.accent, borderRadius: 8 } }));
+  const Empty = (msg, action) => e("div", { style: Object.assign({}, S.card, { textAlign: "center", padding: 28, color: C.muted }) }, e("div", { style: { marginBottom: action ? 12 : 0 } }, msg), action || null);
+
+  const shiftNet = s => { const v = vmap[s.vehicleId]; return shiftGross(s) - shiftFees(s) - num(s.km) * vehicleCost(v).total; };
+
+  // ════════════════════════════════════════════════════════════════
+  //  VIEWS
+  // ════════════════════════════════════════════════════════════════
+  const HomeView = () => {
+    const [vPick, setVSel] = useState("");
+    const vSel = vmap[vPick] ? vPick : vmap[st.defaultVehicleId] ? st.defaultVehicleId : (data.vehicles.find(v => v.active !== false) || {}).id || "";
+    const [a, b] = periodRange(homePeriod);
+    const P = computePeriod(data, a, b);
+    const days = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = dISO(d); const p = computePeriod(data, k, k);
+      days.push({ label: d.toLocaleDateString(locale, { weekday: "short" }).slice(0, 2), v: p.net, hi: i === 0, label2: p.S.length ? Math.round(p.net) : "" }); }
+    const todayP = homePeriod === "today" ? P : computePeriod(data, dISO(new Date()), dISO(new Date()));
+    const elapsed = active ? (Date.now() - new Date(active.start)) / 60000 : 0;
+    const activeV = active ? vmap[active.vehicleId] : null;
+    const liveCost = active ? (active.km || 0) * vehicleCost(activeV).total : 0;
+    const recent = data.shifts.slice().sort((x, y) => y.start.localeCompare(x.start)).slice(0, 3);
+
+    return e("div", null,
+      !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent, background: "linear-gradient(135deg,#10243A,#0E1729)" }) },
+        e("div", { style: { fontSize: 18, fontWeight: 900, marginBottom: 6 } }, T("welcome")),
+        e("div", { style: { color: C.sub, fontSize: 14, marginBottom: 12 } }, T("setupHint")),
+        e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, T("addVehicle"))) : null,
+
+      // tracking card
+      e("div", { style: Object.assign({}, S.card, active ? { borderColor: C.accent } : {}) },
+        active
+          ? e("div", null,
+              e("div", { style: S.row },
+                e("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+                  e("div", { className: "pulse", style: { width: 10, height: 10, borderRadius: 10, background: C.accent } }),
+                  e("span", { style: { fontWeight: 700, color: C.sub } }, (activeV ? CONFIG.vehicleTypes[activeV.type].icon + " " + vName(activeV) : ""))),
+                e("span", { style: Object.assign({}, S.small, { color: active.gps === "off" ? C.amber : C.muted, display: "flex", alignItems: "center", gap: 4 }) },
+                  e(Icon, { n: "gps", s: 14 }), active.gps === "ok" ? "±" + active.acc + " m" : active.gps === "off" ? "GPS ✕" : "…")),
+              e("div", { style: { fontSize: 44, fontWeight: 900, letterSpacing: "-1px", margin: "10px 0 2px", fontVariantNumeric: "tabular-nums" } }, fmtDur(elapsed)),
+              e("div", { className: "grid3", style: { margin: "10px 0" } },
+                Stat(T("distance"), fmtDist(active.km || 0, 2)),
+                Stat(T("emptyKm"), fmtDist(active.emptyKm || 0, 2)),
+                Stat(T("vehicleWear"), money(liveCost))),
+              e("div", { className: "grid2", style: { marginBottom: 10 } },
+                e("button", { style: active.mode === "job" ? S.btn() : S.btn("ghost"), onClick: () => setActive(x => Object.assign({}, x, { mode: "job" })) }, T("onJob")),
+                e("button", { style: active.mode === "empty" ? Object.assign(S.btn(), { background: C.amber }) : S.btn("ghost"), onClick: () => setActive(x => Object.assign({}, x, { mode: "empty" })) }, T("betweenJobs"))),
+              active.gps === "off" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginBottom: 8 }) }, T("gpsOff")) : null,
+              e("button", { style: Object.assign(S.btn("danger"), { width: "100%", padding: 14, fontSize: 16 }), onClick: endShift }, "■  " + T("endShift")),
+              e("div", { style: Object.assign({}, S.small, { marginTop: 8, lineHeight: 1.4 }) }, T("keepOpen")))
+          : e("div", null,
+              data.vehicles.length ? e("div", { style: { marginBottom: 12 } }, Chips(data.vehicles.filter(v => v.active !== false).map(v => [v.id, CONFIG.vehicleTypes[v.type].icon + " " + vName(v)]), vSel, setVSel)) : null,
+              e("button", { className: "tap", style: Object.assign(S.btn(), { width: "100%", padding: 16, fontSize: 17 }), onClick: () => startShift(vSel) }, "▶  " + T("startShift")),
+              e("div", { style: { textAlign: "center", marginTop: 10 } },
+                e("span", { style: { color: C.muted, fontSize: 13, cursor: "pointer", textDecoration: "underline" }, onClick: () => setModal({ type: "shift" }) }, T("addManual"))))),
+
+      // period summary
+      e("div", { style: { marginBottom: 10 } }, Chips([["today", T("today")], ["week", T("week")], ["month", T("month")], ["year", T("year")]], homePeriod, setHomePeriod)),
+      e("div", { style: S.card },
+        e("div", { style: S.statLabel }, T("netEarnings")),
+        e("div", { style: { fontSize: 38, fontWeight: 900, letterSpacing: "-1px", color: P.net < 0 ? C.red : C.accent, marginBottom: 4 } }, money(P.net)),
+        e("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, color: C.sub, marginBottom: 14 } },
+          e("span", null, T("gross") + " ", e("b", null, money(P.gross))),
+          P.fees ? e("span", null, T("fees") + " ", e("b", null, "−" + money(P.fees))) : null,
+          e("span", null, T("costs") + " ", e("b", null, "−" + money(P.costs)))),
+        e("div", { className: "grid4" },
+          Stat(T("distance"), fmtDist(P.km)),
+          Stat(T("workTime"), fmtDur(P.mins)),
+          Stat(T("perHour"), money(P.perHour)),
+          Stat(T("per100") + " " + unit, money(unit === "mi" ? P.per100 * KM_PER_MI : P.per100))),
+        num(st.dailyGoal) > 0 ? e("div", { style: { marginTop: 14 } },
+          e("div", { style: Object.assign({}, S.row, { fontSize: 12, color: C.muted, marginBottom: 6 }) },
+            e("span", null, T("goal") + " · " + T("today")), e("span", null, money(todayP.net, 0) + " / " + money(num(st.dailyGoal), 0))),
+          Progress(todayP.net / num(st.dailyGoal) * 100)) : null),
+
+      e("div", { style: S.card }, e("div", { style: S.h2 }, T("last7")), Bars(days)),
+
+      recent.length ? e("div", null,
+        e("div", { style: Object.assign({}, S.row, { margin: "4px 2px 8px" }) }, e("div", { style: S.h2 }, T("shifts")),
+          e("span", { style: { color: C.accent, fontSize: 13, cursor: "pointer", fontWeight: 700 }, onClick: () => setView("shifts") }, T("all") + " →")),
+        recent.map(s => ShiftRow(s))) : null);
+  };
+
+  const ShiftRow = s => {
+    const v = vmap[s.vehicleId], net = shiftNet(s);
+    return e("div", { key: s.id, className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", padding: 14 }), onClick: () => setModal({ type: "shift", shift: s }) },
+      e("div", { style: S.row },
+        e("div", { style: { minWidth: 0 } },
+          e("div", { style: { fontWeight: 700, fontSize: 14 } }, new Date(s.start).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" }) + " · " + tHM(s.start) + "–" + tHM(s.end)),
+          e("div", { style: Object.assign({}, S.small, { marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) },
+            (v ? CONFIG.vehicleTypes[v.type].icon + " " : "") + (s.platforms || []).map(p => p.name).join(", ") + " · " + fmtDist(num(s.km)) + " · " + fmtDur(shiftMins(s)))),
+        e("div", { style: { textAlign: "right", flexShrink: 0 } },
+          e("div", { style: { fontWeight: 800, color: net < 0 ? C.red : C.accent } }, money(net)),
+          e("div", { style: S.small }, money(shiftGross(s)) + " " + T("gross").toLowerCase()))));
+  };
+
+  const ShiftsView = () => {
+    const [per, setPer] = useState("month");
+    const [a, b] = periodRange(per);
+    const list = data.shifts.filter(s => s.date >= a && s.date <= b).sort((x, y) => y.start.localeCompare(x.start));
+    const P = computePeriod(data, a, b);
+    return e("div", null,
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h1, { marginBottom: 0 }) }, T("shifts")),
+        e("button", { style: S.btn(), onClick: () => setModal({ type: "shift" }) }, "+ " + T("add"))),
+      e("div", { style: { marginBottom: 12 } }, Chips([["week", T("week")], ["month", T("month")], ["year", T("year")], ["all", T("all")]], per, setPer)),
+      e("div", { className: "grid4", style: { marginBottom: 12 } },
+        Stat(T("shifts"), list.length), Stat(T("gross"), money(P.gross, 0)), Stat(T("netEarnings"), money(P.net, 0), P.net < 0 ? C.red : C.accent), Stat(T("distance"), fmtDist(P.km, 0))),
+      list.length ? list.map(s => ShiftRow(s)) : Empty(T("noShifts")));
+  };
+
+  const ExpensesView = () => {
+    const [per, setPer] = useState("month");
+    const [a, b] = periodRange(per);
+    const list = data.expenses.filter(x => x.date >= a && x.date <= b).sort((x, y) => y.date.localeCompare(x.date));
+    const P = computePeriod(data, a, b);
+    const byCat = CONFIG.expenseCategories.map(c => ({ c, v: sum(list.filter(x => x.category === c.id), x => num(x.amount)) })).filter(x => x.v > 0).sort((x, y) => y.v - x.v);
+    const total = sum(list, x => num(x.amount));
+    return e("div", null,
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h1, { marginBottom: 0 }) }, T("expenses")),
+        e("button", { style: S.btn(), onClick: () => setModal({ type: "expense" }) }, "+ " + T("add"))),
+      e("div", { style: { marginBottom: 12 } }, Chips([["week", T("week")], ["month", T("month")], ["year", T("year")], ["all", T("all")]], per, setPer)),
+      byCat.length ? e("div", { style: S.card },
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: S.h2 }, T("expenses")), e("div", { style: { fontWeight: 800 } }, money(total))),
+        byCat.map(x => e("div", { key: x.c.id, style: { marginBottom: 8 } },
+          e("div", { style: Object.assign({}, S.row, { fontSize: 13, marginBottom: 4 }) }, e("span", { style: { color: C.sub } }, T("c_" + x.c.id)), e("span", { style: { fontWeight: 700 } }, money(x.v))),
+          Progress(x.v / total * 100, x.c.vehicle ? C.blue : C.purple))),
+        P.km > 0 ? e("div", { style: Object.assign({}, S.small, { marginTop: 10, lineHeight: 1.5 }) },
+          T("vehicleRunning") + ": ", e("b", { style: { color: C.text } }, money(P.vehExp)), " " + T("vsEstimate") + ": ",
+          e("b", { style: { color: C.text } }, money(P.varCost - sum(P.S, s => num(s.km) * vehicleCost(vmap[s.vehicleId]).dep) + P.fixed))) : null) : null,
+      list.length ? list.map(x => e("div", { key: x.id, className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", padding: 14 }), onClick: () => setModal({ type: "expense", expense: x }) },
+        e("div", { style: S.row },
+          e("div", null,
+            e("div", { style: { fontWeight: 700, fontSize: 14 } }, T("c_" + x.category)),
+            e("div", { style: Object.assign({}, S.small, { marginTop: 3 }) }, new Date(x.date + "T12:00").toLocaleDateString(locale, { day: "numeric", month: "short" }) + (x.vehicleId && vmap[x.vehicleId] ? " · " + vName(vmap[x.vehicleId]) : "") + (x.note ? " · " + x.note : ""))),
+          e("div", { style: { fontWeight: 800 } }, money(num(x.amount)))))) : Empty(T("noExpenses")));
+  };
+
+  const odoOf = v => num(v.startOdo) + sum(data.shifts.filter(s => s.vehicleId === v.id), s => num(s.km) + num(s.personalKm));
+
+  const VehiclesView = () => e("div", null,
+    e("div", { style: Object.assign({}, S.row, { marginBottom: 12 }) }, e("div", { style: Object.assign({}, S.h1, { marginBottom: 0 }) }, T("vehicles")),
+      e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, "+ " + T("add"))),
+    !data.vehicles.length ? Empty(T("setupHint"), e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, T("addVehicle"))) : null,
+    e("div", { className: "cols" }, data.vehicles.map(v => {
+      const c = vehicleCost(v), odo = odoOf(v);
+      const parts = [["depreciation", c.dep, C.blue], ["energy", c.energy, C.amber], ["battery", c.battery, C.purple], ["parts", c.parts, C.accent]].filter(x => x[1] > 0);
+      return e("div", { key: v.id, style: Object.assign({}, S.card, v.active === false ? { opacity: .55 } : {}) },
+        e("div", { style: S.row },
+          e("div", { style: { display: "flex", gap: 10, alignItems: "center" } },
+            e("div", { style: { fontSize: 26 } }, CONFIG.vehicleTypes[v.type].icon),
+            e("div", null, e("div", { style: { fontWeight: 800 } }, vName(v)), e("div", { style: S.small }, T("t_" + v.type) + " · " + T("odometer") + " " + fmtDist(odo, 0)))),
+          e("button", { style: Object.assign(S.btn("ghost"), { padding: "6px 10px", fontSize: 12 }), onClick: () => setModal({ type: "vehicle", vehicle: v }) }, T("edit"))),
+        e("div", { style: { display: "flex", alignItems: "baseline", gap: 8, margin: "14px 0 8px" } },
+          e("div", { style: { fontSize: 28, fontWeight: 900, color: C.accent } }, money(perUnit(c.total), 3)),
+          e("div", { style: S.small }, "/ " + unit)),
+        e("div", { style: { display: "flex", height: 10, borderRadius: 6, overflow: "hidden", marginBottom: 8, background: C.input } },
+          parts.map(p => e("div", { key: p[0], style: { width: (p[1] / (c.total || 1) * 100) + "%", background: p[2] } }))),
+        parts.map(p => e("div", { key: p[0], style: Object.assign({}, S.row, { fontSize: 12, marginBottom: 3 }) },
+          e("span", { style: { color: C.sub, display: "flex", alignItems: "center", gap: 6 } }, e("span", { style: { width: 8, height: 8, borderRadius: 2, background: p[2], display: "inline-block" } }), T(p[0])),
+          e("span", null, money(perUnit(p[1]), 3)))),
+        c.fixed ? e("div", { style: Object.assign({}, S.row, { fontSize: 12, marginTop: 6, paddingTop: 6, borderTop: "1px solid " + C.border }) },
+          e("span", { style: { color: C.sub } }, T("fixedMonthly")), e("b", null, money(c.fixed))) : null,
+        (v.parts || []).length ? e("div", { style: { marginTop: 14 } },
+          e("div", { style: Object.assign({}, S.label, { display: "flex", alignItems: "center", gap: 6 }) }, e(Icon, { n: "wrench", s: 13 }), T("maintenanceDue")),
+          v.parts.map(p => {
+            const since = odo - num(p.lastAt), left = num(p.interval) - since, pct = num(p.interval) ? since / num(p.interval) * 100 : 0;
+            const col = left < 0 ? C.red : pct > 80 ? C.amber : C.accent;
+            return e("div", { key: p.id, style: { marginBottom: 8 } },
+              e("div", { style: Object.assign({}, S.row, { fontSize: 12, marginBottom: 4 }) },
+                e("span", { style: { color: C.sub } }, p.name),
+                e("span", { style: { display: "flex", gap: 8, alignItems: "center" } },
+                  e("span", { style: { color: col, fontWeight: 700 } }, left < 0 ? fmtDist(-left, 0) + " " + T("overdue") : T("dueIn") + " " + fmtDist(left, 0)),
+                  pct > 60 ? e("span", { style: { color: C.accent, cursor: "pointer", fontWeight: 700 }, onClick: () => {
+                    const nv = Object.assign({}, v, { parts: v.parts.map(x => x.id === p.id ? Object.assign({}, x, { lastAt: Math.round(odo) }) : x) });
+                    upsert("vehicles", nv); showToast(T("saved"));
+                    setModal({ type: "expense", expense: { id: genId(), date: dISO(new Date()), category: "maintenance", amount: p.cost, vehicleId: v.id, note: p.name } });
+                  } }, "✓ " + T("replaced")) : null)),
+              Progress(pct, col));
+          })) : null);
+    })));
+
+  const InsightsView = () => {
+    const [per, setPer] = useState("month");
+    const [a, b] = periodRange(per);
+    const P = computePeriod(data, a, b);
+    const S2 = P.S;
+    // platform stats: allocate shift time + cost by gross share
+    const plat = {};
+    S2.forEach(s => {
+      const g = shiftGross(s) || 1, cost = num(s.km) * vehicleCost(vmap[s.vehicleId]).total, m = shiftMins(s), ps = s.platforms || [];
+      ps.forEach(p => {
+        const pg = num(p.base) + num(p.tips) + num(p.bonus), sh = ps.length === 1 ? 1 : pg / g;
+        const o = plat[p.name] = plat[p.name] || { gross: 0, net: 0, mins: 0, trips: 0 };
+        o.gross += pg; o.net += pg - num(p.fees) - cost * sh; o.mins += m * sh; o.trips += num(p.trips);
+      });
+    });
+    const platList = Object.keys(plat).map(k => Object.assign({ name: k }, plat[k], { ph: plat[k].mins ? plat[k].net / (plat[k].mins / 60) : 0 })).sort((x, y) => y.gross - x.gross);
+    const wd = [0, 1, 2, 3, 4, 5, 6].map(() => ({ net: 0, mins: 0 }));
+    const hr = [];
+    for (let i = 0; i < 8; i++) hr.push({ net: 0, mins: 0 });
+    S2.forEach(s => {
+      const d = new Date(s.start), n = shiftNet(s), m = shiftMins(s);
+      const w = (d.getDay() + 6) % 7; wd[w].net += n; wd[w].mins += m;
+      const h = Math.floor(d.getHours() / 3); hr[h].net += n; hr[h].mins += m;
+    });
+    const wdNames = [1, 2, 3, 4, 5, 6, 0].map(i => { const d = new Date(2024, 0, 7 + i); return d.toLocaleDateString(locale, { weekday: "short" }); });
+    const wdItems = wd.map((x, i) => ({ label: wdNames[i].slice(0, 2), v: x.mins ? x.net / (x.mins / 60) : 0 }));
+    const hrItems = hr.map((x, i) => ({ label: pad(i * 3), v: x.mins ? x.net / (x.mins / 60) : 0 }));
+    const bestW = wdItems.reduce((m, x, i) => x.v > wdItems[m].v ? i : m, 0); if (wdItems[bestW].v) wdItems[bestW].hi = true;
+    const bestH = hrItems.reduce((m, x, i) => x.v > hrItems[m].v ? i : m, 0); if (hrItems[bestH].v) hrItems[bestH].hi = true;
+    const vStats = data.vehicles.map(v => { const ss = S2.filter(s => s.vehicleId === v.id); const n = sum(ss, shiftNet), m = sum(ss, shiftMins), k = sum(ss, s => num(s.km));
+      return { v, n, m, k, ph: m ? n / (m / 60) : 0 }; }).filter(x => x.m > 0);
+    const ins = [];
+    if (S2.length >= 3) {
+      if (wdItems[bestW].v) ins.push(T("insBestDay") + " " + new Date(2024, 0, 8 + bestW).toLocaleDateString(locale, { weekday: "long" }) + " — " + money(wdItems[bestW].v) + " / " + T("hours") + ".");
+      if (hrItems[bestH].v) ins.push(T("insBestHour") + " " + pad(bestH * 3) + ":00–" + pad(bestH * 3 + 3) + ":00 " + T("insBestHour2") + " (" + money(hrItems[bestH].v) + " / " + T("hours") + ").");
+      const bp = platList.filter(p => p.mins > 30).sort((x, y) => y.ph - x.ph)[0];
+      if (bp && platList.length > 1) ins.push(bp.name + " " + T("insBestPlatform") + " (" + money(bp.ph) + " / " + T("hours") + ").");
+      if (P.gross > 0) ins.push(T("insCostShare") + " " + Math.round(P.vehicleCosts / P.gross * 100) + "% " + T("insCostShare2") + ".");
+      if (P.km > 0 && P.emptyKm > 0) ins.push(Math.round(P.emptyKm / P.km * 100) + "% " + T("emptyShare") + ".");
+    }
+    return e("div", null,
+      e("div", { style: S.h1 }, T("insights")),
+      e("div", { style: { marginBottom: 12 } }, Chips([["week", T("week")], ["month", T("month")], ["year", T("year")], ["all", T("all")]], per, setPer)),
+      e("div", { className: "grid4", style: { marginBottom: 12 } },
+        Stat(T("netEarnings"), money(P.net, 0), P.net < 0 ? C.red : C.accent), Stat(T("perHour"), money(P.perHour)),
+        Stat(T("per100") + " " + unit, money(unit === "mi" ? P.per100 * KM_PER_MI : P.per100, 0)), Stat(T("emptyKm"), P.km ? Math.round(P.emptyKm / P.km * 100) + "%" : "—")),
+      e("div", { style: Object.assign({}, S.card, { borderColor: "rgba(46,230,166,.35)" }) },
+        e("div", { style: S.h2 }, T("keyInsights")),
+        ins.length ? ins.map((t, i) => e("div", { key: i, style: { display: "flex", gap: 8, fontSize: 14, color: C.sub, marginBottom: 8, lineHeight: 1.45 } }, e("span", { style: { color: C.accent } }, "●"), t))
+          : e("div", { style: S.small }, T("notEnough"))),
+      e("div", { style: S.card },
+        e("div", { style: S.h2 }, T("costs")),
+        [[T("fees"), P.fees], [T("vehicleWear") + (st.costMode === "actual" ? "" : ""), st.costMode === "actual" ? P.vehicleCosts : P.varCost], [st.costMode === "actual" ? null : T("fixedAlloc"), P.fixed], [T("otherCosts"), P.otherExp]]
+          .filter(x => x[0] && x[1] > 0).map((x, i) => e("div", { key: i, style: Object.assign({}, S.row, { fontSize: 13, padding: "6px 0", borderBottom: "1px solid " + C.border }) }, e("span", { style: { color: C.sub } }, x[0]), e("b", null, money(x[1]))))),
+      e("div", { className: "cols" },
+        e("div", { style: S.card },
+          e("div", { style: S.h2 }, T("byPlatform")),
+          platList.length ? e("div", null,
+            e("div", { style: Object.assign({}, S.row, S.small, { padding: "4px 0", fontWeight: 700 }) }, e("span", { style: { flex: 2 } }, T("platform")), e("span", { style: { flex: 1, textAlign: "right" } }, T("gross")), e("span", { style: { flex: 1, textAlign: "right" } }, T("perHour"))),
+            platList.map(p => e("div", { key: p.name, style: Object.assign({}, S.row, { fontSize: 13, padding: "7px 0", borderTop: "1px solid " + C.border }) },
+              e("span", { style: { flex: 2, fontWeight: 600 } }, p.name), e("span", { style: { flex: 1, textAlign: "right" } }, money(p.gross, 0)),
+              e("span", { style: { flex: 1, textAlign: "right", color: C.accent, fontWeight: 700 } }, p.mins ? money(p.ph) : "—")))) : e("div", { style: S.small }, T("notEnough"))),
+        e("div", { style: S.card },
+          e("div", { style: S.h2 }, T("byVehicle")),
+          vStats.length ? vStats.map(x => e("div", { key: x.v.id, style: Object.assign({}, S.row, { fontSize: 13, padding: "7px 0", borderTop: "1px solid " + C.border }) },
+            e("span", { style: { fontWeight: 600 } }, CONFIG.vehicleTypes[x.v.type].icon + " " + vName(x.v)),
+            e("span", { style: S.small }, fmtDist(x.k, 0)),
+            e("span", { style: { color: C.accent, fontWeight: 700 } }, money(x.ph) + " / " + T("hours")))) : e("div", { style: S.small }, T("notEnough")))),
+      e("div", { className: "cols" },
+        e("div", { style: S.card }, e("div", { style: S.h2 }, T("byWeekday")), Bars(wdItems.map(x => Object.assign({}, x, { label2: x.v ? Math.round(x.v) : "" })))),
+        e("div", { style: S.card }, e("div", { style: S.h2 }, T("byHour")), Bars(hrItems.map(x => Object.assign({}, x, { label2: x.v ? Math.round(x.v) : "" }))))));
+  };
+
+  const CompareView = () => {
+    const allP = computePeriod(data, "1970-01-01", dISO(new Date()));
+    const workDays = new Set(data.shifts.map(s => s.date)).size;
+    const avgKm = workDays && allP.km > 1 ? allP.km / workDays : 80, avgGross = workDays && allP.gross > 0 ? (allP.gross - allP.fees) / workDays : 150;
+    const [kmDay, setKmDay] = useState(Math.round(dist(avgKm)));
+    const [days, setDays] = useState(22);
+    const [grossDay, setGrossDay] = useState(Math.round(avgGross));
+    const opts = data.vehicles.map(v => ({ v, mine: true }));
+    Object.keys(CONFIG.vehicleTypes).forEach(t => { if (!data.vehicles.some(v => v.type === t)) opts.push({ v: Object.assign(presetVehicle(t), { name: "" }), mine: false }); });
+    const kmMonth = toKm(kmDay) * num(days);
+    const rows = opts.map(o => { const c = vehicleCost(o.v); const cost = kmMonth * c.total + c.fixed; return Object.assign({}, o, { c, cost, net: num(grossDay) * num(days) - cost }); }).sort((x, y) => y.net - x.net);
+    const cur = rows.find(r => r.mine && r.v.id === st.defaultVehicleId) || rows.find(r => r.mine);
+    return e("div", null,
+      e("div", { style: S.h1 }, T("compareTitle")),
+      e("div", { style: S.card },
+        e("div", { className: "grid3" },
+          Field(T("kmPerDay") + " (" + unit + ")", e("input", { style: S.input, inputMode: "decimal", value: kmDay, onChange: ev => setKmDay(ev.target.value) })),
+          Field(T("daysPerMonth"), e("input", { style: S.input, inputMode: "numeric", value: days, onChange: ev => setDays(ev.target.value) })),
+          Field(T("grossPerDay"), e("input", { style: S.input, inputMode: "decimal", value: grossDay, onChange: ev => setGrossDay(ev.target.value) }))),
+        e("div", { style: S.small }, T("compareNote"))),
+      rows.map((r, i) => e("div", { key: r.v.id, style: Object.assign({}, S.card, i === 0 ? { borderColor: C.accent } : {}) },
+        e("div", { style: S.row },
+          e("div", { style: { display: "flex", gap: 10, alignItems: "center" } },
+            e("div", { style: { fontSize: 24 } }, CONFIG.vehicleTypes[r.v.type].icon),
+            e("div", null,
+              e("div", { style: { fontWeight: 800 } }, (r.mine ? vName(r.v) : T("t_" + r.v.type)) + (i === 0 ? "  ★ " + T("best") : "")),
+              e("div", { style: S.small }, (r.mine ? T("yours") : T("example")) + " · " + money(perUnit(r.c.total), 3) + " / " + unit + " · " + money(r.c.fixed, 0) + " " + T("fixedMonthly").toLowerCase()))),
+          e("div", { style: { textAlign: "right" } },
+            e("div", { style: { fontWeight: 900, fontSize: 18, color: r.net < 0 ? C.red : C.accent } }, money(r.net, 0)),
+            e("div", { style: S.small }, T("monthlyNet")),
+            cur && r !== cur ? e("div", { style: { fontSize: 12, fontWeight: 700, color: r.net - cur.net >= 0 ? C.accent : C.red } }, (r.net - cur.net >= 0 ? "+" : "") + money(r.net - cur.net, 0)) : null)))));
+  };
+
+  const TaxView = () => {
+    const thisYear = new Date().getFullYear();
+    const years = []; for (let y = thisYear; y >= thisYear - 3; y--) years.push(String(y));
+    const [yr, setYr] = useState(String(thisYear));
+    const country = st.country, cfg = CONFIG.tax[country];
+    const from = yr + "-01-01", to = String(yr) === String(thisYear) ? dISO(new Date()) : yr + "-12-31";
+    const P = computePeriod(data, from, to);
+    const catV = {}; CONFIG.expenseCategories.forEach(c => catV[c.id] = c.vehicle);
+    let deduction = 0, eligKm = 0, unconfirmed = false, rateLines = {};
+    if (cfg) P.S.forEach(s => {
+      const v = vmap[s.vehicleId], ok = v && cfg.appliesTo.indexOf(v.type) >= 0 && (country !== "NL" || v.privateOwned !== false);
+      if (!ok) return;
+      const r = taxRateFor(country, s.date); if (!r.confirmed) unconfirmed = true;
+      const d = cfg.unit === "mi" ? num(s.km) / KM_PER_MI : num(s.km);
+      eligKm += num(s.km); deduction += d * r.rate; rateLines[r.rate] = (rateLines[r.rate] || 0) + d;
+    });
+    const income = P.gross - P.fees;
+    const otherBiz = P.otherExp;
+    const taxable = Math.max(0, income - deduction - otherBiz);
+    const se = country === "US" ? taxable * cfg.seBase * cfg.seTax : 0;
+    const setAside = taxable * num(st.setAsidePct) / 100;
+    const line = (l, v, opts) => e("div", { style: Object.assign({}, S.row, { padding: "9px 0", borderBottom: "1px solid " + C.border, fontSize: 14 }, opts && opts.bold ? { fontWeight: 800 } : {}) },
+      e("span", { style: { color: opts && opts.bold ? C.text : C.sub } }, l), e("span", { style: opts && opts.color ? { color: opts.color, fontWeight: 800 } : { fontWeight: 600 } }, v));
+    return e("div", { className: "print-area" },
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h1, { marginBottom: 0 }) }, T("taxTitle") + " " + yr),
+        e("button", { className: "no-print", style: S.btn("ghost"), onClick: () => window.print() }, T("printReport"))),
+      e("div", { className: "no-print", style: { marginBottom: 12 } }, Chips(years.map(y => [y, y]), yr, setYr)),
+      e("div", { style: Object.assign({}, S.small, { marginBottom: 12, lineHeight: 1.5 }) }, (st.name ? st.name + " · " : "") + (CONFIG.countries.find(c => c[0] === country) || [0, ""])[1] + " · " + T("economicVsTax")),
+      e("div", { className: "cols" },
+        e("div", { style: S.card },
+          e("div", { style: S.h2 }, "1 · " + T("netEarnings") + " (economic)"),
+          line(T("gross"), money(P.gross)), line(T("fees"), "−" + money(P.fees)), line(T("vehicleWear"), "−" + money(P.vehicleCosts)), line(T("otherCosts"), "−" + money(P.otherExp)),
+          line(T("netEarnings"), money(P.net), { bold: true, color: P.net < 0 ? C.red : C.accent }),
+          e("div", { style: Object.assign({}, S.small, { marginTop: 8 }) }, P.S.length + " " + T("shifts").toLowerCase() + " · " + fmtDist(P.km, 0) + " · " + fmtDur(P.mins))),
+        e("div", { style: S.card },
+          e("div", { style: S.h2 }, "2 · " + T("taxTitle")),
+          !cfg ? e("div", { style: S.small }, "Choose the Netherlands or United States in Settings to see a tax estimate.") : e("div", null,
+            line(T("gross") + " − " + T("fees"), money(income)),
+            line(T("businessDist"), (cfg.unit === "mi" ? (eligKm / KM_PER_MI).toFixed(0) + " mi" : eligKm.toFixed(0) + " km")),
+            Object.keys(rateLines).map(r => e("div", { key: r, style: Object.assign({}, S.small, { padding: "3px 0" }) }, "  " + Math.round(rateLines[r]) + " " + cfg.unit + " × " + money(+r, 3))),
+            line(T("mileageDeduction"), "−" + money(deduction)),
+            line(T("otherBizExp"), "−" + money(otherBiz)),
+            line(T("taxableProfit"), money(taxable), { bold: true }),
+            country === "US" ? line(T("seTax"), money(se)) : null,
+            line(T("setAside") + " (" + num(st.setAsidePct) + "%)", money(setAside), { bold: true, color: C.amber }),
+            P.km - eligKm > 0.5 ? e("div", { style: Object.assign({}, S.small, { marginTop: 8, color: C.amber }) }, fmtDist(P.km - eligKm, 0) + " — " + T("notEligible")) : null,
+            unconfirmed ? e("div", { style: Object.assign({}, S.small, { marginTop: 6, color: C.amber }) }, T("rateNotConfirmed")) : null,
+            e("div", { style: Object.assign({}, S.small, { marginTop: 10, lineHeight: 1.5 }) }, "Source: " + cfg.source + ". " + T("taxDisclaimer"))))));
+  };
+
+  const SettingsView = () => {
+    const [f, setF] = useState(Object.assign({}, st));
+    const [np, setNp] = useState("");
+    const fileRef = useRef(null);
+    const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
+    const sel = (k, opts) => e("select", { style: S.input, value: f[k], onChange: ev => set(k, ev.target.value) }, opts.map(o => e("option", { key: o[0], value: o[0] }, o[1])));
+    const exportShifts = () => {
+      const rows = [["date", "start", "end", "hours", "vehicle", "distance_km", "empty_km", "personal_km", "platform", "pay", "tips", "bonus", "fees", "trips", "notes"]];
+      data.shifts.slice().sort((a, b) => a.start.localeCompare(b.start)).forEach(s => (s.platforms || [{}]).forEach((p, i) => rows.push([
+        s.date, tHM(s.start), tHM(s.end), (shiftMins(s) / 60).toFixed(2), vName(vmap[s.vehicleId]),
+        i === 0 ? num(s.km).toFixed(2) : "", i === 0 ? num(s.emptyKm).toFixed(2) : "", i === 0 ? num(s.personalKm).toFixed(2) : "",
+        p.name || "", num(p.base), num(p.tips), num(p.bonus), num(p.fees), num(p.trips), i === 0 ? s.notes || "" : ""])));
+      downloadFile("kept-shifts.csv", toCSV(rows), "text/csv");
+    };
+    const exportExp = () => {
+      const rows = [["date", "category", "amount", "vehicle", "quantity", "note"]];
+      data.expenses.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(x => rows.push([x.date, x.category, num(x.amount), x.vehicleId ? vName(vmap[x.vehicleId]) : "", x.qty || "", x.note || ""]));
+      downloadFile("kept-expenses.csv", toCSV(rows), "text/csv");
+    };
+    const restore = ev => {
+      const file = ev.target.files[0]; if (!file) return;
+      const r = new FileReader();
+      r.onload = () => { try {
+        const d = JSON.parse(r.result);
+        if (!d.shifts || !d.vehicles) throw new Error("Not a Kept backup");
+        if (!confirm("Replace all data with this backup?")) return;
+        const nd = { settings: Object.assign({}, CONFIG.defaults, d.settings || {}), vehicles: d.vehicles, shifts: d.shifts, expenses: d.expenses || [] };
+        setData(nd); enqueue({ op: "replaceAll", data: nd }); showToast(T("saved"));
+      } catch (x) { alert(x.message); } };
+      r.readAsText(file);
+    };
+    return e("div", null,
+      e("div", { style: S.h1 }, T("settings")),
+      e("div", { className: "cols" },
+        e("div", { style: S.card },
+          e("div", { style: S.h2 }, T("profile")),
+          Field(T("name"), e("input", { style: S.input, value: f.name, onChange: ev => set("name", ev.target.value) })),
+          e("div", { className: "grid2" }, Field(T("language"), sel("lang", CONFIG.languages)), Field(T("country"), sel("country", CONFIG.countries))),
+          e("div", { className: "grid2" }, Field(T("currency"), sel("currency", CONFIG.currencies.map(c => [c, c]))), Field(T("units"), sel("unit", [["km", "km"], ["mi", "miles"]]))),
+          e("div", { className: "grid2" },
+            Field(T("goal"), e("input", { style: S.input, inputMode: "decimal", value: f.dailyGoal, onChange: ev => set("dailyGoal", ev.target.value) })),
+            Field(T("setAsidePct"), e("input", { style: S.input, inputMode: "decimal", value: f.setAsidePct, onChange: ev => set("setAsidePct", ev.target.value) }))),
+          Field(T("costMode"), sel("costMode", [["estimated", T("costEstimated")], ["actual", T("costActual")]])),
+          e("button", { style: Object.assign(S.btn(), { width: "100%" }), onClick: () => { saveSettings(Object.assign({}, f, { dailyGoal: num(f.dailyGoal), setAsidePct: num(f.setAsidePct) })); showToast(T("saved")); } }, T("save"))),
+        e("div", null,
+          e("div", { style: S.card },
+            e("div", { style: S.h2 }, T("data")),
+            e("div", { style: { display: "grid", gap: 8 } },
+              e("button", { style: S.btn("ghost"), onClick: exportShifts }, T("exportShifts")),
+              e("button", { style: S.btn("ghost"), onClick: exportExp }, T("exportExpenses")),
+              e("button", { style: S.btn("ghost"), onClick: () => downloadFile("kept-backup-" + dISO(new Date()) + ".json", JSON.stringify(data, null, 1), "application/json") }, T("backup")),
+              e("button", { style: S.btn("ghost"), onClick: () => fileRef.current && fileRef.current.click() }, T("restore")),
+              e("input", { ref: fileRef, type: "file", accept: "application/json,.json", style: { display: "none" }, onChange: restore })),
+            e("div", { style: Object.assign({}, S.small, { marginTop: 10, display: "flex", alignItems: "center", gap: 6 }) }, e(Icon, { n: "cloud", s: 14 }),
+              localMode ? T("localMode") : syncState === "offline" ? T("offline") : T("synced"))),
+          !localMode ? e("div", { style: S.card },
+            e("div", { style: S.h2 }, T("changePin")),
+            Field(T("newPin"), e("input", { style: S.input, inputMode: "numeric", type: "password", value: np, onChange: ev => setNp(ev.target.value.replace(/\D/g, "").slice(0, 8)) })),
+            e("div", { className: "grid2" },
+              e("button", { style: S.btn(), onClick: async () => {
+                if (np.length < 4) return;
+                try { await apiCall(pin, "setPin", { newPin: np }); setPin(np); LS.set("kept_pin", np); setNp(""); showToast(T("saved")); } catch (x) { alert(x.message); }
+              } }, T("save")),
+              e("button", { style: S.btn("ghost"), onClick: () => { LS.del("kept_pin"); setPin(""); setAuthed(false); } }, T("logout")))) : null,
+          e("div", { style: Object.assign({}, S.small, { textAlign: "center", padding: 10, lineHeight: 1.6 }) }, CONFIG.appName + " · " + CONFIG.tagline, e("br"), "BuildFlow by Weblina LLC"))));
+  };
+
+  const MoreView = () => e("div", null,
+    e("div", { style: S.h1 }, T("more")),
+    e("div", { className: "grid2" },
+      [["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]].map(x =>
+        e("div", { key: x[0], className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", textAlign: "center", padding: 22, marginBottom: 0 }), onClick: () => setView(x[0]) },
+          e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 8 } }, e(Icon, { n: x[1], s: 26 })),
+          e("div", { style: { fontWeight: 700 } }, T(x[0]))))));
+
+  // ════════════════════════════════════════════════════════════════
+  //  MODALS (own components, own state)
+  // ════════════════════════════════════════════════════════════════
+  const ModalShell = (title, body, onClose) => e("div", { style: { position: "fixed", inset: 0, background: "rgba(3,7,15,.72)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }, onClick: onClose },
+    e("div", { style: { background: C.card, border: "1px solid " + C.border, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))" }, onClick: ev => ev.stopPropagation() },
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 14 }) }, e("div", { style: { fontSize: 18, fontWeight: 900 } }, title),
+        e("div", { style: { cursor: "pointer", color: C.muted, padding: 4 }, onClick: onClose }, e(Icon, { n: "x" }))),
+      body));
+
+  function ShiftModal({ init, fromTracking }) {
+    const isNew = !init || !data.shifts.some(s => s.id === init.id);
+    const base = init || { id: genId(), date: dISO(new Date()), start: new Date(Date.now() - 4 * 3600000).toISOString(), end: new Date().toISOString(),
+      vehicleId: st.defaultVehicleId || (data.vehicles[0] || {}).id || "", km: "", emptyKm: "", personalKm: "", platforms: [{ name: LS.get("kept_lastPlatform", CONFIG.platforms[0]), base: "", tips: "", bonus: "", fees: "", trips: "" }], notes: "" };
+    const [f, setF] = useState({ date: dISO(base.start), st: tHM(base.start), en: tHM(base.end), vehicleId: base.vehicleId,
+      km: base.km === "" ? "" : +dist(num(base.km)).toFixed(2), emptyKm: base.emptyKm === "" ? "" : +dist(num(base.emptyKm)).toFixed(2), personalKm: base.personalKm === "" ? "" : +dist(num(base.personalKm)).toFixed(2),
+      platforms: (base.platforms || []).map(p => Object.assign({}, p)), notes: base.notes || "" });
+    const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
+    const setP = (i, k, v) => setF(x => { const ps = x.platforms.slice(); ps[i] = Object.assign({}, ps[i], { [k]: v }); return Object.assign({}, x, { platforms: ps }); });
+    const preview = (() => { const s = { platforms: f.platforms, km: toKm(f.km), vehicleId: f.vehicleId }; return shiftGross(s) - shiftFees(s) - toKm(f.km) * vehicleCost(vmap[f.vehicleId]).total; })();
+    const save = () => {
+      const startD = new Date(f.date + "T" + f.st), endD = new Date(f.date + "T" + f.en);
+      if (endD < startD) endD.setDate(endD.getDate() + 1);   // shift past midnight
+      const rec = { id: base.id, date: f.date, start: startD.toISOString(), end: endD.toISOString(), vehicleId: f.vehicleId,
+        km: +toKm(f.km).toFixed(3), emptyKm: +toKm(f.emptyKm).toFixed(3), personalKm: +toKm(f.personalKm).toFixed(3),
+        platforms: f.platforms.filter(p => p.name).map(p => ({ name: p.name, base: num(p.base), tips: num(p.tips), bonus: num(p.bonus), fees: num(p.fees), trips: num(p.trips) })), notes: f.notes };
+      if (rec.platforms[0]) LS.set("kept_lastPlatform", rec.platforms[0].name);
+      upsert("shifts", rec); if (fromTracking) finishTracking(); setModal(null); showToast(T("saved"));
+    };
+    const inp = (k, ph) => e("input", { style: S.input, inputMode: "decimal", placeholder: ph || "0", value: f[k], onChange: ev => set(k, ev.target.value) });
+    return ModalShell(fromTracking ? T("endShift") : isNew ? T("addManual") : T("edit"), e("div", null,
+      Field(T("date"), e("input", { type: "date", style: S.input, value: f.date, onChange: ev => set("date", ev.target.value) })),
+      e("div", { className: "grid2" },
+        Field(T("start"), e("input", { type: "time", style: S.input, value: f.st, onChange: ev => set("st", ev.target.value) })),
+        Field(T("end"), e("input", { type: "time", style: S.input, value: f.en, onChange: ev => set("en", ev.target.value) }))),
+      Field(T("vehicle"), e("select", { style: S.input, value: f.vehicleId, onChange: ev => set("vehicleId", ev.target.value) },
+        e("option", { value: "" }, "—"), data.vehicles.map(v => e("option", { key: v.id, value: v.id }, CONFIG.vehicleTypes[v.type].icon + " " + vName(v))))),
+      e("div", { className: "grid3" },
+        Field(T("distance") + " (" + unit + ")", inp("km")), Field(T("emptyKm"), inp("emptyKm")), Field(T("personalKm"), inp("personalKm"))),
+      f.platforms.map((p, i) => e("div", { key: i, style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: 12, marginBottom: 10 } },
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) },
+          e("select", { style: Object.assign({}, S.input, { flex: 1 }), value: p.name, onChange: ev => setP(i, "name", ev.target.value) },
+            CONFIG.platforms.concat(CONFIG.platforms.indexOf(p.name) < 0 && p.name ? [p.name] : []).map(n => e("option", { key: n, value: n }, n))),
+          f.platforms.length > 1 ? e("div", { style: { color: C.red, cursor: "pointer", padding: 6 }, onClick: () => setF(x => Object.assign({}, x, { platforms: x.platforms.filter((_, j) => j !== i) })) }, e(Icon, { n: "x", s: 18 })) : null),
+        e("div", { className: "grid3" },
+          [["base", T("base")], ["tips", T("tips")], ["bonus", T("bonus")], ["fees", T("fees")], ["trips", T("trips")]].map(x =>
+            e("div", { key: x[0] }, e("label", { style: S.label }, x[1]), e("input", { style: S.input, inputMode: "decimal", placeholder: "0", value: p[x[0]], onChange: ev => setP(i, x[0], ev.target.value) })))))),
+      e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 12 }, onClick: () => setF(x => Object.assign({}, x, { platforms: x.platforms.concat([{ name: CONFIG.platforms[1], base: "", tips: "", bonus: "", fees: "", trips: "" }]) })) }, T("addPlatform")),
+      Field(T("notes"), e("input", { style: S.input, value: f.notes, onChange: ev => set("notes", ev.target.value) })),
+      e("div", { style: Object.assign({}, S.row, { background: C.accentDim, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
+        e("span", { style: { color: C.sub, fontSize: 13 } }, T("estNet")), e("b", { style: { color: preview < 0 ? C.red : C.accent, fontSize: 18 } }, money(preview))),
+      e("div", { style: { display: "flex", gap: 8 } },
+        !isNew || fromTracking ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; if (fromTracking) finishTracking(); else remove("shifts", base.id); setModal(null); showToast(T("deleted")); } }, fromTracking ? T("discard") : T("delete")) : null,
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
+  }
+
+  function ExpenseModal({ init }) {
+    const isNew = !init || !data.expenses.some(x => x.id === init.id);
+    const base = init || { id: genId(), date: dISO(new Date()), category: "fuel", amount: "", vehicleId: st.defaultVehicleId || "", qty: "", note: "" };
+    const [f, setF] = useState(Object.assign({}, base));
+    const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
+    const cat = CONFIG.expenseCategories.find(c => c.id === f.category) || {};
+    return ModalShell(isNew ? T("add") + " — " + T("expenses").toLowerCase() : T("edit"), e("div", null,
+      Field(T("category"), e("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+        CONFIG.expenseCategories.map(c => e("div", { key: c.id, style: S.chip(f.category === c.id), onClick: () => set("category", c.id) }, T("c_" + c.id))))),
+      e("div", { className: "grid2" },
+        Field(T("amount"), e("input", { style: Object.assign({}, S.input, { fontSize: 20, fontWeight: 800 }), inputMode: "decimal", placeholder: "0.00", value: f.amount, onChange: ev => set("amount", ev.target.value) })),
+        Field(T("date"), e("input", { type: "date", style: S.input, value: f.date, onChange: ev => set("date", ev.target.value) }))),
+      e("div", { className: "grid2" },
+        Field(T("vehicle"), e("select", { style: S.input, value: f.vehicleId || "", onChange: ev => set("vehicleId", ev.target.value) },
+          e("option", { value: "" }, "—"), data.vehicles.map(v => e("option", { key: v.id, value: v.id }, vName(v))))),
+        cat.qty ? Field(T("quantity") + " (" + cat.qty + ")", e("input", { style: S.input, inputMode: "decimal", value: f.qty, onChange: ev => set("qty", ev.target.value) })) : e("div")),
+      Field(T("notes"), e("input", { style: S.input, value: f.note, onChange: ev => set("note", ev.target.value) })),
+      e("div", { style: { display: "flex", gap: 8 } },
+        !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("expenses", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: () => { if (!num(f.amount)) return; upsert("expenses", Object.assign({}, f, { amount: num(f.amount), qty: f.qty === "" ? "" : num(f.qty) })); setModal(null); showToast(T("saved")); } }, T("save")))), () => setModal(null));
+  }
+
+  function VehicleModal({ init }) {
+    const isNew = !init;
+    const [f, setF] = useState(() => init ? JSON.parse(JSON.stringify(init)) : null);
+    const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
+    const setPart = (i, k, v) => setF(x => { const ps = x.parts.slice(); ps[i] = Object.assign({}, ps[i], { [k]: v }); return Object.assign({}, x, { parts: ps }); });
+    if (!f) return ModalShell(T("addVehicle"), e("div", { style: { display: "grid", gap: 8 } },
+      Object.keys(CONFIG.vehicleTypes).map(t => e("div", { key: t, className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", marginBottom: 0, display: "flex", alignItems: "center", gap: 12 }), onClick: () => setF(presetVehicle(t)) },
+        e("span", { style: { fontSize: 28 } }, CONFIG.vehicleTypes[t].icon), e("span", { style: { fontWeight: 700 } }, T("t_" + t))))), () => setModal(null));
+    const c = vehicleCost(Object.assign({}, f, { parts: f.parts }));
+    const distIn = k => e("input", { style: S.input, inputMode: "decimal", value: f[k] === "" ? "" : Math.round(dist(num(f[k]))), onChange: ev => set(k, ev.target.value === "" ? "" : toKm(ev.target.value)) });
+    const moneyIn = k => e("input", { style: S.input, inputMode: "decimal", value: f[k], onChange: ev => set(k, ev.target.value) });
+    const usMpg = unit === "mi" && f.energy === "fuel";
+    const consLabel = f.energy === "fuel" ? (usMpg ? "mpg" : "L / 100 km") : "kWh / 100 km";
+    const consVal = usMpg ? (num(f.cons) ? +(235.215 / num(f.cons)).toFixed(1) : "") : f.cons;
+    const setCons = v => set("cons", usMpg ? (num(v) ? 235.215 / num(v) : 0) : v);
+    // price per unit: fuel stored per litre; US users enter per gallon
+    const priceLabel = f.energy === "fuel" ? (usMpg ? "/ gal" : "/ L") : "/ kWh";
+    const priceVal = usMpg ? +(num(f.price) * 3.78541).toFixed(2) : f.price;
+    const setPrice = v => set("price", usMpg ? num(v) / 3.78541 : v);
+    const save = () => {
+      const rec = Object.assign({}, f, {
+        purchase: num(f.purchase), resale: num(f.resale), lifeKm: num(f.lifeKm), cons: num(f.cons), price: num(f.price), battPrice: num(f.battPrice), battKm: num(f.battKm),
+        startOdo: num(f.startOdo), insurance: num(f.insurance), rent: num(f.rent), otherFixed: num(f.otherFixed),
+        parts: f.parts.filter(p => p.name).map(p => ({ id: p.id || genId(), name: p.name, cost: num(p.cost), interval: num(p.interval), lastAt: num(p.lastAt) })) });
+      upsert("vehicles", rec);
+      if (!st.defaultVehicleId) saveSettings({ defaultVehicleId: rec.id });
+      setModal(null); showToast(T("saved"));
+    };
+    return ModalShell(CONFIG.vehicleTypes[f.type].icon + " " + (isNew ? T("addVehicle") : vName(f)), e("div", null,
+      e("div", { className: "grid2" },
+        Field(T("name"), e("input", { style: S.input, placeholder: T("t_" + f.type), value: f.name, onChange: ev => set("name", ev.target.value) })),
+        Field(T("odometer") + " (" + unit + ")", distIn("startOdo"))),
+      e("div", { style: Object.assign({}, S.label, { marginTop: 4, color: C.blue }) }, T("depreciation")),
+      e("div", { className: "grid3" }, Field(T("purchase"), moneyIn("purchase")), Field(T("resale"), moneyIn("resale")), Field(T("lifeKm") + " (" + unit + ")", distIn("lifeKm"))),
+      e("div", { style: Object.assign({}, S.label, { color: C.amber }) }, T("energy")),
+      f.type === "car" ? Field(T("energyType"), e("select", { style: S.input, value: f.energy, onChange: ev => set("energy", ev.target.value) },
+        e("option", { value: "fuel" }, T("fuel")), e("option", { value: "electric" }, T("electric")))) : null,
+      f.energy !== "none" ? e("div", { className: "grid2" },
+        Field(T("consumption") + " (" + consLabel + ")", e("input", { style: S.input, inputMode: "decimal", value: consVal, onChange: ev => setCons(ev.target.value) })),
+        Field(T("energyPrice") + " " + priceLabel, e("input", { style: S.input, inputMode: "decimal", value: priceVal, onChange: ev => setPrice(ev.target.value) }))) : null,
+      f.energy === "electric" ? e("div", { className: "grid2" },
+        Field(T("battPrice"), moneyIn("battPrice")), Field(T("battLife") + " (" + unit + ")", distIn("battKm"))) : null,
+      e("div", { style: Object.assign({}, S.label, { color: C.accent }) }, T("parts")),
+      f.parts.map((p, i) => e("div", { key: p.id || i, style: { display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr 24px", gap: 6, marginBottom: 6, alignItems: "end" } },
+        e("div", null, i === 0 ? e("label", { style: S.label }, T("partName")) : null, e("input", { style: S.input, value: p.name, onChange: ev => setPart(i, "name", ev.target.value) })),
+        e("div", null, i === 0 ? e("label", { style: S.label }, T("amount")) : null, e("input", { style: S.input, inputMode: "decimal", value: p.cost, onChange: ev => setPart(i, "cost", ev.target.value) })),
+        e("div", null, i === 0 ? e("label", { style: S.label }, T("interval") + " " + unit) : null, e("input", { style: S.input, inputMode: "decimal", value: Math.round(dist(num(p.interval))), onChange: ev => setPart(i, "interval", toKm(ev.target.value)) })),
+        e("div", null, i === 0 ? e("label", { style: S.label }, T("lastAt")) : null, e("input", { style: S.input, inputMode: "decimal", value: Math.round(dist(num(p.lastAt))), onChange: ev => setPart(i, "lastAt", toKm(ev.target.value)) })),
+        e("div", { style: { color: C.red, cursor: "pointer", paddingBottom: 10 }, onClick: () => setF(x => Object.assign({}, x, { parts: x.parts.filter((_, j) => j !== i) })) }, e(Icon, { n: "x", s: 16 })))),
+      e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", margin: "4px 0 14px" }, onClick: () => setF(x => Object.assign({}, x, { parts: x.parts.concat([{ id: genId(), name: "", cost: "", interval: "", lastAt: 0 }]) })) }, T("addPart")),
+      e("div", { style: S.label }, T("fixedMonthly")),
+      e("div", { className: "grid3" }, Field(T("insurance"), moneyIn("insurance")), Field(T("rent"), moneyIn("rent")), Field(T("otherFixed"), moneyIn("otherFixed"))),
+      e("label", { style: { display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: C.sub, marginBottom: 8 } },
+        e("input", { type: "checkbox", checked: f.privateOwned !== false, onChange: ev => set("privateOwned", ev.target.checked) }), T("privatelyOwned")),
+      e("label", { style: { display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: C.sub, marginBottom: 12 } },
+        e("input", { type: "checkbox", checked: f.active !== false, onChange: ev => set("active", ev.target.checked) }), T("active")),
+      e("div", { style: Object.assign({}, S.row, { background: C.accentDim, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
+        e("span", { style: { color: C.sub, fontSize: 13 } }, T("costPerKm") + " " + unit), e("b", { style: { color: C.accent, fontSize: 18 } }, money(perUnit(c.total), 3))),
+      e("div", { style: { display: "flex", gap: 8 } },
+        !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("vehicles", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  LOGIN
+  // ════════════════════════════════════════════════════════════════
+  function Login() {
+    const [p, setP] = useState("");
+    return e("div", { style: { height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "radial-gradient(circle at 50% 20%,#14264A,#0B1220 60%)" } },
+      e("div", { style: { width: "100%", maxWidth: 340, textAlign: "center" } },
+        e("div", { style: { display: "flex", justifyContent: "center", marginBottom: 14 } }, e(LogoMark, { s: 72 })),
+        e("div", { style: { fontSize: 32, fontWeight: 900, letterSpacing: "-1px" } }, CONFIG.appName),
+        e("div", { style: { color: C.muted, fontSize: 14, marginBottom: 26 } }, CONFIG.tagline),
+        e("input", { style: Object.assign({}, S.input, { textAlign: "center", fontSize: 24, letterSpacing: "0.4em", marginBottom: 12 }), type: "password", inputMode: "numeric", placeholder: "••••", value: p,
+          onChange: ev => setP(ev.target.value.replace(/\D/g, "").slice(0, 8)), onKeyDown: ev => { if (ev.key === "Enter") doLogin(p); } }),
+        loginErr ? e("div", { style: { color: C.red, fontSize: 13, marginBottom: 10 } }, loginErr) : null,
+        e("button", { style: Object.assign(S.btn(), { width: "100%", padding: 14, fontSize: 16 }), disabled: loading, onClick: () => doLogin(p) }, loading ? "…" : T("unlock")),
+        e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 26, opacity: .6, marginTop: 30 } })));
+  }
+
+  const LoginC = stable("Login", Login);
+  const ShiftModalC = stable("ShiftModal", ShiftModal);
+  const ExpenseModalC = stable("ExpenseModal", ExpenseModal);
+  const VehicleModalC = stable("VehicleModal", VehicleModal);
+  const VIEWS = { home: stable("home", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
+    insights: stable("insights", InsightsView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
+    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: stable("more", MoreView) };
+
+  if (!authed) return e(LoginC);
+
+  // ════════════════════════════════════════════════════════════════
+  //  LAYOUT
+  // ════════════════════════════════════════════════════════════════
+  const NAV = [["home", "home"], ["shifts", "list"], ["expenses", "receipt"], ["insights", "chart"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]];
+  const MOBILE = [["home", "home"], ["shifts", "list"], ["expenses", "receipt"], ["insights", "chart"], ["more", "more"]];
+  const inMore = ["more", "vehicles", "compare", "tax", "settings"].indexOf(view) >= 0;
+  const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
+
+  return e("div", { className: "app-root", style: S.root },
+    e("header", { style: S.header },
+      e("div", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }, onClick: () => setView("home") },
+        e(LogoMark, { s: 32 }),
+        e("span", { style: { fontWeight: 900, fontSize: 20, letterSpacing: "-0.5px" } }, CONFIG.appName),
+        active ? e("span", { className: "pulse", style: { marginLeft: 4, fontSize: 11, fontWeight: 800, color: "#05221A", background: C.accent, borderRadius: 999, padding: "3px 8px" } }, "LIVE") : null),
+      e("div", { style: { display: "flex", alignItems: "center", gap: 12 } }, syncDot,
+        e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9 } }))),
+    e("div", { style: { flex: 1, display: "flex", minHeight: 0 } },
+      e("div", { className: "desktop-sidebar", style: S.sidebar },
+        e("div", { style: S.sideLabel }, st.name || CONFIG.appName),
+        NAV.map(n => e("div", { key: n[0], style: S.sideItem(view === n[0]), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 18 }), T(n[0])))),
+      e("div", { className: "app-content", style: S.content }, e("div", { style: S.inner }, e(VIEWS[view] || VIEWS.home)))),
+    e("div", { className: "bottom-nav", style: { position: "fixed", left: 0, right: 0, bottom: 0, background: "rgba(14,23,41,.97)", backdropFilter: "blur(10px)", borderTop: "1px solid " + C.border, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 40 } },
+      MOBILE.map(n => { const on = n[0] === "more" ? inMore : view === n[0];
+        return e("div", { key: n[0], style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "9px 0 7px", color: on ? C.accent : C.muted, fontSize: 11, fontWeight: on ? 700 : 500, cursor: "pointer" }, onClick: () => setView(n[0]) },
+          e(Icon, { n: n[1], s: 22 }), T(n[0])); })),
+    modal && modal.type === "shift" ? e(ShiftModalC, { key: (modal.shift && modal.shift.id) || "new", init: modal.shift, fromTracking: modal.fromTracking }) : null,
+    modal && modal.type === "expense" ? e(ExpenseModalC, { key: (modal.expense && modal.expense.id) || "new", init: modal.expense }) : null,
+    modal && modal.type === "vehicle" ? e(VehicleModalC, { key: (modal.vehicle && modal.vehicle.id) || "new", init: modal.vehicle }) : null,
+    toast ? e("div", { style: { position: "fixed", left: "50%", bottom: 90, transform: "translateX(-50%)", background: C.accent, color: "#05221A", fontWeight: 800, padding: "10px 18px", borderRadius: 999, zIndex: 60, fontSize: 14, boxShadow: "0 8px 30px rgba(0,0,0,.4)" } }, toast.msg) : null);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(e(App));
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
+//]]>
+</script>
+</body>
+</html>
