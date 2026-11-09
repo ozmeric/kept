@@ -65,22 +65,23 @@
 const CONFIG = {
   appName:      "Kept",
   tagline:      "Know what you earn. Know what you keep.",
-  version:      "2.0",
+  version:      "3.0",
   primaryColor: "#0B1220",
   accentColor:  "#2EE6A6",
   logoText:     "K",
   apiUrl:       (window.KEPT_CONFIG && window.KEPT_CONFIG.apiUrl) || "",   // empty = local-only mode
 
-  defaults: { name:"", lang:"en", country:"NL", currency:"EUR", unit:"km", setAsidePct:30,
+  defaults: { name:"", lang:"en", country:"US", currency:"USD", unit:"mi", setAsidePct:30,
               dailyGoal:150, costMode:"estimated", defaultVehicleId:"",
               // tax profile
-              filing:"single", otherIncome:0, state:"", stateRate:"", nlHours:"auto",
+              filing:"single", otherIncome:0, state:"", localRate:"", nlHours:"auto",
               // planner
-              livingCosts:0, workDays:5, autoFuel:true },
+              livingCosts:0, workDays:5, autoFuel:true, emergencyPct:10,
+              offerMinHour:"", offerMinMile:"" },
 
   languages: [ ["en","English"], ["nl","Nederlands"], ["tr","Türkçe"] ],
-  countries: [ ["NL","Netherlands (ZZP)"], ["US","United States (1099)"], ["OTHER","Other — flat set-aside %"] ],
-  currencies: ["EUR","USD","GBP","TRY"],
+  countries: [ ["US","United States (1099)"], ["NL","Netherlands (ZZP)"], ["OTHER","Other — flat set-aside %"] ],
+  currencies: ["USD","EUR","GBP","TRY"],
 
   // one-tap platforms + searchable extras; anything else can be typed in
   platforms: ["Uber","Uber Eats","Lyft","DoorDash","Instacart","Amazon Flex","Grubhub","Spark Driver",
@@ -150,12 +151,95 @@ const CONFIG = {
   // US states: code|name|PADD region|no-state-income-tax flag
   usStates: "AL Alabama 3|AK Alaska 5 x|AZ Arizona 5|AR Arkansas 3|CA California 5|CO Colorado 4|CT Connecticut 1|DE Delaware 1|DC District_of_Columbia 1|FL Florida 1 x|GA Georgia 1|HI Hawaii 5|ID Idaho 4|IL Illinois 2|IN Indiana 2|IA Iowa 2|KS Kansas 2|KY Kentucky 2|LA Louisiana 3|ME Maine 1|MD Maryland 1|MA Massachusetts 1|MI Michigan 2|MN Minnesota 2|MS Mississippi 3|MO Missouri 2|MT Montana 4|NE Nebraska 2|NV Nevada 5 x|NH New_Hampshire 1 x|NJ New_Jersey 1|NM New_Mexico 3|NY New_York 1|NC North_Carolina 1|ND North_Dakota 2|OH Ohio 2|OK Oklahoma 2|OR Oregon 5|PA Pennsylvania 1|RI Rhode_Island 1|SC South_Carolina 1|SD South_Dakota 2 x|TN Tennessee 2 x|TX Texas 3 x|UT Utah 4|VT Vermont 1|VA Virginia 1|WA Washington 5 x|WV West_Virginia 1|WI Wisconsin 2|WY Wyoming 4 x",
 
+  // 2026 state individual income tax — Tax Foundation (as of Jan 1, 2026).
+  // s / m = single / married-joint brackets as [floor, rate]; std, ex = standard deduction, exemption [single, married]; cr = flat credits.
+  // Head of household and married-separate use the single schedule. City/county taxes are not included (user adds a local %).
+  stateTax2026: {
+    AL:{s:[[0,.02],[500,.04],[3000,.05]],m:[[0,.02],[1000,.04],[6000,.05]],std:[3000,8500],ex:[1500,3000]},
+    AZ:{s:[[0,.025]],std:[8350,16700]},
+    AR:{s:[[0,.02],[4600,.039]],std:[2470,4940],cr:[29,58]},
+    CA:{s:[[0,.01],[11079,.02],[26264,.04],[41452,.06],[57542,.08],[72724,.093],[371479,.103],[445771,.113],[742953,.123],[1000000,.133]],
+        m:[[0,.01],[22158,.02],[52528,.04],[82904,.06],[115084,.08],[145448,.093],[742958,.103],[891542,.113],[1000000,.123],[1485906,.133]],std:[5540,11080],cr:[153,306]},
+    CO:{s:[[0,.044]],std:[16100,32200]},
+    CT:{s:[[0,.02],[10000,.045],[50000,.055],[100000,.06],[200000,.065],[250000,.069],[500000,.0699]],
+        m:[[0,.02],[20000,.045],[100000,.055],[200000,.06],[400000,.065],[500000,.069],[1000000,.0699]],ex:[15000,24000]},
+    DE:{s:[[2000,.022],[5000,.039],[10000,.048],[20000,.052],[25000,.0555],[60000,.066]],std:[3250,6500],cr:[110,220]},
+    DC:{s:[[0,.04],[10000,.06],[40000,.065],[60000,.085],[250000,.0925],[500000,.0975],[1000000,.1075]],std:[16100,32200]},
+    GA:{s:[[0,.0519]],std:[12000,24000]},
+    HI:{s:[[0,.014],[9600,.032],[14400,.055],[19200,.064],[24000,.068],[36000,.072],[48000,.076],[125000,.079],[175000,.0825],[225000,.09],[275000,.10],[325000,.11]],
+        m:[[0,.014],[19200,.032],[28800,.055],[38400,.064],[48000,.068],[72000,.072],[96000,.076],[250000,.079],[350000,.0825],[450000,.09],[550000,.10],[650000,.11]],std:[4400,8800],ex:[1144,2288]},
+    ID:{s:[[4811,.053]],m:[[9622,.053]],std:[16100,32200]},
+    IL:{s:[[0,.0495]],ex:[2925,5850]},
+    IN:{s:[[0,.0295]],ex:[1000,2000]},
+    IA:{s:[[0,.038]],std:[16100,32200],cr:[40,80]},
+    KS:{s:[[0,.052],[23000,.0558]],m:[[0,.052],[46000,.0558]],std:[3605,8240],ex:[9160,18320]},
+    KY:{s:[[0,.035]],std:[3360,3360]},
+    LA:{s:[[0,.03]],std:[12875,25750]},
+    ME:{s:[[0,.058],[27399,.0675],[64849,.0715]],m:[[0,.058],[54849,.0675],[129749,.0715]],std:[8350,16700],ex:[5300,10600]},
+    MD:{s:[[0,.02],[1000,.03],[2000,.04],[3000,.0475],[100000,.05],[125000,.0525],[150000,.055],[250000,.0575],[500000,.0625],[1000000,.065]],
+        m:[[0,.02],[1000,.03],[2000,.04],[3000,.0475],[150000,.05],[175000,.0525],[225000,.055],[300000,.0575],[600000,.0625],[1200000,.065]],std:[3350,6700],ex:[3200,6400]},
+    MA:{s:[[0,.05],[1083150,.09]],ex:[4400,8800]},
+    MI:{s:[[0,.0425]],ex:[5900,11800]},
+    MN:{s:[[0,.0535],[33310,.068],[109430,.0785],[203150,.0985]],m:[[0,.0535],[48700,.068],[193480,.0785],[337930,.0985]],std:[15300,30600]},
+    MS:{s:[[10000,.04]],std:[2300,4600],ex:[6000,12000]},
+    MO:{s:[[1348,.02],[2696,.025],[4044,.03],[5392,.035],[6740,.04],[8088,.045],[9436,.047]],std:[16100,32200]},
+    MT:{s:[[0,.047],[47500,.0565]],m:[[0,.047],[95000,.0565]],std:[16100,32200]},
+    NE:{s:[[0,.0246],[4130,.0351],[24760,.0455]],m:[[0,.0246],[8250,.0351],[49530,.0455]],std:[8850,17700],cr:[176,352]},
+    NJ:{s:[[0,.014],[20000,.0175],[35000,.035],[40000,.0553],[75000,.0637],[500000,.0897],[1000000,.1075]],
+        m:[[0,.014],[20000,.0175],[50000,.0245],[70000,.035],[80000,.0553],[150000,.0637],[500000,.0897],[1000000,.1075]],ex:[1000,2000]},
+    NM:{s:[[0,.015],[5500,.032],[16500,.043],[33500,.047],[66500,.049],[210000,.059]],m:[[0,.015],[8000,.032],[25000,.043],[50000,.047],[100000,.049],[315000,.059]],std:[16100,32200]},
+    NY:{s:[[0,.039],[8500,.044],[11700,.0515],[13900,.054],[80650,.059],[215400,.0685],[1077550,.0965],[5000000,.103],[25000000,.109]],
+        m:[[0,.039],[17150,.044],[23600,.0515],[27900,.054],[161550,.059],[323200,.0685],[2155350,.0965],[5000000,.103],[25000000,.109]],std:[8000,16050]},
+    NC:{s:[[0,.0399]],std:[12750,25500]},
+    ND:{s:[[48475,.0195],[244825,.025]],m:[[80975,.0195],[298075,.025]],std:[16100,32200]},
+    OH:{s:[[26050,.0275]],ex:[2400,4800]},
+    OK:{s:[[3750,.025],[4900,.035],[7200,.045]],m:[[7500,.025],[9800,.035],[14400,.045]],std:[6350,12700],ex:[1000,2000]},
+    OR:{s:[[0,.0475],[4550,.0675],[11400,.0875],[125000,.099]],m:[[0,.0475],[9100,.0675],[22800,.0875],[250000,.099]],std:[2910,5820],cr:[256,512]},
+    PA:{s:[[0,.0307]]},
+    RI:{s:[[0,.0375],[82050,.0475],[186450,.0599]],std:[11200,22400],ex:[5250,10500]},
+    SC:{s:[[3640,.03],[18230,.06]],std:[8350,16700]},
+    UT:{s:[[0,.045]],cr:[966,1932]},
+    VT:{s:[[0,.0335],[49400,.066],[119700,.076],[249700,.0875]],m:[[0,.0335],[82500,.066],[199450,.076],[304000,.0875]],std:[7650,15300],ex:[5300,10600]},
+    VA:{s:[[0,.02],[3000,.03],[5000,.05],[17000,.0575]],std:[8750,17500],ex:[930,1860]},
+    WV:{s:[[0,.0222],[10000,.0296],[25000,.0333],[40000,.0444],[60000,.0482]],ex:[2000,4000]},
+    WI:{s:[[0,.035],[15110,.044],[51950,.053],[332720,.0765]],m:[[0,.035],[20150,.044],[69260,.053],[443630,.0765]],std:[13960,25840],ex:[700,1400]},
+  },
+
+  // ── Automatic vehicle depreciation (year / make / model only) ──
+  // New-vehicle average transaction prices by body type, Kelley Blue Book / Cox Automotive, September 2026 (USD).
+  bodyTypes: [ ["compact","Small car",27977,32], ["midsize","Midsize / large car",34104,30], ["smallsuv","Small SUV",37614,28],
+               ["suv","Midsize / large SUV",50630,22], ["smallpickup","Small / midsize pickup",43790,21], ["pickup","Full-size pickup",67573,18],
+               ["minivan","Minivan",48944,22], ["van","Cargo van",64698,16], ["lux","Luxury car",61000,25] ],   // [id, label, new price, typical mpg]
+  luxuryMakes: ["Acura","Alfa Romeo","Aston Martin","Audi","Bentley","BMW","Cadillac","Genesis","Infiniti","Jaguar","Land Rover","Lexus","Lincoln","Maserati","Mercedes-Benz","Porsche","Volvo","Rivian","Lucid"],
+  // share of new price kept by age — KBB curve shape, scaled to iSeeCars 2026 (avg 5-year loss 41.8%); then −7%/yr
+  retention: [1, .878, .796, .716, .651, .582],
+  // loss multipliers: hybrids lose ~15% less, EVs ~40% more (iSeeCars); brands that dominate best/worst resale lists
+  lossByFuel: { hybrid: 0.85, electric: 1.4 },
+  strongResale: ["Toyota","Lexus","Honda","Subaru","Porsche"],
+  weakResale: ["BMW","Infiniti","Land Rover","Jaguar","Maserati"],
+  twoWheelBase: { motorcycle:9000, escooter:3000, ebike:2000, bike:800 },   // typical new price (USD) when no price is entered
+
   // On-device receipt OCR (loaded only when the user taps "Scan receipt")
   ocr: { script:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
          workerPath:"https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
          corePath:"https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
          langPath:"https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int" },
 };
+const MAKES = ["Acura","Audi","BMW","Buick","Cadillac","Chevrolet","Chrysler","Dodge","Fiat","Ford","Genesis","GMC","Honda","Hyundai","Infiniti","Jeep","Kia","Land Rover","Lexus","Lincoln","Mazda","Mercedes-Benz","Mini","Mitsubishi","Nissan","Peugeot","Polestar","Porsche","Ram","Renault","Rivian","Skoda","Subaru","Tesla","Toyota","Volkswagen","Volvo"];
+// EPA size class (fueleconomy.gov "VClass") → Kept body type
+function vclassToBody(vc, make) {
+  const c = String(vc || "").toLowerCase();
+  const lux = CONFIG.luxuryMakes.some(m => m.toLowerCase() === String(make || "").toLowerCase());
+  if (/standard pickup/.test(c)) return "pickup";
+  if (/small pickup|pickup/.test(c)) return "smallpickup";
+  if (/minivan/.test(c)) return "minivan";
+  if (/van/.test(c)) return "van";
+  if (/standard sport utility|sport utility vehicle - 4wd|special purpose/.test(c)) return "suv";
+  if (/small sport utility|sport utility/.test(c)) return "smallsuv";
+  if (/large|midsize/.test(c)) return lux ? "lux" : "midsize";
+  if (/compact|subcompact|minicompact|two seater|wagon/.test(c)) return lux ? "lux" : "compact";
+  return "midsize";
+}
 const US_STATES = CONFIG.usStates.split("|").map(s => { const p = s.split(" "); return { code: p[0], name: p[1].replace(/_/g, " "), padd: p[2], noTax: p[3] === "x" }; });
 
 // ════════════════════════════════════════════════════════════════
@@ -263,6 +347,40 @@ const I18N = {
   plannerHint:["Enter what you need to live on. Kept works out the net you need before tax and the gross to aim for, using your own cost ratio.","Vul in wat je nodig hebt; Kept rekent het benodigde netto en bruto uit.","Geçinmek için gereken tutarı girin; Kept vergi öncesi gereken neti ve hedef brütü hesaplar."],
   wrap:["Share my wrap","Deel mijn overzicht","Özetimi paylaş"], wrapTitle:["Your wrap","Jouw overzicht","Özetiniz"], youKept:["You kept","Je hield over","Elinde kalan"], driveCost:["The drive cost","De rit kostte","Yol maliyeti"], yourRate:["Your rate","Jouw tarief","Saatlik oranınız"],
   share:["Share","Delen","Paylaş"], download:["Download","Downloaden","İndir"],
+  // v3 — offer analyzer
+  offer:["Offer","Aanbod","Teklif"], offerTitle:["Is this offer worth it?","Is dit aanbod het waard?","Bu teklif değer mi?"],
+  offerPay:["Offer pay (incl. expected tip)","Uitbetaling (incl. verwachte fooi)","Teklif ücreti (beklenen bahşiş dahil)"], pickupDist:["To pickup","Naar ophaalpunt","Alım noktasına"],
+  tripDist:["Trip","Rit","Teslimat"], estMins:["Minutes (pickup + trip)","Minuten (ophalen + rit)","Dakika (alım + teslimat)"], returnEmpty:["Empty return","Lege terugrit","Boş dönüş"],
+  minHour:["My minimum per hour","Mijn minimum per uur","Saatlik alt sınırım"], minMile:["My minimum per","Mijn minimum per","Alt sınırım /"],
+  verdictTake:["Take it","Aannemen","Kabul et"], verdictMaybe:["Borderline","Twijfelgeval","Sınırda"], verdictSkip:["Skip it","Overslaan","Geç"],
+  profitAfterCost:["Profit after vehicle cost","Winst na voertuigkosten","Araç maliyeti sonrası kâr"], afterTax:["After tax set-aside","Na belastingreserve","Vergi payı sonrası"],
+  offerNote:["Type the numbers from the offer screen. Kept adds your real cost per mile and an empty return estimated from your own history. Platforms don't share live offer data, so entry is manual.","Vul de cijfers van het aanbod in. Kept rekent je echte kosten en een lege terugrit uit je historie mee. Platforms delen geen live data, dus invoer is handmatig.","Teklif ekranındaki rakamları girin. Kept gerçek mil başı maliyetinizi ve kendi geçmişinizden tahmini boş dönüşü ekler. Platformlar canlı teklif verisi paylaşmadığı için giriş elle yapılır."],
+  recentOffers:["Recent checks","Recente checks","Son kontroller"], checkOffer:["Check an offer","Aanbod checken","Teklif kontrol et"], took:["took","aangenomen","alındı"], skipped:["skipped","overgeslagen","geçildi"],
+  logOffer:["I took it","Aangenomen","Aldım"], logSkip:["I skipped it","Overgeslagen","Geçtim"], offerTargetsHint:["Minimums default to your recent average — set your own.","Minimums standaard uit je gemiddelde.","Alt sınırlar son ortalamanızdan gelir — kendinizinkini girin."],
+  // v3 — profit map
+  map:["Profit map","Winstkaart","Kâr haritası"], mapTitle:["Where you earn the most","Waar je het meest verdient","En çok kazandığınız yerler"],
+  mapHint:["Areas where your GPS shifts started, colored by net per hour. Only your own data is used.","Gebieden waar je GPS-diensten begonnen, gekleurd op netto per uur. Alleen je eigen data.","GPS'li vardiyalarınızın başladığı bölgeler, saatlik nete göre renklendirildi. Yalnızca kendi verileriniz kullanılır."],
+  mapEmpty:["Start shifts with GPS on to build your map.","Start diensten met GPS aan om je kaart te bouwen.","Haritanızı oluşturmak için vardiyaları GPS açıkken başlatın."], area:["Area","Gebied","Bölge"], topAreas:["Areas ranked by net per hour","Gebieden op netto per uur","Saatlik nete göre bölgeler"],
+  // v3 — business planner
+  bizPlanner:["Business planner — where each 100 of gross goes","Bedrijfsplanner — waar elke 100 bruto heen gaat","İş planlayıcı — her 100 brütün dağılımı"],
+  fundFees:["Platform fees","Platformkosten","Platform kesintileri"], fundVehicle:["Vehicle replacement fund","Fonds nieuw voertuig","Araç yenileme fonu"], fundMaint:["Maintenance reserve","Onderhoudsreserve","Bakım rezervi"],
+  fundEnergy:["Fuel / charging","Brandstof / laden","Yakıt / şarj"], fundFixed:["Insurance & fixed","Verzekering & vast","Sigorta ve sabit"], fundOther:["Other business costs","Overige zakelijke kosten","Diğer iş giderleri"],
+  fundEmergency:["Emergency savings","Noodbuffer","Acil durum birikimi"], fundTax:["Tax reserve","Belastingreserve","Vergi rezervi"], fundPay:["Your pay","Jouw loon","Sizin kazancınız"],
+  emergencyPct:["Emergency savings, % of after-tax profit","Noodbuffer, % van winst na belasting","Acil durum birikimi, vergi sonrası kârın %'si"], last30:["Last 30 days","Laatste 30 dagen","Son 30 gün"],
+  monthlyTransfer:["Set aside from the last 30 days","Opzijzetten van de laatste 30 dagen","Son 30 günden kenara ayır"], per100l:["per 100","per 100","100 başına"],
+  // v3 — vehicles
+  yearModel:["Year","Bouwjaar","Model yılı"], body:["Body type","Carrosserie","Gövde tipi"], fuelKind:["Fuel","Brandstof","Yakıt"], gasoline:["Gasoline","Benzine","Benzin"], hybrid:["Hybrid","Hybride","Hibrit"],
+  estValue:["Estimated value today","Geschatte waarde nu","Bugünkü tahmini değer"], newPriceL:["New ≈","Nieuw ≈","Sıfır ≈"], ageL:["age","leeftijd","yaş"], yearsL:["yrs","jr","yıl"],
+  depAuto:["Depreciation (automatic)","Afschrijving (automatisch)","Değer kaybı (otomatik)"],
+  depAutoNote:["Estimated from average new prices (Kelley Blue Book, Sept 2026) and resale data (iSeeCars 2026), adjusted for fuel type, brand and your yearly mileage. Change it under Advanced.","Geschat uit gemiddelde nieuwprijzen en de gebruikelijke waardedaling, aangepast aan je kilometers. Aanpassen onder Geavanceerd.","Ortalama sıfır fiyatları (Kelley Blue Book, Eylül 2026) ve tipik değer kaybı eğrisinden, yıllık kilometrenize göre tahmin edilir. Gelişmiş bölümünden değiştirin."],
+  advanced:["Advanced","Geavanceerd","Gelişmiş"], depModeL:["Depreciation","Afschrijving","Değer kaybı"], depAutoOpt:["Automatic from year / make / model","Automatisch uit bouwjaar / merk / model","Yıl / marka / modelden otomatik"], depManualOpt:["Enter my own numbers","Eigen cijfers invullen","Kendi rakamlarımı gireyim"],
+  odoOptional:["Odometer (optional)","Kilometerstand (optioneel)","Kilometre sayacı (isteğe bağlı)"], pricePaid:["Price paid (optional)","Aankoopprijs (optioneel)","Ödenen fiyat (isteğe bağlı)"],
+  valueNext:["Value in 12 months","Waarde over 12 maanden","12 ay sonraki değer"], kmPerYear:["Distance per year","Afstand per jaar","Yıllık mesafe"],
+  // v3 — state tax
+  stateAuto:["Calculated automatically from 2026 state brackets.","Automatisch berekend uit de schijven van 2026.","2026 eyalet dilimlerinden otomatik hesaplanır."],
+  localRate:["City / county income tax % (optional)","Lokale inkomstenbelasting % (optioneel)","Şehir / ilçe gelir vergisi % (isteğe bağlı)"], localTax:["Local income tax","Lokale belasting","Yerel gelir vergisi"],
+  localHint:["Only if your city or county taxes income (e.g. NYC, Maryland counties, Ohio or Pennsylvania cities).","Alleen als je stad inkomen belast.","Yalnızca şehriniz/ilçeniz gelir vergisi alıyorsa (ör. NYC, Maryland ilçeleri, Ohio veya Pennsylvania şehirleri)."],
+  pickState:["Pick your state so Kept can estimate state tax.","Kies je staat voor de staatsbelasting.","Eyalet vergisini tahmin etmek için eyaletinizi seçin."], yourStateRate:["Your state bracket","Jouw schijf","Eyalet diliminiz"],
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -310,15 +428,71 @@ function vehicleCost(v) {
   const fixed = num(v.insurance) + num(v.rent) + num(v.otherFixed);
   return { dep, energy, battery, parts, total: dep + energy + battery + parts, fixed };
 }
-function presetVehicle(type) {
-  const p = CONFIG.vehicleTypes[type];
+function presetVehicle(type, country) {
+  const p = CONFIG.vehicleTypes[type], us = country !== "NL";
+  const price = p.energy === "fuel" ? (us ? 0.83 : 1.95) : p.energy === "electric" ? (us ? 0.17 : 0.30) : 0;   // per litre / kWh
   return {
     id: genId(), type, name: "", active: true, privateOwned: true, leased: false, taxMethod: type === "car" ? "standard" : "actual", fuelType: "petrol",
-    purchase: p.purchase, resale: p.resale, valueNow: "", lifeKm: p.lifeKm, energy: p.energy, cons: p.cons, price: p.price,
-    battPrice: p.battPrice, battKm: p.battKm, startOdo: 0,
+    depMode: "auto", year: new Date().getFullYear() - 3, make: "", model: "", body: "midsize", fuelKind: p.energy === "electric" ? "electric" : "gasoline",
+    purchase: p.purchase, resale: p.resale, valueNow: "", lifeKm: p.lifeKm, energy: p.energy, cons: p.energy === "fuel" && type === "car" ? 235.215 / 30 : p.cons, price,
+    battPrice: p.battPrice, battKm: p.battKm, startOdo: "",
     insurance: p.fixed.insurance, rent: p.fixed.rent, otherFixed: p.fixed.other,
     parts: p.parts.map(x => ({ id: genId(), name: x[0], cost: x[1], interval: x[2], lastAt: 0 })),
   };
+}
+
+// ── automatic depreciation from year / make / model (+ odometer when known) ──
+const retentionAt = (a, k) => {
+  const r = CONFIG.retention; let base;
+  if (a <= 0) base = 1;
+  else if (a >= r.length - 1) base = r[r.length - 1] * Math.pow(0.93, a - (r.length - 1));
+  else { const i = Math.floor(a), f = a - i; base = r[i] + (r[i + 1] - r[i]) * f; }
+  return Math.max(0.08, 1 - (1 - base) * (k || 1));
+};
+const lossFactor = v => {
+  const mk = String(v.make || "").trim().toLowerCase(), has = list => list.some(m => m.toLowerCase() === mk);
+  return (CONFIG.lossByFuel[v.fuelKind] || 1) * (has(CONFIG.strongResale) ? 0.75 : has(CONFIG.weakResale) ? 1.2 : 1);
+};
+function newPriceOf(v) {
+  const body = CONFIG.bodyTypes.find(b => b[0] === v.body) || CONFIG.bodyTypes[1];
+  let base = body[2];
+  if (v.body !== "lux" && CONFIG.luxuryMakes.some(m => m.toLowerCase() === String(v.make || "").trim().toLowerCase())) base *= 1.43;
+  if (/^tesla$/i.test(String(v.make || "").trim())) base = Math.max(base, 54345);
+  const yrs = Math.max(0, new Date().getFullYear() - num(v.year));
+  return base / Math.pow(1.03, yrs);   // older model years sold for less: ~3%/yr price growth
+}
+// odoKm = current odometer (km, 0 = unknown); annualKm = how far the vehicle is driven per year
+function autoDepreciation(v, odoKm, annualKm) {
+  const now = new Date(), age = Math.max(0, now.getFullYear() + now.getMonth() / 12 - num(v.year) + 0.25);
+  annualKm = annualKm > 1000 ? annualKm : 40000;
+  if (v.type === "car") {
+    const base = newPriceOf(v), odoMi = odoKm > 0 ? odoKm / KM_PER_MI : 12000 * age, annMi = annualKm / KM_PER_MI;
+    const mf = (mi, a) => clamp(1 - 0.25 * (mi - 12000 * a) / 100000, 0.45, 1.15);
+    const k = lossFactor(v);
+    const vNow = base * retentionAt(age, k) * mf(odoMi, age), vNext = base * retentionAt(age + 1, k) * mf(odoMi + annMi, age + 1);
+    const perKm = Math.max(0.02, (vNow - vNext) / annMi) / KM_PER_MI;
+    return { newPrice: base, valueNow: vNow, perKm, age };
+  }
+  const base = num(v.pricePaid) > 0 ? num(v.pricePaid) : (CONFIG.twoWheelBase[v.type] || 1000);
+  const life = num(CONFIG.vehicleTypes[v.type].lifeKm), vNow = base * Math.pow(0.8, age);
+  const remaining = Math.max(life * 0.25, life - Math.max(0, odoKm));
+  return { newPrice: base, valueNow: vNow, perKm: Math.max(0, (vNow - base * 0.1) / remaining), age };
+}
+// apply the estimate onto the fields the cost model reads (purchase − resale over lifeKm = depreciation per km)
+function applyAutoDep(v, odoKm, annualKm) {
+  if (v.depMode !== "auto" || v.leased) return v;
+  const r = autoDepreciation(v, odoKm, annualKm), ak = annualKm > 1000 ? annualKm : 40000;
+  return Object.assign({}, v, { purchase: Math.round(r.valueNow), valueNow: Math.round(r.valueNow), resale: Math.max(0, Math.round(r.valueNow - r.perKm * ak)), lifeKm: Math.round(ak), depYear: new Date().getFullYear(), newPrice: Math.round(r.newPrice) });
+}
+
+// ── state income tax (2026 tables) ──
+const floorTax = (inc, br) => { let t = 0; for (let i = 0; i < br.length; i++) { const lo = br[i][0], hi = i + 1 < br.length ? br[i + 1][0] : Infinity; if (inc > lo) t += (Math.min(inc, hi) - lo) * br[i][1]; } return t; };
+const floorRate = (inc, br) => { let r = 0; for (const b of br) if (inc > b[0]) r = b[1]; return r; };
+function stateIncomeTax(code, mfj, agi) {
+  const d = CONFIG.stateTax2026[code]; if (!d) return { tax: 0, rate: 0 };
+  const br = mfj && d.m ? d.m : d.s, k = mfj ? 1 : 0;
+  const ti = Math.max(0, agi - (d.std ? d.std[k] : 0) - (d.ex ? d.ex[k] : 0));
+  return { tax: Math.max(0, floorTax(ti, br) - (d.cr ? d.cr[k] : 0)), rate: floorRate(ti, br) };
 }
 
 // period ranges
@@ -428,11 +602,15 @@ function usTax(profit, st, year) {
   const qbi = Math.min(0.2 * Math.max(0, p - halfSE), 0.2 * tiBeforeQbi);
   const tiWith = Math.max(0, tiBeforeQbi - qbi), tiWithout = Math.max(0, w2 - std);
   const fed = Math.max(0, bracketTax(tiWith, br) - bracketTax(tiWithout, br));
-  const stObj = US_STATES.find(s => s.code === st.state);
-  const stateRate = stObj && stObj.noTax ? 0 : num(st.stateRate) / 100;
-  const state = p * stateRate;
-  const total = se + fed + state;
-  return { se, fed, state, total, qbi, halfSE, eff: p > 0 ? total / p : 0, marginal: bracketRate(tiWith, br) * 0.8 + 0.153 * 0.9235 + stateRate, confirmed: ty.confirmed, year: ty.year };
+  const stObj = US_STATES.find(s => s.code === st.state), mfj = f === "mfj", local = num(st.localRate) / 100;
+  let state = 0, stateRate = 0;
+  if (stObj && !stObj.noTax) {
+    const withGig = stateIncomeTax(st.state, mfj, w2 + p - halfSE), without = stateIncomeTax(st.state, mfj, w2);
+    state = Math.max(0, withGig.tax - without.tax); stateRate = withGig.rate;
+  }
+  const localTax = p * local;
+  const total = se + fed + state + localTax;
+  return { se, fed, state, localTax, stateRate, total, qbi, halfSE, eff: p > 0 ? total / p : 0, marginal: bracketRate(tiWith, br) * 0.8 + 0.153 * 0.9235 + stateRate + local, confirmed: ty.confirmed, year: ty.year };
 }
 function nlTax(profit, st, year, meetsHours) {
   const ty = taxYear("NL", year), other = num(st.otherIncome), p = Math.max(0, profit);
@@ -651,6 +829,8 @@ const ICONS = {
   camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
   share: "M12 3v12M7 8l5-5 5 5M5 14v6h14v-6",
   spark: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z",
+  offer: "M12 2v20M16.5 6.5C16 4.9 14.2 4 12 4c-2.8 0-4.5 1.4-4.5 3.2 0 4.3 9 2.3 9 6.6 0 1.9-1.9 3.2-4.5 3.2-2.4 0-4.2-1-4.8-2.8",
+  pin: "M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
   fuel: "M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M14 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3M7 7h4",
 };
 const Icon = ({ n, s = 20, c = "currentColor", w = 2 }) =>
@@ -875,6 +1055,7 @@ function App() {
       const cur = { lat: c.latitude, lon: c.longitude, t: now };
       const n = Object.assign({}, a, { acc: Math.round(c.accuracy), gps: "ok", pos: { lat: c.latitude, lon: c.longitude } });
       if (c.accuracy > 50) return n;                       // too noisy
+      if (!a.startPos && c.accuracy <= 100) n.startPos = { lat: +c.latitude.toFixed(5), lon: +c.longitude.toFixed(5) };
       if (!a.last) { n.last = cur; return n; }
       const d = haversine(a.last, cur), dt = Math.max(1, (now - a.last.t) / 1000);
       if (d < 8) return n;                                 // jitter
@@ -931,7 +1112,7 @@ function App() {
     setModal({ type: "shift", shift: {
       id: genId(), date: dISO(a.start), start: a.start, end: new Date().toISOString(), vehicleId: a.vehicleId,
       km: +(a.km || 0).toFixed(2), emptyKm: +(a.emptyKm || 0).toFixed(2), personalKm: 0,
-      platforms: plats, notes: "", photos: a.photos || [] }, fromTracking: true });
+      platforms: plats, notes: "", photos: a.photos || [], loc: a.startPos || (a.pos ? { lat: +a.pos.lat.toFixed(5), lon: +a.pos.lon.toFixed(5) } : null) }, fromTracking: true });
   };
   const finishTracking = () => { stopWatch(); setActive(null); };
   const takeProof = async file => {
@@ -945,6 +1126,20 @@ function App() {
 
   // ── per-shift net (vehicle cost from profile) ──
   const shiftNet = s => { const v = dataRef.current.vehicles.find(x => x.id === s.vehicleId); return shiftGross(s) - shiftFees(s) - num(s.km) * vehicleCost(v).total; };
+  // km per year for a vehicle, from the last 90 days of shifts (default ≈ 25,000 mi when there's no history yet)
+  const annualKmOf = vid => {
+    const today = dISO(new Date()), from = addDays(today, -89);
+    const ss = dataRef.current.shifts.filter(s => s.vehicleId === vid && s.date >= from);
+    const km = sum(ss, s => num(s.km) + num(s.personalKm));
+    if (km < 300) return 40000;
+    const first = ss.reduce((m, s) => s.date < m ? s.date : m, today);
+    return clamp(km / Math.max(14, daysBetween(first, today)) * 365, 5000, 120000);
+  };
+  useEffect(() => {
+    if (!authed) return;
+    const y = new Date().getFullYear();
+    dataRef.current.vehicles.forEach(v => { if (v.depMode === "auto" && v.depYear !== y) upsert("vehicles", applyAutoDep(v, odoOf(v), annualKmOf(v.id))); });
+  }, [authed]);
 
   // ── Today's Brief (AI via Gemini in Apps Script, local fallback) ──
   const briefStats = () => {
@@ -1055,8 +1250,13 @@ function App() {
     return e("div", null,
       !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent, background: "linear-gradient(135deg,#10243A,#0E1729)" }) },
         e("div", { style: { fontSize: 18, fontWeight: 900, marginBottom: 6 } }, T("welcome")),
-        e("div", { style: { color: C.sub, fontSize: 14, marginBottom: 12 } }, T("setupHint")),
+        e("div", { style: { color: C.sub, fontSize: 14, marginBottom: 12 } }, T("setupHint").replace(/\bkm\b/, unit)),
         e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, T("addVehicle"))) : null,
+
+      st.country === "US" && !st.state ? e("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: "rgba(245,181,68,.4)" }) },
+        e("div", { style: { flex: 1, minWidth: 200, fontSize: 13, color: C.sub } }, T("pickState")),
+        e("select", { style: Object.assign({}, S.input, { width: 200 }), value: "", onChange: ev => { saveSettings({ state: ev.target.value }); showToast(T("saved")); } },
+          e("option", { value: "" }, T("state") + "…"), US_STATES.map(x => e("option", { key: x.code, value: x.code }, x.name)))) : null,
 
       // tracking card
       e("div", { style: Object.assign({}, S.card, active ? { borderColor: C.accent } : {}) },
@@ -1082,6 +1282,7 @@ function App() {
               e("div", { className: "grid2", style: { marginBottom: 10 } },
                 e("button", { style: active.mode === "job" ? S.btn() : S.btn("ghost"), onClick: () => setActive(x => Object.assign({}, x, { mode: "job" })) }, T("onJob")),
                 e("button", { style: active.mode === "empty" ? Object.assign(S.btn(), { background: C.amber }) : S.btn("ghost"), onClick: () => setActive(x => Object.assign({}, x, { mode: "empty" })) }, T("betweenJobs"))),
+              e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: C.accent, borderColor: "rgba(46,230,166,.4)" }), onClick: () => setView("offer") }, e(Icon, { n: "offer", s: 16 }), T("checkOffer")),
               active.gps === "off" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginBottom: 8 }) }, T("gpsOff")) : null,
               e("div", { style: { display: "flex", gap: 8 } },
                 e("button", { style: Object.assign(S.btn("ghost"), { display: "flex", alignItems: "center", gap: 6 }), onClick: () => proofRef.current && proofRef.current.click() },
@@ -1094,7 +1295,9 @@ function App() {
               data.vehicles.length ? e("div", { style: { marginBottom: 12 } }, Chips(data.vehicles.filter(v => v.active !== false).map(v => [v.id, CONFIG.vehicleTypes[v.type].icon + " " + vName(v)]), vSel, setVSel)) : null,
               e("button", { className: "tap", style: Object.assign(S.btn(), { width: "100%", padding: 16, fontSize: 17 }), onClick: () => startShift(vSel) }, "▶  " + T("startShift")),
               e("div", { style: { textAlign: "center", marginTop: 10 } },
-                e("span", { style: { color: C.muted, fontSize: 13, cursor: "pointer", textDecoration: "underline" }, onClick: () => setModal({ type: "shift" }) }, T("addManual"))))),
+                e("span", { style: { color: C.muted, fontSize: 13, cursor: "pointer", textDecoration: "underline" }, onClick: () => setModal({ type: "shift" }) }, T("addManual")),
+                e("span", { style: { color: C.dim, margin: "0 8px" } }, "·"),
+                e("span", { style: { color: C.accent, fontSize: 13, cursor: "pointer", fontWeight: 700 }, onClick: () => setView("offer") }, T("checkOffer"))))),
 
       // stop signal / heavy day (when not tracking)
       !active && hit && liveH >= 6 ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent, background: C.accentDim, color: C.accent, fontWeight: 700 }) }, "✋ " + T("stopSignal")) : null,
@@ -1369,7 +1572,7 @@ function App() {
     const feeRatio = allP.gross > 0 ? allP.fees / allP.gross : 0;
 
     const opts = data.vehicles.map(v => ({ v, mine: true }));
-    Object.keys(CONFIG.vehicleTypes).forEach(t => { if (!data.vehicles.some(v => v.type === t)) opts.push({ v: Object.assign(presetVehicle(t), { name: "" }), mine: false }); });
+    Object.keys(CONFIG.vehicleTypes).forEach(t => { if (!data.vehicles.some(v => v.type === t)) opts.push({ v: Object.assign(applyAutoDep(presetVehicle(t, st.country), 0, 40000), { name: "" }), mine: false }); });
     const kmMonth = toKm(kmDay) * num(days);
     const rows = opts.map(o => { const c = vehicleCost(o.v); const cost = kmMonth * c.total + c.fixed; return Object.assign({}, o, { c, cost, net: num(grossDay) * num(days) - cost }); }).sort((x, y) => y.net - x.net);
     const cur = rows.find(r => r.mine && r.v.id === st.defaultVehicleId) || rows.find(r => r.mine);
@@ -1475,7 +1678,8 @@ function App() {
             paceRow(T("today"), tP.net, tg.dailyNet),
             paceRow(T("week"), wP.net, tg.dailyNet * Math.min(weekDayIdx, tg.wd)),
             paceRow(T("month"), mP.net, tg.monthNet * dom / dim),
-            tP.net >= tg.dailyNet && tP.S.length ? e("div", { style: Object.assign({}, S.card, { background: C.accentDim, borderColor: C.accent, color: C.accent, fontWeight: 700, marginBottom: 0 }) }, "✋ " + T("stopSignal")) : null) : null)));
+            tP.net >= tg.dailyNet && tP.S.length ? e("div", { style: Object.assign({}, S.card, { background: C.accentDim, borderColor: C.accent, color: C.accent, fontWeight: 700, marginBottom: 0 }) }, "✋ " + T("stopSignal")) : null) : null)),
+      e(BizPlannerC));
   };
 
   const TaxView = () => {
@@ -1549,10 +1753,11 @@ function App() {
               Line(T("seTax"), money(est.se)),
               Line(T("fedTax"), money(est.fed)),
               sub("QBI " + money(est.qbi) + " · ½ SE " + money(est.halfSE) + (num(st.otherIncome) ? " · W-2 " + money(num(st.otherIncome), 0) : "")),
-              Line(T("stateTax") + (st.state ? " (" + st.state + ")" : ""), money(est.state)),
+              Line(T("stateTax") + (st.state ? " (" + st.state + (est.stateRate ? ", " + (Math.round(est.stateRate * 10000) / 100) + "% bracket" : "") + ")" : ""), money(est.state)),
+              est.localTax > 0 ? Line(T("localTax") + " (" + num(st.localRate) + "%)", money(est.localTax)) : null,
               Line(T("setAside"), money(est.total), { bold: true, color: C.amber }),
               Line(T("effRate"), pct(est.eff)),
-              !st.state ? e("div", { style: Object.assign({}, S.small, { marginTop: 6, color: C.amber }) }, T("state") + ": — · " + T("stateRateHint")) : null) : null,
+              !st.state ? e("div", { style: Object.assign({}, S.small, { marginTop: 6, color: C.amber }) }, T("pickState")) : null) : null,
             country === "NL" ? e("div", null,
               Line(T("gross") + " − " + T("fees"), money(b.gross - b.fees)),
               Line(T("businessDist"), Math.round(b.stdDist).toLocaleString(locale) + " km"),
@@ -1666,9 +1871,10 @@ function App() {
               Field(T("otherIncomeUS"), e("input", { style: S.input, inputMode: "decimal", value: f.otherIncome, onChange: ev => set("otherIncome", ev.target.value) })),
               e("div", { className: "grid2" },
                 Field(T("state"), e("select", { style: S.input, value: f.state, onChange: ev => set("state", ev.target.value) }, e("option", { value: "" }, "—"), US_STATES.map(s => e("option", { key: s.code, value: s.code }, s.name)))),
-                stObj && stObj.noTax ? Field(T("stateRate"), e("div", { style: Object.assign({}, S.input, { color: C.accent }) }, T("noStateTax")))
-                  : Field(T("stateRate"), e("input", { style: S.input, inputMode: "decimal", placeholder: "e.g. 4.5", value: f.stateRate, onChange: ev => set("stateRate", ev.target.value) }))),
-              stObj && !stObj.noTax ? e("div", { style: Object.assign({}, S.small, { marginTop: -6, marginBottom: 8 }) }, T("stateRateHint")) : null) : null,
+                Field(T("yourStateRate"), e("div", { style: Object.assign({}, S.input, { color: stObj ? C.accent : C.muted }) },
+                  !stObj ? "—" : stObj.noTax ? T("noStateTax") : (() => { const ytd = taxEstimate(data, new Date().getFullYear()); const r = stateIncomeTax(f.state, f.filing === "mfj", num(f.otherIncome) + Math.max(0, ytd.profit)); return (Math.round(r.rate * 10000) / 100) + "%"; })()))),
+              e("div", { style: Object.assign({}, S.small, { marginTop: -6, marginBottom: 10, color: f.state ? C.muted : C.amber }) }, f.state ? T("stateAuto") : T("pickState")),
+              Field(T("localRate"), e("input", { style: S.input, inputMode: "decimal", placeholder: "0", value: f.localRate || "", onChange: ev => set("localRate", ev.target.value) }), T("localHint"))) : null,
             f.country === "NL" ? e("div", null,
               Field(T("otherIncomeNL"), e("input", { style: S.input, inputMode: "decimal", value: f.otherIncome, onChange: ev => set("otherIncome", ev.target.value) })),
               Field(T("nlHours"), sel("nlHours", [["auto", T("h_auto")], ["yes", T("h_yes")], ["no", T("h_no")]]))) : null,
@@ -1699,10 +1905,164 @@ function App() {
           e("div", { style: Object.assign({}, S.small, { textAlign: "center", padding: 10, lineHeight: 1.6 }) }, CONFIG.appName + " " + CONFIG.version + " · " + CONFIG.tagline, e("br"), "BuildFlow by Weblina LLC"))));
   };
 
+  // ── Offer Profit Analyzer: is this order worth taking? ──
+  const OfferView = () => {
+    const today = dISO(new Date());
+    const h0 = computePeriod(data, addDays(today, -55), today);
+    const hist = h0.S.length ? h0 : computePeriod(data, "1970-01-01", today);
+    const hrs = hist.mins / 60;
+    const avgPh = hrs > 0 ? hist.perHour : 0;
+    const emptyShare = hist.km > 0 ? hist.emptyKm / hist.km : 0.25;
+    const kph = hrs > 0 && hist.km > 0 ? hist.km / hrs : 25;
+    const [o, setO] = useState({ pay: "", pickup: "", trip: "", mins: "", ret: "", veh: (active && active.vehicleId) || st.defaultVehicleId || (data.vehicles[0] || {}).id || "" });
+    const [log, setLog] = useState(LS.get("kept_offers", []));
+    const [mh, setMh] = useState(st.offerMinHour || ""), [md, setMd] = useState(st.offerMinMile || "");
+    const set = (k, v) => setO(x => Object.assign({}, x, { [k]: v }));
+    const v = vmap[o.veh], cpk = vehicleCost(v).total;
+    const retAuto = num(o.trip) * clamp(emptyShare, 0.1, 0.5);
+    const ret = o.ret === "" ? retAuto : num(o.ret);
+    const totKm = toKm(num(o.pickup) + num(o.trip) + ret);
+    const totMins = num(o.mins) + toKm(ret) / Math.max(5, kph) * 60;
+    const pay = num(o.pay), cost = totKm * cpk, profit = pay - cost;
+    const ph = totMins > 0 ? profit / (totMins / 60) : 0;
+    const pd = totKm > 0 ? profit / dist(totKm) : 0;
+    const take = profit - Math.max(0, profit) * setAsideRate(data);
+    const minH = num(mh) || (avgPh > 0 ? Math.round(avgPh) : 20);
+    const minD = num(md) || (unit === "mi" ? 1 : 0.6);
+    const ready = pay > 0 && (num(o.trip) > 0 || num(o.pickup) > 0) && num(o.mins) > 0;
+    const okH = ph >= minH, okD = pd >= minD;
+    const verdict = !ready ? null : okH && okD ? "take" : !okH && !okD ? "skip" : "maybe";
+    const vc = verdict ? { take: C.accent, maybe: C.amber, skip: C.red }[verdict] : null;
+    const record = took => {
+      const r = { ts: Date.now(), pay, dist: +dist(totKm).toFixed(1), mins: Math.round(totMins), ph: +ph.toFixed(2), profit: +profit.toFixed(2), verdict, took };
+      const nl = [r].concat(log).slice(0, 50); setLog(nl); LS.set("kept_offers", nl);
+      setO(x => Object.assign({}, x, { pay: "", pickup: "", trip: "", mins: "", ret: "" })); showToast(T("saved"));
+    };
+    const big = (k, label, ph2) => Field(label, e("input", { style: Object.assign({}, S.input, { fontSize: 20, fontWeight: 800 }), inputMode: "decimal", placeholder: ph2 || "0", value: o[k], onChange: ev => set(k, ev.target.value) }));
+    const vLabel = x => T(x === "take" ? "verdictTake" : x === "skip" ? "verdictSkip" : "verdictMaybe");
+    const taken = log.filter(x => x.took);
+    return e("div", null,
+      e("div", { style: S.h1 }, T("offerTitle")),
+      e("div", { className: "cols" },
+        e("div", { style: S.card },
+          big("pay", T("offerPay"), "0.00"),
+          e("div", { className: "grid3" }, big("pickup", T("pickupDist") + " (" + unit + ")"), big("trip", T("tripDist") + " (" + unit + ")"), big("mins", T("estMins"))),
+          e("div", { className: "grid2" },
+            Field(T("returnEmpty") + " (" + unit + ")", e("input", { style: S.input, inputMode: "decimal", placeholder: retAuto.toFixed(1), value: o.ret, onChange: ev => set("ret", ev.target.value) })),
+            data.vehicles.length ? Field(T("vehicle"), e("select", { style: S.input, value: o.veh, onChange: ev => set("veh", ev.target.value) }, data.vehicles.map(x => e("option", { key: x.id, value: x.id }, CONFIG.vehicleTypes[x.type].icon + " " + vName(x))))) : e("div")),
+          e("div", { style: Object.assign({}, S.small, { lineHeight: 1.45 }) }, T("offerNote"))),
+        e("div", null,
+          e("div", { style: Object.assign({}, S.card, verdict ? { borderColor: vc, background: vc + "14" } : {}) },
+            e("div", { style: Object.assign({}, S.row, { marginBottom: 12 }) },
+              e("div", { style: { fontSize: 28, fontWeight: 900, color: vc || C.muted } }, verdict ? vLabel(verdict) : "—"),
+              ready ? e("div", { style: { fontSize: 13, color: C.sub, textAlign: "right" } }, fmtDist(totKm, 1), e("br"), Math.round(totMins) + " min") : null),
+            e("div", { className: "grid2", style: { marginBottom: 10 } },
+              Stat(T("perHour") + " (min " + money(minH, 0) + ")", money(ph), ready ? (okH ? C.accent : C.red) : null),
+              Stat("Net / " + unit + " (min " + money(minD, 2) + ")", money(pd), ready ? (okD ? C.accent : C.red) : null)),
+            Line(T("offerPay"), money(pay)),
+            Line(T("vehicleWear") + " · " + money(perUnit(cpk), 3) + "/" + unit, "−" + money(cost)),
+            Line(T("profitAfterCost"), money(profit), { bold: true, color: profit < 0 ? C.red : C.text }),
+            Line(T("afterTax"), money(take)),
+            ready ? e("div", { className: "grid2", style: { marginTop: 12 } },
+              e("button", { style: S.btn("ghost"), onClick: () => record(false) }, T("logSkip")),
+              e("button", { style: S.btn(), onClick: () => record(true) }, T("logOffer"))) : null),
+          e("div", { style: S.card },
+            e("div", { className: "grid2" },
+              Field(T("minHour"), e("input", { style: S.input, inputMode: "decimal", placeholder: String(avgPh > 0 ? Math.round(avgPh) : 20), value: mh, onChange: ev => setMh(ev.target.value), onBlur: () => saveSettings({ offerMinHour: mh }) })),
+              Field(T("minMile") + " " + unit, e("input", { style: S.input, inputMode: "decimal", placeholder: unit === "mi" ? "1.00" : "0.60", value: md, onChange: ev => setMd(ev.target.value), onBlur: () => saveSettings({ offerMinMile: md }) }))),
+            e("div", { style: S.small }, T("offerTargetsHint"))),
+          log.length ? e("div", { style: S.card },
+            e("div", { style: Object.assign({}, S.row, { marginBottom: 8 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("recentOffers")),
+              e("span", { style: S.small }, taken.length + "/" + log.length + " " + T("took") + (taken.length ? " · " + money(sum(taken, x => x.ph) / taken.length) + "/" + T("hours") : ""))),
+            log.slice(0, 8).map(x => e("div", { key: x.ts, style: Object.assign({}, S.row, { fontSize: 13, padding: "7px 0", borderTop: "1px solid " + C.border }) },
+              e("span", { style: { color: C.sub } }, new Date(x.ts).toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" })),
+              e("span", null, money(x.pay) + " · " + x.dist + " " + unit + " · " + money(x.ph, 0) + "/" + T("hours")),
+              e("span", { style: S.badge(x.took ? C.accent : C.muted) }, x.took ? T("took") : T("skipped"))))) : null)));
+  };
+
+  // ── Personal Profit Map: where your own shifts earn the most ──
+  const MapView = () => {
+    const box = useRef(null), mapRef = useRef(null), layerRef = useRef(null);
+    const [lf, setLf] = useState(window.L && window.L.map ? "ok" : "load");
+    const S2 = data.shifts.filter(s => s.loc && isFinite(s.loc.lat) && isFinite(s.loc.lon));
+    const cellsMap = {};
+    S2.forEach(s => {
+      const k = Math.round(s.loc.lat / 0.02) + ":" + Math.round(s.loc.lon / 0.025);
+      const c = cellsMap[k] = cellsMap[k] || { k, n: 0, net: 0, mins: 0, lat: 0, lon: 0 };
+      c.n++; c.net += shiftNet(s); c.mins += shiftMins(s); c.lat += s.loc.lat; c.lon += s.loc.lon;
+    });
+    const cells = Object.values(cellsMap).map(c => Object.assign(c, { lat: c.lat / c.n, lon: c.lon / c.n, ph: c.mins ? c.net / (c.mins / 60) : 0 })).sort((a, b) => b.ph - a.ph);
+    cells.forEach((c, i) => { c.rank = i + 1; c.col = cells.length < 3 ? C.accent : i < cells.length / 3 ? C.accent : i < 2 * cells.length / 3 ? C.amber : C.red; });
+    const sig = cells.map(c => c.k + c.n + Math.round(c.ph)).join("|");
+    useEffect(() => {
+      if (lf !== "load") return;
+      if (!document.getElementById("leaflet-css")) { const l = document.createElement("link"); l.id = "leaflet-css"; l.rel = "stylesheet"; l.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(l); }
+      loadScript("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js").then(() => setLf(window.L && window.L.map ? "ok" : "fail")).catch(() => setLf("fail"));
+    }, []);
+    useEffect(() => {
+      if (lf !== "ok" || !box.current || !cells.length) return;
+      const Lf = window.L;
+      if (!mapRef.current) {
+        mapRef.current = Lf.map(box.current, { zoomControl: true, attributionControl: true });
+        Lf.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap contributors" }).addTo(mapRef.current);
+      }
+      if (layerRef.current) layerRef.current.remove();
+      layerRef.current = Lf.layerGroup(cells.map(c => Lf.circleMarker([c.lat, c.lon], { radius: 9 + Math.min(14, c.n * 2), color: c.col, fillColor: c.col, fillOpacity: 0.45, weight: 2 })
+        .bindTooltip("#" + c.rank + " · " + money(c.ph) + "/" + T("hours") + " · " + c.n + " " + T("shifts").toLowerCase()))).addTo(mapRef.current);
+      mapRef.current.fitBounds(Lf.latLngBounds(cells.map(c => [c.lat, c.lon])).pad(0.3), { maxZoom: 13 });
+    }, [lf, sig]);
+    useEffect(() => () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } }, []);
+    return e("div", null,
+      e("div", { style: S.h1 }, T("mapTitle")),
+      e("div", { style: Object.assign({}, S.small, { marginBottom: 12, lineHeight: 1.45 }) }, T("mapHint")),
+      !cells.length ? Empty(T("mapEmpty")) : e("div", null,
+        e("div", { style: Object.assign({}, S.card, { padding: 0, overflow: "hidden" }) },
+          lf === "fail" ? e("div", { style: { padding: 20, color: C.muted, fontSize: 13 } }, "Map tiles unavailable offline — the ranking below still works.") :
+          e("div", { ref: box, style: { height: 360, background: C.card2 } })),
+        e("div", { style: S.card },
+          e("div", { style: S.h2 }, T("topAreas")),
+          e("div", { style: Object.assign({}, S.row, S.small, { fontWeight: 700, padding: "4px 0" }) }, e("span", { style: { flex: 2 } }, T("area")), e("span", { style: { flex: 1, textAlign: "right" } }, T("shifts")), e("span", { style: { flex: 1, textAlign: "right" } }, T("workTime")), e("span", { style: { flex: 1, textAlign: "right" } }, T("perHour"))),
+          cells.map(c => e("div", { key: c.k, className: "tap", style: Object.assign({}, S.row, { fontSize: 13, padding: "8px 0", borderTop: "1px solid " + C.border, cursor: "pointer" }),
+              onClick: () => mapRef.current && mapRef.current.setView([c.lat, c.lon], 14) },
+            e("span", { style: { flex: 2, display: "flex", alignItems: "center", gap: 8 } }, e("span", { style: { width: 10, height: 10, borderRadius: 10, background: c.col, display: "inline-block" } }),
+              e("b", null, "#" + c.rank), e("span", { style: S.small }, c.lat.toFixed(3) + ", " + c.lon.toFixed(3))),
+            e("span", { style: { flex: 1, textAlign: "right" } }, c.n + (c.n < 3 ? " ·" : "")),
+            e("span", { style: { flex: 1, textAlign: "right", color: C.sub } }, fmtDur(c.mins)),
+            e("span", { style: { flex: 1, textAlign: "right", fontWeight: 800, color: c.col } }, money(c.ph))))),
+          e("div", { style: S.small }, "· = " + T("lowSample"))));
+  };
+
+  // ── Gig Business Planner card (inside Coach) ──
+  const BizPlanner = () => {
+    const [em, setEm] = useState(st.emergencyPct == null ? 10 : st.emergencyPct);
+    const today = dISO(new Date()), P = computePeriod(data, addDays(today, -29), today);
+    let energy = 0, maint = 0, dep = 0;
+    P.S.forEach(s => { const c = vehicleCost(vmap[s.vehicleId]); energy += num(s.km) * c.energy; maint += num(s.km) * (c.parts + c.battery); dep += num(s.km) * c.dep; });
+    const fees = P.fees, fixed = P.fixed, other = P.otherExp, gross = P.gross;
+    const profit = gross - fees - energy - maint - dep - fixed - other;
+    const tax = Math.max(0, profit) * setAsideRate(data);
+    const emerg = Math.max(0, profit - tax) * clamp(num(em), 0, 100) / 100;
+    const pay = profit - tax - emerg;
+    const rows = [["fundFees", fees, C.dim], ["fundEnergy", energy, C.amber], ["fundFixed", fixed, "#8a6fd1"], ["fundOther", other, C.purple],
+      ["fundMaint", maint, "#3fb8c9"], ["fundVehicle", dep, C.blue], ["fundTax", tax, C.red], ["fundEmergency", emerg, "#e8a0c8"], ["fundPay", pay, C.accent]];
+    if (!(gross > 0)) return e("div", { style: S.card }, e("div", { style: S.h2 }, T("bizPlanner")), e("div", { style: S.small }, T("notEnough")));
+    return e("div", { style: S.card },
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 4 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("bizPlanner")), e("span", { style: S.small }, T("last30") + " · " + money(gross, 0))),
+      e("div", { style: { display: "flex", height: 18, borderRadius: 8, overflow: "hidden", margin: "12px 0", background: C.input } },
+        rows.filter(r => r[1] > 0).map(r => e("div", { key: r[0], title: T(r[0]), style: { width: (r[1] / gross * 100) + "%", background: r[2] } }))),
+      rows.map(r => e("div", { key: r[0], style: Object.assign({}, S.row, { fontSize: 13, padding: "6px 0", borderTop: "1px solid " + C.border }, r[0] === "fundPay" ? { fontWeight: 800 } : {}) },
+        e("span", { style: { display: "flex", alignItems: "center", gap: 8, color: r[0] === "fundPay" ? C.text : C.sub } }, e("span", { style: { width: 10, height: 10, borderRadius: 3, background: r[2], display: "inline-block" } }), T(r[0])),
+        e("span", { style: { display: "flex", gap: 14 } }, e("span", { style: { color: r[1] < 0 ? C.red : C.text } }, money(r[1], 0)), e("span", { style: Object.assign({}, S.small, { minWidth: 70, textAlign: "right" }) }, money(r[1] / gross * 100, 2) + " " + T("per100l"))))),
+      e("div", { style: { marginTop: 12, padding: "10px 12px", borderRadius: 12, background: C.accentDim, fontSize: 13, lineHeight: 1.55 } },
+        e("b", null, T("monthlyTransfer") + ": " + money(tax + maint + dep + emerg, 0)), e("br"),
+        e("span", { style: { color: C.sub } }, T("fundTax") + " " + money(tax, 0) + " · " + T("fundMaint") + " " + money(maint, 0) + " · " + T("fundVehicle") + " " + money(dep, 0) + " · " + T("fundEmergency") + " " + money(emerg, 0))),
+      e("div", { style: { marginTop: 12, maxWidth: 320 } }, Field(T("emergencyPct"), e("input", { style: S.input, inputMode: "decimal", value: em, onChange: ev => setEm(ev.target.value), onBlur: () => saveSettings({ emergencyPct: num(em) }) }))));
+  };
+
   const MoreView = () => e("div", null,
     e("div", { style: S.h1 }, T("more")),
     e("div", { className: "grid2" },
-      [["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]].map(x =>
+      [["expenses", "receipt"], ["map", "pin"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]].map(x =>
         e("div", { key: x[0], className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", textAlign: "center", padding: 22, marginBottom: 0 }), onClick: () => setView(x[0]) },
           e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 8 } }, e(Icon, { n: x[1], s: 26 })),
           e("div", { style: { fontWeight: 700 } }, T(x[0]))))));
@@ -1747,7 +2107,7 @@ function App() {
       const rec = { id: base.id, date: f.date, start: startD.toISOString(), end: endD.toISOString(), vehicleId: f.vehicleId,
         km: +toKm(f.km).toFixed(3), emptyKm: +toKm(f.emptyKm).toFixed(3), personalKm: +toKm(f.personalKm).toFixed(3),
         platforms: f.platforms.filter(p => p.name).map(p => ({ name: p.name, base: num(p.base), tips: num(p.tips), bonus: num(p.bonus), fees: num(p.fees), trips: num(p.trips),
-          km: multi && p.km !== "" ? +toKm(p.km).toFixed(3) : "", mins: multi && p.mins !== "" ? num(p.mins) : "" })), notes: f.notes, photos: f.photos };
+          km: multi && p.km !== "" ? +toKm(p.km).toFixed(3) : "", mins: multi && p.mins !== "" ? num(p.mins) : "" })), notes: f.notes, photos: f.photos, loc: base.loc || null };
       if (rec.platforms.length) LS.set("kept_lastPlatform", rec.platforms[rec.platforms.length - 1].name);
       upsert("shifts", rec); if (fromTracking) finishTracking(); setModal(null); showToast(T("saved"));
     };
@@ -1849,80 +2209,125 @@ function App() {
 
   function VehicleModal({ init }) {
     const isNew = !init;
-    const [f, setF] = useState(() => init ? JSON.parse(JSON.stringify(init)) : null);
+    // vehicles saved before v3 keep their own numbers ("manual"); new ones start automatic
+    const [f, setF] = useState(() => init ? Object.assign({ depMode: "manual", fuelKind: init.energy === "electric" ? "electric" : init.fuelType === "diesel" ? "diesel" : "gasoline" }, JSON.parse(JSON.stringify(init))) : null);
     const [showLookup, setShowLookup] = useState(false);
+    const [adv, setAdv] = useState(false);
     const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
     const setPart = (i, k, v) => setF(x => { const ps = x.parts.slice(); ps[i] = Object.assign({}, ps[i], { [k]: v }); return Object.assign({}, x, { parts: ps }); });
     if (!f) return ModalShell(T("addVehicle"), e("div", { style: { display: "grid", gap: 8 } },
-      Object.keys(CONFIG.vehicleTypes).map(t => e("div", { key: t, className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", marginBottom: 0, display: "flex", alignItems: "center", gap: 12 }), onClick: () => setF(presetVehicle(t)) },
+      Object.keys(CONFIG.vehicleTypes).map(t => e("div", { key: t, className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", marginBottom: 0, display: "flex", alignItems: "center", gap: 12 }), onClick: () => setF(presetVehicle(t, st.country)) },
         e("span", { style: { fontSize: 28 } }, CONFIG.vehicleTypes[t].icon), e("span", { style: { fontWeight: 700 } }, T("t_" + t))))), () => setModal(null));
-    const c = vehicleCost(f);
-    const distIn = k => e("input", { style: S.input, inputMode: "decimal", value: f[k] === "" ? "" : Math.round(dist(num(f[k]))), onChange: ev => set(k, ev.target.value === "" ? "" : toKm(ev.target.value)) });
-    const moneyIn = (k, ph) => e("input", { style: S.input, inputMode: "decimal", placeholder: ph || "", value: f[k], onChange: ev => set(k, ev.target.value) });
-    const usMpg = unit === "mi" && f.energy === "fuel";
-    const evMi = unit === "mi" && f.energy === "electric";
+    const isCar = f.type === "car", motor = isCar || f.type === "motorcycle", auto = f.depMode === "auto";
+    const odoKm = isNew ? num(f.startOdo) : odoOf(f);
+    const annKm = annualKmOf(f.id);
+    const preview = auto ? applyAutoDep(f, odoKm, annKm) : f;
+    const est = auto && !f.leased ? autoDepreciation(f, odoKm, annKm) : null;
+    const c = vehicleCost(preview);
+    const SIN = Object.assign({}, S.input, { padding: "10px 8px", fontSize: 14 });
+    const distIn = k => e("input", { style: S.input, inputMode: "decimal", value: f[k] === "" || f[k] == null ? "" : Math.round(dist(num(f[k]))), onChange: ev => set(k, ev.target.value === "" ? "" : toKm(ev.target.value)) });
+    const moneyIn = (k, ph) => e("input", { style: S.input, inputMode: "decimal", placeholder: ph || "", value: f[k] == null ? "" : f[k], onChange: ev => set(k, ev.target.value) });
+    const usMpg = unit === "mi" && f.energy === "fuel", evMi = unit === "mi" && f.energy === "electric";
     const consLabel = f.energy === "fuel" ? (usMpg ? "mpg" : "L / 100 km") : (evMi ? "kWh / 100 mi" : "kWh / 100 km");
     const consVal = usMpg ? (num(f.cons) ? +(235.215 / num(f.cons)).toFixed(1) : "") : evMi ? +(num(f.cons) * KM_PER_MI).toFixed(2) : f.cons;
-    const setCons = v => set("cons", usMpg ? (num(v) ? 235.215 / num(v) : 0) : evMi ? num(v) / KM_PER_MI : v);
+    const setCons = v => setF(x => Object.assign({}, x, { cons: usMpg ? (num(v) ? 235.215 / num(v) : 0) : evMi ? num(v) / KM_PER_MI : v, consLocked: true }));
     const priceLabel = f.energy === "fuel" ? (usMpg ? "/ gal" : "/ L") : "/ kWh";
     const priceVal = usMpg ? +(num(f.price) * L_PER_GAL).toFixed(3) : f.price;
     const setPrice = v => set("price", usMpg ? num(v) / L_PER_GAL : v);
+    const bodyOf = id => CONFIG.bodyTypes.find(b => b[0] === id) || CONFIG.bodyTypes[1];
+    // typical consumption for a body type + fuel, used until the user or the lookup sets a real figure
+    const typical = (bodyId, kind) => {
+      const mpg = bodyOf(bodyId)[3];
+      if (kind === "electric") return { energy: "electric", cons: (bodyId === "pickup" || bodyId === "suv" ? 40 : 30) / KM_PER_MI, price: st.country === "NL" ? 0.30 : 0.17 };
+      return { energy: "fuel", cons: 235.215 / (kind === "hybrid" ? mpg * 1.5 : kind === "diesel" ? mpg * 1.15 : mpg), price: st.country === "NL" ? 1.95 : 0.83 };
+    };
+    const setFuelKind = kind => setF(x => {
+      const t = isCar ? typical(x.body, kind) : (kind === "electric" ? { energy: "electric", cons: 4, price: st.country === "NL" ? 0.30 : 0.17 } : { energy: "fuel", cons: 3, price: st.country === "NL" ? 1.95 : 0.83 });
+      const keep = x.consLocked && (x.energy === t.energy);
+      return Object.assign({}, x, { fuelKind: kind, fuelType: kind === "diesel" ? "diesel" : "petrol", energy: t.energy, price: x.energy === t.energy ? x.price : t.price }, keep ? {} : { cons: +t.cons.toFixed(3) });
+    });
+    const setBody = id => setF(x => Object.assign({}, x, { body: id }, x.consLocked ? {} : { cons: +typical(id, x.fuelKind).cons.toFixed(3) }));
     const onMpg = r => {
-      const patch = { name: f.name || r.label };
-      if (r.ev && r.kwhPer100mi) Object.assign(patch, { energy: "electric", cons: +(r.kwhPer100mi / KM_PER_MI).toFixed(3) });
-      else if (r.mpg) Object.assign(patch, { energy: "fuel", cons: +(235.215 / r.mpg).toFixed(3), fuelType: /diesel/i.test(r.fuelType || "") ? "diesel" : "petrol" });
+      const body = vclassToBody(r.vclass, r.make || "");
+      const patch = { year: num(r.year) || f.year, make: r.make || f.make, model: r.model || f.model, body, name: f.name || r.label, consLocked: true };
+      if (r.ev && r.kwhPer100mi) Object.assign(patch, { energy: "electric", fuelKind: "electric", cons: +(r.kwhPer100mi / KM_PER_MI).toFixed(3), price: f.energy === "electric" ? f.price : (st.country === "NL" ? 0.30 : 0.17) });
+      else if (r.mpg) Object.assign(patch, { energy: "fuel", fuelKind: r.hybrid ? "hybrid" : /diesel/i.test(r.fuelType || "") ? "diesel" : "gasoline", cons: +(235.215 / r.mpg).toFixed(3), fuelType: /diesel/i.test(r.fuelType || "") ? "diesel" : "petrol", price: f.energy === "fuel" ? f.price : (st.country === "NL" ? 1.95 : 0.83) });
       setF(x => Object.assign({}, x, patch)); setShowLookup(false); showToast((r.mpg ? r.mpg + " mpg" : r.kwhPer100mi + " kWh/100mi") + " ✓");
     };
     const save = () => {
-      const rec = Object.assign({}, f, {
-        purchase: num(f.purchase), resale: num(f.resale), valueNow: f.valueNow === "" ? "" : num(f.valueNow), lifeKm: num(f.lifeKm), cons: num(f.cons), price: num(f.price), battPrice: num(f.battPrice), battKm: num(f.battKm),
-        startOdo: num(f.startOdo), insurance: num(f.insurance), rent: num(f.rent), otherFixed: num(f.otherFixed),
+      let rec = Object.assign({}, f, {
+        year: num(f.year), purchase: num(f.purchase), resale: num(f.resale), valueNow: f.valueNow === "" ? "" : num(f.valueNow), lifeKm: num(f.lifeKm), cons: num(f.cons), price: num(f.price), battPrice: num(f.battPrice), battKm: num(f.battKm),
+        startOdo: num(f.startOdo), insurance: num(f.insurance), rent: num(f.rent), otherFixed: num(f.otherFixed), pricePaid: f.pricePaid === "" || f.pricePaid == null ? "" : num(f.pricePaid),
+        name: f.name || [f.year, f.make, f.model].filter(Boolean).join(" "),
         parts: f.parts.filter(p => p.name).map(p => ({ id: p.id || genId(), name: p.name, cost: num(p.cost), interval: num(p.interval), lastAt: num(p.lastAt) })) });
+      if (rec.depMode === "auto") rec = applyAutoDep(rec, isNew ? rec.startOdo : odoKm, annKm);
       upsert("vehicles", rec);
       if (!st.defaultVehicleId) saveSettings({ defaultVehicleId: rec.id });
       setModal(null); showToast(T("saved"));
     };
-    const SIN = Object.assign({}, S.input, { padding: "10px 8px", fontSize: 14 });
     const chk = (k, label, defTrue) => e("label", { style: { display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: C.sub, marginBottom: 8 } },
       e("input", { type: "checkbox", checked: defTrue ? f[k] !== false : !!f[k], onChange: ev => set(k, ev.target.checked) }), label);
+    const fuelSel = motor ? Field(T("fuelKind"), e("select", { style: S.input, value: f.fuelKind || "gasoline", onChange: ev => setFuelKind(ev.target.value) },
+      e("option", { value: "gasoline" }, T("gasoline")), e("option", { value: "diesel" }, T("diesel")), isCar ? e("option", { value: "hybrid" }, T("hybrid")) : null, e("option", { value: "electric" }, T("electric")))) : null;
+    const estPanel = est ? e("div", { style: { background: C.accentDim, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
+      e("div", { style: S.row }, e("span", { style: { color: C.sub, fontSize: 13 } }, T("estValue")), e("b", { style: { fontSize: 18 } }, money(est.valueNow, 0))),
+      e("div", { style: Object.assign({}, S.small, { marginBottom: 6 }) }, T("newPriceL") + " " + money(est.newPrice, 0) + " · " + T("ageL") + " " + est.age.toFixed(1) + " " + T("yearsL")),
+      e("div", { style: S.row }, e("span", { style: { color: C.sub, fontSize: 13 } }, T("depAuto")), e("b", { style: { color: C.accent, fontSize: 16 } }, money(perUnit(est.perKm), 3) + " / " + unit)),
+      e("div", { style: Object.assign({}, S.small, { marginTop: 6, lineHeight: 1.45 }) }, T("depAutoNote"))) : null;
     return ModalShell(CONFIG.vehicleTypes[f.type].icon + " " + (isNew ? T("addVehicle") : vName(f)), e("div", null,
-      f.type === "car" ? (showLookup ? e(MpgLookupC, { onPick: onMpg }) : e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }, onClick: () => setShowLookup(true) }, "🔎 " + T("lookupMpg"))) : null,
+      isCar ? (showLookup ? e(MpgLookupC, { onPick: onMpg }) : (!localMode ? e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }, onClick: () => setShowLookup(true) }, "🔎 " + T("lookupMpg")) : null)) : null,
+      isCar ? e("div", null,
+        e("div", { style: { display: "grid", gridTemplateColumns: "90px 1fr 1fr", gap: 10, alignItems: "end" } },
+          Field(T("yearModel"), e("input", { style: S.input, inputMode: "numeric", value: f.year, onChange: ev => set("year", ev.target.value.replace(/\D/g, "").slice(0, 4)) })),
+          Field(T("make"), e("input", { style: S.input, list: "kept-makes", placeholder: "Toyota", value: f.make || "", onChange: ev => set("make", ev.target.value) })),
+          Field(T("model"), e("input", { style: S.input, placeholder: "Camry", value: f.model || "", onChange: ev => set("model", ev.target.value) }))),
+        e("datalist", { id: "kept-makes" }, MAKES.map(m => e("option", { key: m, value: m }))),
+        e("div", { className: "grid2" },
+          Field(T("body"), e("select", { style: S.input, value: f.body || "midsize", onChange: ev => setBody(ev.target.value) }, CONFIG.bodyTypes.map(b => e("option", { key: b[0], value: b[0] }, b[1])))),
+          fuelSel))
+      : e("div", { className: "grid2" },
+          Field(T("name"), e("input", { style: S.input, placeholder: T("t_" + f.type), value: f.name, onChange: ev => set("name", ev.target.value) })),
+          Field(T("yearModel"), e("input", { style: S.input, inputMode: "numeric", value: f.year, onChange: ev => set("year", ev.target.value.replace(/\D/g, "").slice(0, 4)) }))),
+      !isCar && motor ? fuelSel : null,
       e("div", { className: "grid2" },
-        Field(T("name"), e("input", { style: S.input, placeholder: T("t_" + f.type), value: f.name, onChange: ev => set("name", ev.target.value) })),
-        Field(T("odometer") + " (" + unit + ")", distIn("startOdo"))),
-      e("div", { style: Object.assign({}, S.label, { marginTop: 4, color: C.blue }) }, T("depreciation")),
-      chk("leased", T("leased")),
-      !f.leased ? e("div", null,
-        e("div", { className: "grid3" }, Field(T("purchase"), moneyIn("purchase")), Field(T("resale"), moneyIn("resale")), Field(T("lifeKm") + " (" + unit + ")", distIn("lifeKm"))),
-        Field(T("valueWhenAdded"), moneyIn("valueNow", String(num(f.purchase) || "")))) : null,
-      e("div", { style: Object.assign({}, S.label, { color: C.amber }) }, T("energy")),
-      f.type === "car" || f.type === "motorcycle" ? e("div", { className: "grid2" },
-        Field(T("energyType"), e("select", { style: S.input, value: f.energy, onChange: ev => set("energy", ev.target.value) },
-          e("option", { value: "fuel" }, T("fuel")), e("option", { value: "electric" }, T("electric")))),
-        f.energy === "fuel" ? Field(T("fuel"), e("select", { style: S.input, value: f.fuelType || "petrol", onChange: ev => set("fuelType", ev.target.value) },
-          e("option", { value: "petrol" }, T("petrol")), e("option", { value: "diesel" }, T("diesel")))) : e("div")) : null,
+        Field((isNew ? T("odoOptional") : T("odometer")) + " (" + unit + ")", isNew ? distIn("startOdo") : e("div", { style: Object.assign({}, S.input, { color: C.sub }) }, fmtDist(odoKm, 0))),
+        Field(T("insurance"), moneyIn("insurance"))),
       f.energy !== "none" ? e("div", { className: "grid2" },
         Field(T("consumption") + " (" + consLabel + ")", e("input", { style: S.input, inputMode: "decimal", value: consVal, onChange: ev => setCons(ev.target.value) })),
         Field(T("energyPrice") + " " + priceLabel, e("input", { style: S.input, inputMode: "decimal", value: priceVal, onChange: ev => setPrice(ev.target.value) }))) : null,
-      f.energy === "electric" && f.type !== "car" ? e("div", { className: "grid2" },
-        Field(T("battPrice"), moneyIn("battPrice")), Field(T("battLife") + " (" + unit + ")", distIn("battKm"))) : null,
-      e("div", { style: Object.assign({}, S.label, { color: C.accent }) }, T("parts")),
-      f.parts.map((p, i) => e("div", { key: p.id || i, style: { display: "grid", gridTemplateColumns: "1.4fr .9fr 1.1fr 1.1fr 20px", gap: 6, marginBottom: 6, alignItems: "end" } },
-        e("div", null, i === 0 ? e("label", { style: S.label }, T("partName")) : null, e("input", { style: SIN, value: p.name, onChange: ev => setPart(i, "name", ev.target.value) })),
-        e("div", null, i === 0 ? e("label", { style: S.label }, T("amount")) : null, e("input", { style: SIN, inputMode: "decimal", value: p.cost, onChange: ev => setPart(i, "cost", ev.target.value) })),
-        e("div", null, i === 0 ? e("label", { style: S.label }, T("interval") + " " + unit) : null, e("input", { style: SIN, inputMode: "decimal", value: Math.round(dist(num(p.interval))), onChange: ev => setPart(i, "interval", toKm(ev.target.value)) })),
-        e("div", null, i === 0 ? e("label", { style: S.label }, T("lastAt")) : null, e("input", { style: SIN, inputMode: "decimal", value: Math.round(dist(num(p.lastAt))), onChange: ev => setPart(i, "lastAt", toKm(ev.target.value)) })),
-        e("div", { style: { color: C.red, cursor: "pointer", paddingBottom: 10 }, onClick: () => setF(x => Object.assign({}, x, { parts: x.parts.filter((_, j) => j !== i) })) }, e(Icon, { n: "x", s: 16 })))),
-      e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", margin: "4px 0 14px" }, onClick: () => setF(x => Object.assign({}, x, { parts: x.parts.concat([{ id: genId(), name: "", cost: "", interval: "", lastAt: 0 }]) })) }, T("addPart")),
-      e("div", { style: S.label }, T("fixedMonthly")),
-      e("div", { className: "grid3" }, Field(T("insurance"), moneyIn("insurance")), Field(T("rent"), moneyIn("rent")), Field(T("otherFixed"), moneyIn("otherFixed"))),
-      st.country === "US" && f.type === "car" ? Field(T("taxMethod"), e("select", { style: S.input, value: f.taxMethod || "standard", onChange: ev => set("taxMethod", ev.target.value) },
-        e("option", { value: "standard" }, T("stdMileage")), e("option", { value: "actual" }, T("actualExp")))) : null,
-      st.country === "US" && f.type !== "car" ? e("div", { style: Object.assign({}, S.small, { marginBottom: 10 }) }, T("taxMethod") + ": " + T("actualExp") + " (IRS standard rate is for cars, vans, pickups and panel trucks only)") : null,
-      st.country === "NL" ? chk("privateOwned", T("privatelyOwned"), true) : null,
-      chk("active", T("active"), true),
-      e("div", { style: Object.assign({}, S.row, { background: C.accentDim, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
-        e("span", { style: { color: C.sub, fontSize: 13 } }, T("costPerKm") + " " + unit), e("b", { style: { color: C.accent, fontSize: 18 } }, money(perUnit(c.total), 3))),
+      !isCar && auto ? Field(T("pricePaid"), moneyIn("pricePaid", String(CONFIG.twoWheelBase[f.type] || ""))) : null,
+      estPanel,
+      e("div", { style: Object.assign({}, S.row, { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
+        e("span", { style: { color: C.sub, fontSize: 13 } }, T("costPerKm") + " " + unit + " (" + T("depreciation").toLowerCase() + " + " + T("energy").toLowerCase() + " + " + T("parts").toLowerCase() + ")"), e("b", { style: { color: C.accent, fontSize: 18 } }, money(perUnit(c.total), 3))),
+      e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 12 }, onClick: () => setAdv(a => !a) }, (adv ? "▾ " : "▸ ") + T("advanced")),
+      adv ? e("div", { style: { borderLeft: "2px solid " + C.border, paddingLeft: 12, marginBottom: 12 } },
+        Field(T("depModeL"), e("select", { style: S.input, value: f.depMode, onChange: ev => {
+          const m = ev.target.value;
+          if (m === "manual" && auto) { const a = applyAutoDep(f, odoKm, annKm); setF(x => Object.assign({}, x, { depMode: "manual", purchase: a.purchase, resale: a.resale, lifeKm: a.lifeKm, valueNow: a.valueNow })); }
+          else set("depMode", m);
+        } }, e("option", { value: "auto" }, T("depAutoOpt")), e("option", { value: "manual" }, T("depManualOpt")))),
+        chk("leased", T("leased")),
+        !auto && !f.leased ? e("div", null,
+          e("div", { className: "grid3" }, Field(T("estValue"), moneyIn("purchase")), Field(T("valueNext"), moneyIn("resale")), Field(T("kmPerYear") + " (" + unit + ")", distIn("lifeKm"))),
+          e("div", { style: Object.assign({}, S.small, { marginTop: -6, marginBottom: 10 }) }, T("depreciation") + " = (" + T("estValue").toLowerCase() + " − " + T("valueNext").toLowerCase() + ") ÷ " + T("kmPerYear").toLowerCase())) : null,
+        !isCar && motor ? null : null,
+        isCar ? Field(T("name"), e("input", { style: S.input, placeholder: [f.year, f.make, f.model].filter(Boolean).join(" ") || T("t_car"), value: f.name, onChange: ev => set("name", ev.target.value) })) : null,
+        f.energy === "electric" && !isCar ? e("div", { className: "grid2" },
+          Field(T("battPrice"), moneyIn("battPrice")), Field(T("battLife") + " (" + unit + ")", distIn("battKm"))) : null,
+        e("div", { style: Object.assign({}, S.label, { color: C.accent }) }, T("parts")),
+        f.parts.map((p, i) => e("div", { key: p.id || i, style: { display: "grid", gridTemplateColumns: "1.4fr .9fr 1.1fr 1.1fr 20px", gap: 6, marginBottom: 6, alignItems: "end" } },
+          e("div", null, i === 0 ? e("label", { style: S.label }, T("partName")) : null, e("input", { style: SIN, value: p.name, onChange: ev => setPart(i, "name", ev.target.value) })),
+          e("div", null, i === 0 ? e("label", { style: S.label }, T("amount")) : null, e("input", { style: SIN, inputMode: "decimal", value: p.cost, onChange: ev => setPart(i, "cost", ev.target.value) })),
+          e("div", null, i === 0 ? e("label", { style: S.label }, T("interval") + " " + unit) : null, e("input", { style: SIN, inputMode: "decimal", value: Math.round(dist(num(p.interval))), onChange: ev => setPart(i, "interval", toKm(ev.target.value)) })),
+          e("div", null, i === 0 ? e("label", { style: S.label }, T("lastAt")) : null, e("input", { style: SIN, inputMode: "decimal", value: Math.round(dist(num(p.lastAt))), onChange: ev => setPart(i, "lastAt", toKm(ev.target.value)) })),
+          e("div", { style: { color: C.red, cursor: "pointer", paddingBottom: 10 }, onClick: () => setF(x => Object.assign({}, x, { parts: x.parts.filter((_, j) => j !== i) })) }, e(Icon, { n: "x", s: 16 })))),
+        e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", margin: "4px 0 14px" }, onClick: () => setF(x => Object.assign({}, x, { parts: x.parts.concat([{ id: genId(), name: "", cost: "", interval: "", lastAt: 0 }]) })) }, T("addPart")),
+        e("div", { className: "grid2" }, Field(T("rent"), moneyIn("rent")), Field(T("otherFixed"), moneyIn("otherFixed"))),
+        st.country === "US" && isCar ? Field(T("taxMethod"), e("select", { style: S.input, value: f.taxMethod || "standard", onChange: ev => set("taxMethod", ev.target.value) },
+          e("option", { value: "standard" }, T("stdMileage")), e("option", { value: "actual" }, T("actualExp")))) : null,
+        st.country === "US" && !isCar ? e("div", { style: Object.assign({}, S.small, { marginBottom: 10 }) }, T("taxMethod") + ": " + T("actualExp") + " (IRS standard rate is for cars, vans, pickups and panel trucks only)") : null,
+        st.country === "NL" ? chk("privateOwned", T("privatelyOwned"), true) : null,
+        chk("active", T("active"), true)) : null,
       e("div", { style: { display: "flex", gap: 8 } },
         !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("vehicles", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
@@ -1994,18 +2399,19 @@ function App() {
   const VehicleModalC = stable("VehicleModal", VehicleModal);
   const WrapModalC = stable("WrapModal", WrapModal);
   const MpgLookupC = stable("MpgLookup", MpgLookup);
+  const BizPlannerC = stable("BizPlanner", BizPlanner);
   const VIEWS = { home: stable("home", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
     insights: stable("insights", InsightsView), coach: stable("coach", CoachView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
-    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: stable("more", MoreView) };
+    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView) };
 
   if (!authed) return e(LoginC);
 
   // ════════════════════════════════════════════════════════════════
   //  LAYOUT
   // ════════════════════════════════════════════════════════════════
-  const NAV = [["home", "home"], ["shifts", "list"], ["expenses", "receipt"], ["insights", "chart"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]];
-  const MOBILE = [["home", "home"], ["shifts", "list"], ["expenses", "receipt"], ["insights", "chart"], ["more", "more"]];
-  const inMore = ["more", "coach", "vehicles", "compare", "tax", "settings"].indexOf(view) >= 0;
+  const NAV = [["home", "home"], ["offer", "offer"], ["shifts", "list"], ["expenses", "receipt"], ["insights", "chart"], ["map", "pin"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]];
+  const MOBILE = [["home", "home"], ["offer", "offer"], ["shifts", "list"], ["insights", "chart"], ["more", "more"]];
+  const inMore = ["more", "expenses", "map", "coach", "vehicles", "compare", "tax", "settings"].indexOf(view) >= 0;
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
 
   return e("div", { className: "app-root", style: S.root },
