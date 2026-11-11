@@ -77,7 +77,9 @@ const CONFIG = {
               filing:"single", otherIncome:0, state:"", localRate:"", nlHours:"auto",
               // planner
               livingCosts:0, workDays:5, autoFuel:true, emergencyPct:10,
-              offerMinHour:"", offerMinMile:"" },
+              offerMinHour:"", offerMinMile:"",
+              // v4: apps the driver works for, onboarding done, always-on tracking
+              apps:[], onboarded:false, autoTrack:true },
 
   languages: [ ["en","English"], ["nl","Nederlands"], ["tr","Türkçe"] ],
   countries: [ ["US","United States (1099)"], ["NL","Netherlands (ZZP)"], ["OTHER","Other — flat set-aside %"] ],
@@ -87,6 +89,11 @@ const CONFIG = {
   platforms: ["Uber","Uber Eats","Lyft","DoorDash","Instacart","Amazon Flex","Grubhub","Spark Driver",
               "Deliveroo","Thuisbezorgd / Just Eat","Bolt","Bolt Food","Flink","Wolt","Getir","Trendyol Go","Yemeksepeti",
               "Shipt","Roadie","Veho","Gopuff","Favor","Curri","GoShare","Dispatch","TaskRabbit","Cash / private","Other"],
+
+  // onboarding picks + dashboard colors (brand-like colors so each app is easy to spot)
+  quickApps: ["Uber","Uber Eats","Lyft","DoorDash","Instacart","Amazon Flex","Grubhub","Spark Driver"],
+  appColors: { "Uber":"#E6E8EC", "Uber Eats":"#06C167", "Lyft":"#FF00BF", "DoorDash":"#FF3008", "Instacart":"#F7A428", "Amazon Flex":"#00A8E1", "Grubhub":"#A86BFF", "Spark Driver":"#FFC220", "Other":"#8899AA" },
+  extraColors: ["#4FA3FF","#F5B544","#2EE6A6","#FF7A59","#C792EA","#5CD6E0","#E36588","#9CCC65"],
 
   // vehicle:true = vehicle running cost (compared against the vehicle profile, not double-counted)
   expenseCategories: [
@@ -98,6 +105,7 @@ const CONFIG = {
     {id:"rental",      vehicle:true},
     {id:"phone",       vehicle:false},
     {id:"parking",     vehicle:false},
+    {id:"carwash",     vehicle:false},
     {id:"equipment",   vehicle:false},
     {id:"other",       vehicle:false},
   ],
@@ -380,6 +388,38 @@ const I18N = {
   stateAuto:["Calculated automatically from 2026 state brackets.","Automatisch berekend uit de schijven van 2026.","2026 eyalet dilimlerinden otomatik hesaplanır."],
   localRate:["City / county income tax % (optional)","Lokale inkomstenbelasting % (optioneel)","Şehir / ilçe gelir vergisi % (isteğe bağlı)"], localTax:["Local income tax","Lokale belasting","Yerel gelir vergisi"],
   localHint:["Only if your city or county taxes income (e.g. NYC, Maryland counties, Ohio or Pennsylvania cities).","Alleen als je stad inkomen belast.","Yalnızca şehriniz/ilçeniz gelir vergisi alıyorsa (ör. NYC, Maryland ilçeleri, Ohio veya Pennsylvania şehirleri)."],
+  // ── v4 dashboard / trips / onboarding ──
+  log:["Trips","Ritten","Yolculuklar"], optional:["optional","optioneel","isteğe bağlı"], personal:["Personal","Privé","Kişisel"], onlineFor:["Online","Online","Çevrimiçi"], onRide:["On a ride","Onderweg met rit","Siparişte"],
+  k_order:["Order","Rit","Sipariş"], k_online:["Between orders","Tussen ritten","Siparişler arası"], k_personal:["Personal","Privé","Kişisel"], k_earning:["Earnings","Inkomsten","Kazanç"],
+  trackingOn:["Tracking every mile","Elke kilometer wordt bijgehouden","Her mil kaydediliyor"], trackingPaused:["Tracking paused","Bijhouden gepauzeerd","Takip duraklatıldı"],
+  resume:["Resume","Hervatten","Devam et"], pause:["Pause","Pauzeren","Duraklat"], startRide:["Start ride","Rit starten","Siparişi başlat"], completeRide:["Complete ride","Rit afronden","Siparişi tamamla"],
+  navigate:["Navigate","Navigeren","Yol tarifi"], destination:["Where to? (address)","Waarheen? (adres)","Nereye? (adres)"], openGoogle:["Google Maps","Google Maps","Google Haritalar"], openWaze:["Waze","Waze","Waze"],
+  earned:["Earned","Verdiend","Kazanılan"], taxSetAside:["Tax set-aside","Belastingreserve","Vergi payı"],
+  l_gas:["Gas","Brandstof","Yakıt"], l_charge:["Charging","Laden","Şarj"], l_dep:["Depreciation","Afschrijving","Değer kaybı"], l_maint:["Maintenance & tires","Onderhoud & banden","Bakım ve lastik"],
+  l_ins:["Insurance","Verzekering","Sigorta"], l_fixed:["Lease / other fixed","Lease / overig vast","Kira / diğer sabit"], l_other:["Other expenses","Overige kosten","Diğer giderler"], l_fees:["App fees","App-kosten","Uygulama ücretleri"], l_actual:["Vehicle (actual)","Voertuig (werkelijk)","Araç (gerçek)"],
+  milesByApp:["Miles by app","Afstand per app","Uygulamaya göre mil"], addEarnings:["Add earnings","Inkomsten toevoegen","Kazanç ekle"], addTrip:["Add trip","Rit toevoegen","Yolculuk ekle"],
+  noAppYet:["No app earnings yet. Tap an app above when you go online — Kept logs the miles. After each ride, enter what you earned.","Nog geen inkomsten. Tik op een app als je online gaat — Kept houdt de kilometers bij.","Henüz kazanç yok. Çevrimiçi olduğunuzda yukarıdan uygulamaya dokunun — Kept milleri kaydeder. Her siparişten sonra kazancınızı girin."],
+  thisDrive:["This drive","Deze rit","Bu sürüş"], rideTime:["Ride time","Rittijd","Sipariş süresi"], pay:["Pay","Uitbetaling","Ödeme"], orders:["Orders","Ritten","Sipariş"],
+  rideDone:["Ride complete","Rit afgerond","Sipariş tamamlandı"], skip:["Later","Later","Sonra"], whatEarn:["What did this ride pay?","Wat leverde deze rit op?","Bu sipariş ne kadar ödedi?"],
+  quickAdd:["Add an expense","Kosten toevoegen","Gider ekle"], x_gas:["Gas","Tanken","Yakıt"], x_charge:["Charging","Laden","Şarj"], x_oil:["Oil change","Olie verversen","Yağ değişimi"], x_ins:["Insurance","Verzekering","Sigorta"],
+  x_repair:["Repair","Reparatie","Tamir"], x_wash:["Car wash","Wasstraat","Oto yıkama"], x_tolls:["Tolls / parking","Tol / parkeren","Otoyol / otopark"], x_phone:["Phone","Telefoon","Telefon"],
+  repeats:["Repeats","Herhaalt","Tekrar"], r_once:["One-time","Eenmalig","Tek sefer"], r_1:["Monthly","Maandelijks","Aylık"], r_6:["Every 6 months","Elk half jaar","6 ayda bir"], r_12:["Yearly","Jaarlijks","Yıllık"],
+  recurHint:["Spread over every day at your business-use share.","Verdeeld over elke dag naar zakelijk gebruik.","Her güne iş kullanım payınızla dağıtılır."],
+  gasSpread:["Gas & charging are spread over the miles you drive; your receipts update the price per gallon.","Brandstof wordt verdeeld over je kilometers; bonnetjes werken de prijs bij.","Yakıt sürdüğünüz millere dağıtılır; fişleriniz galon fiyatını günceller."],
+  c_carwash:["Car wash","Wasstraat","Oto yıkama"], c_tolls:["Tolls","Tol","Otoyol ücreti"],
+  ob1:["Which apps do you drive for?","Voor welke apps rijd je?","Hangi uygulamalar için çalışıyorsunuz?"], ob1s:["Pick all that apply. You can change this later.","Kies alles wat past.","Hepsini seçin. Sonra değiştirebilirsiniz."],
+  ob2:["What do you drive?","Waarin rijd je?","Ne kullanıyorsunuz?"], ob2s:["Year and make are enough — Kept works out depreciation and gas cost.","Bouwjaar en merk zijn genoeg.","Yıl ve marka yeterli — Kept değer kaybını ve yakıt maliyetini hesaplar."],
+  ob3:["Last step","Laatste stap","Son adım"], ob3s:["Your state sets the tax estimate. Location lets Kept log every mile.","Locatie laat Kept elke kilometer bijhouden.","Eyaletiniz vergi tahminini belirler. Konum, Kept'in her mili kaydetmesini sağlar."],
+  allowLoc:["Allow location","Locatie toestaan","Konuma izin ver"], locOk:["Location on ✓","Locatie aan ✓","Konum açık ✓"], locNo:["Location blocked — you can turn it on in browser settings.","Locatie geblokkeerd.","Konum engellendi — tarayıcı ayarlarından açabilirsiniz."],
+  next:["Next","Volgende","İleri"], back:["Back","Terug","Geri"], letsGo:["Start tracking","Start","Takibe başla"], notCar:["Not a car?","Geen auto?","Araba değil mi?"],
+  b_car:["Car","Auto","Otomobil"], b_suv:["SUV","SUV","SUV"], b_pickup:["Pickup","Pick-up","Kamyonet"], b_van:["Minivan","Busje","Minivan"],
+  f_gas:["Gas","Benzine","Benzin"], f_hybrid:["Hybrid","Hybride","Hibrit"], f_ev:["Electric","Elektrisch","Elektrik"],
+  bizShare:["Business use","Zakelijk gebruik","İş kullanımı"], bizMiles:["Business","Zakelijk","İş"], gapNote:["Not tracked (app was closed) — straight-line estimate","Niet bijgehouden (app was dicht) — schatting","Takip edilmedi (uygulama kapalıydı) — kuş uçuşu tahmin"],
+  webTrackNote:["Keep Kept open while you drive — browsers pause GPS in the background. The Android app tracks with the screen off and starts rides from your gig-app notifications.","Houd Kept open tijdens het rijden.","Sürerken Kept'i açık tutun — tarayıcılar arka planda GPS'i durdurur. Android uygulaması ekran kapalıyken takip eder ve siparişleri bildirimlerden başlatır."],
+  fixedToday:["Fixed costs (no earnings yet)","Vaste kosten (nog geen inkomsten)","Sabit giderler (henüz kazanç yok)"], app:["App","App","Uygulama"], kind:["Type","Soort","Tür"],
+  yourApps:["Your apps","Jouw apps","Uygulamalarınız"], nativeOn:["Android app · background tracking","Android-app · achtergrond","Android uygulaması · arka planda takip"],
+  autoRide:["Auto-start rides from notifications","Ritten automatisch starten via meldingen","Siparişleri bildirimlerden otomatik başlat"], notifAccess:["Allow notification access","Meldingstoegang toestaan","Bildirim erişimine izin ver"],
+  learnLog:["Notification log (learn mode)","Meldingenlog (leermodus)","Bildirim kaydı (öğrenme modu)"], seeAll:["See all","Alles","Tümü"],
   pickState:["Pick your state so Kept can estimate state tax.","Kies je staat voor de staatsbelasting.","Eyalet vergisini tahmin etmek için eyaletinizi seçin."], yourStateRate:["Your state bracket","Jouw schijf","Eyalet diliminiz"],
 };
 
@@ -439,6 +479,13 @@ function presetVehicle(type, country) {
     insurance: p.fixed.insurance, rent: p.fixed.rent, otherFixed: p.fixed.other,
     parts: p.parts.map(x => ({ id: genId(), name: x[0], cost: x[1], interval: x[2], lastAt: 0 })),
   };
+}
+
+// typical consumption for a body type + fuel (used until the user or the MPG lookup sets a real figure); internal units per 100 km
+function typicalEnergy(bodyId, kind, country) {
+  const body = CONFIG.bodyTypes.find(b => b[0] === bodyId) || CONFIG.bodyTypes[1], mpg = body[3];
+  if (kind === "electric") return { energy: "electric", cons: +((bodyId === "pickup" || bodyId === "suv" ? 40 : 30) / KM_PER_MI).toFixed(3), price: country === "NL" ? 0.30 : 0.17 };
+  return { energy: "fuel", cons: +(235.215 / (kind === "hybrid" ? mpg * 1.5 : kind === "diesel" ? mpg * 1.15 : mpg)).toFixed(3), price: country === "NL" ? 1.95 : 0.83 };
 }
 
 // ── automatic depreciation from year / make / model (+ odometer when known) ──
@@ -509,29 +556,140 @@ function periodRange(key, ref) {
 function daysBetween(a, b) { return Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 86400000) + 1; }
 
 // core economics for a date range
+// ── v4 trips: every drive segment is a trip (personal, online for an app, or on an order).
+//    Gig trips roll up into derived "shifts" (sessions) so every engine — tax, insights, coach, map — keeps working. ──
+const PERSONAL = "personal";
+const tripMins = t => Math.max(0, (new Date(t.end) - new Date(t.start)) / 60000);
+function tripsToShifts(trips) {
+  const byKey = {};
+  (trips || []).filter(t => t.app && t.app !== PERSONAL).forEach(t => { const k = t.date + "|" + (t.vehicleId || ""); (byKey[k] = byKey[k] || []).push(t); });
+  const out = [];
+  Object.keys(byKey).sort().forEach(k => {
+    const list = byKey[k];
+    const timed = list.filter(t => t.kind !== "earning").sort((a, b) => a.start.localeCompare(b.start));
+    const sessions = [];
+    timed.forEach(t => { const s = sessions[sessions.length - 1];
+      if (s && new Date(t.start) - new Date(s.end) <= 45 * 60000) { s.trips.push(t); if (t.end > s.end) s.end = t.end; }
+      else sessions.push({ start: t.start, end: t.end, trips: [t] }); });
+    list.filter(t => t.kind === "earning").forEach(t => {   // manual earnings join the last session that used the same app
+      let s = null; for (let i = sessions.length - 1; i >= 0 && !s; i--) if (sessions[i].trips.some(x => x.app === t.app)) s = sessions[i];
+      s = s || sessions[sessions.length - 1];
+      if (s) s.trips.push(t); else { const at = new Date(t.date + "T12:00").toISOString(); sessions.push({ start: at, end: at, trips: [t] }); }
+    });
+    sessions.forEach((s, i) => {
+      const plats = {};
+      s.trips.forEach(t => { const p = plats[t.app] = plats[t.app] || { name: t.app, base: 0, tips: 0, bonus: 0, fees: 0, trips: 0, km: 0, mins: 0 };
+        p.base += num(t.pay); p.tips += num(t.tips); p.km += num(t.km);
+        if (t.kind !== "earning") p.mins += tripMins(t);
+        p.trips += t.kind === "order" ? 1 : t.kind === "earning" ? num(t.orders) : 0; });
+      const first = s.trips.find(t => t.loc);
+      out.push({ id: "tg_" + k.replace(/\W/g, "") + "_" + i, derived: true, date: list[0].date, start: s.start, end: s.end, vehicleId: list[0].vehicleId || "",
+        km: +sum(s.trips, t => num(t.km)).toFixed(3), emptyKm: +sum(s.trips.filter(t => t.kind === "online"), t => num(t.km)).toFixed(3), personalKm: 0,
+        platforms: Object.keys(plats).map(n => Object.assign(plats[n], { km: +plats[n].km.toFixed(3), mins: Math.round(plats[n].mins) })),
+        notes: "", photos: [], loc: first ? first.loc : null, tripIds: s.trips.map(t => t.id) });
+    });
+  });
+  return out;
+}
+// business-use share of a vehicle over the last 90 days (gig miles ÷ all miles) — fixed costs are charged at this share
+const _shareCache = new WeakMap();
+function bizShare(data, vid) {
+  let m = _shareCache.get(data.shifts); if (!m) { m = {}; _shareCache.set(data.shifts, m); }
+  if (m[vid] != null) return m[vid];
+  const from = addDays(dISO(new Date()), -89);
+  const ss = data.shifts.filter(s => s.vehicleId === vid && s.date >= from);
+  const gig = sum(ss, s => num(s.km));
+  const pers = sum(ss, s => num(s.personalKm)) + sum((data.trips || []).filter(t => t.app === PERSONAL && t.vehicleId === vid && t.date >= from), t => num(t.km));
+  return (m[vid] = gig + pers < 1 ? 1 : gig / (gig + pers));
+}
+// recurring expenses (insurance, phone plan…): each one runs from its date until the next one of the same kind replaces it
+const monthlyOf = x => num(x.amount) / (num(x.recurring) || 1);
+function recurringIn(data, from, to) {
+  const groups = {};
+  data.expenses.filter(x => x.recurring).forEach(x => { const k = x.category + "|" + (x.vehicleId || ""); (groups[k] = groups[k] || []).push(x); });
+  const out = [];
+  Object.keys(groups).forEach(k => {
+    const g = groups[k].sort((a, b) => a.date.localeCompare(b.date));
+    g.forEach((x, i) => {
+      const a = x.date > from ? x.date : from, nx = g[i + 1] ? addDays(g[i + 1].date, -1) : to, b = nx < to ? nx : to;
+      if (a > b) return;
+      const vid = x.vehicleId || data.settings.defaultVehicleId || (data.vehicles[0] || {}).id;
+      out.push({ id: x.id, category: x.category, vehicleId: x.vehicleId, accrued: true, amount: monthlyOf(x) * daysBetween(a, b) / 30.44 * bizShare(data, vid) });
+    });
+  });
+  return out;
+}
+
 function computePeriod(data, from, to) {
   const { shifts, expenses, vehicles, settings } = data;
   const vmap = {}; vehicles.forEach(v => vmap[v.id] = v);
   const S = shifts.filter(s => s.date >= from && s.date <= to);
-  const E = expenses.filter(x => x.date >= from && x.date <= to);
+  const E = expenses.filter(x => !x.recurring && x.date >= from && x.date <= to);
   const catV = {}; CONFIG.expenseCategories.forEach(c => catV[c.id] = c.vehicle);
   const gross = sum(S, shiftGross), tips = sum(S, shiftTips), fees = sum(S, shiftFees);
   const mins = sum(S, shiftMins), km = sum(S, s => num(s.km)), emptyKm = sum(S, s => num(s.emptyKm));
-  const varCost = sum(S, s => num(s.km) * vehicleCost(vmap[s.vehicleId]).total);
-  const depCost = sum(S, s => num(s.km) * vehicleCost(vmap[s.vehicleId]).dep);
-  // fixed vehicle costs, pro-rata per calendar day — only from the first logged shift onward
+  const perKm = (s, f) => num(s.km) * f(vehicleCost(vmap[s.vehicleId]));
+  const varCost = sum(S, s => perKm(s, c => c.total)), depCost = sum(S, s => perKm(s, c => c.dep));
+  const energyCost = sum(S, s => perKm(s, c => c.energy)), maintCost = sum(S, s => perKm(s, c => c.parts + c.battery));
+  // fixed costs accrue per calendar day (from the first logged work day) at the vehicle's business-use share
   const firstDay = shifts.length ? shifts.reduce((m, s) => s.date < m ? s.date : m, shifts[0].date) : to;
   const effFrom = from > firstDay ? from : firstDay;
   const days = (!shifts.length || effFrom > to) ? 0 : daysBetween(effFrom, to);
-  const fixed = sum(vehicles.filter(v => v.active !== false), v => vehicleCost(v).fixed) * days / 30.44;
-  const vehExp = sum(E.filter(x => catV[x.category]), x => num(x.amount));
-  const otherExp = sum(E.filter(x => !catV[x.category]), x => num(x.amount));
-  const vehicleCosts = settings.costMode === "actual" ? vehExp + depCost : varCost + fixed;
+  const est = settings.costMode !== "actual";
+  const R = days ? recurringIn(data, effFrom, to) : [];
+  const recIns = vid => expenses.some(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === vid));
+  let insurance = 0, fixedOther = 0, recurOther = 0, recurVeh = 0;
+  if (est) vehicles.filter(v => v.active !== false).forEach(v => { const sh = bizShare(data, v.id) * days / 30.44;
+    if (!recIns(v.id)) insurance += num(v.insurance) * sh; fixedOther += (num(v.rent) + num(v.otherFixed)) * sh; });
+  R.forEach(x => {
+    if (x.category === "insurance") insurance += x.amount;
+    else if (x.category === "rental") fixedOther += x.amount;
+    else if (catV[x.category]) { if (!est) recurVeh += x.amount; }
+    else recurOther += x.amount;
+  });
+  const fixed = insurance + fixedOther;
+  const vehExp = sum(E.filter(x => catV[x.category]), x => num(x.amount)) + recurVeh;
+  const otherExp = sum(E.filter(x => !catV[x.category]), x => num(x.amount)) + recurOther;
+  const vehicleCosts = est ? varCost + fixed : vehExp + depCost + fixed;
   const costs = vehicleCosts + otherExp;
   const net = gross - fees - costs;
   const workDays = new Set(S.map(s => s.date)).size;
-  return { S, E, gross, tips, fees, mins, km, emptyKm, varCost, depCost, fixed, vehExp, otherExp, vehicleCosts, costs, net, workDays,
+  return { S, E, gross, tips, fees, mins, km, emptyKm, varCost, depCost, energyCost, maintCost, insurance, fixedOther, fixed, vehExp, otherExp, vehicleCosts, costs, net, workDays,
            perHour: mins > 0 ? net / (mins / 60) : 0, per100: km > 0 ? net / km * 100 : 0, days };
+}
+
+// per-app breakdown for the dashboard: earned, each cost line, tax set-aside and what you keep
+function appBreakdown(data, from, to, rate) {
+  const P = computePeriod(data, from, to);
+  const vmap = {}; data.vehicles.forEach(v => vmap[v.id] = v);
+  const apps = {};
+  const A = n => apps[n] = apps[n] || { name: n, km: 0, mins: 0, orders: 0, gross: 0, fees: 0, gas: 0, dep: 0, maint: 0 };
+  P.S.forEach(s => {
+    const c = vehicleCost(vmap[s.vehicleId]), ps = s.platforms || [];
+    const pk = sum(ps, p => num(p.km)), pg = sum(ps, p => num(p.base) + num(p.tips) + num(p.bonus));
+    ps.forEach(p => {
+      const a = A(p.name), share = pk > 0 ? num(p.km) / pk : pg > 0 ? (num(p.base) + num(p.tips) + num(p.bonus)) / pg : 1 / ps.length, k = num(s.km) * share;
+      a.km += k; a.mins += num(p.mins) || (ps.length === 1 ? shiftMins(s) : 0); a.orders += num(p.trips);
+      a.gross += num(p.base) + num(p.tips) + num(p.bonus); a.fees += num(p.fees);
+      a.gas += k * c.energy; a.dep += k * c.dep; a.maint += k * (c.parts + c.battery);
+    });
+  });
+  const list = Object.keys(apps).map(n => apps[n]);
+  const totKm = sum(list, a => a.km), totG = sum(list, a => a.gross);
+  const est = data.settings.costMode !== "actual";
+  list.forEach(a => {
+    const w = totKm > 0 ? a.km / totKm : totG > 0 ? a.gross / totG : 1 / list.length;
+    a.ins = P.insurance * w; a.fixed = P.fixedOther * w; a.other = P.otherExp * w;
+    if (!est) { a.gas = 0; a.maint = 0; a.actual = P.vehExp * w; }
+    a.costs = a.gas + a.dep + a.maint + a.ins + a.fixed + a.other + (a.actual || 0) + a.fees;
+    a.profit = a.gross - a.costs; a.tax = Math.max(0, a.profit) * (rate || 0); a.kept = a.profit - a.tax;
+  });
+  list.sort((x, y) => y.gross - x.gross || y.km - x.km);
+  // nothing earned yet but fixed costs are running (insurance on a day off)
+  const unalloc = list.length ? 0 : P.fixed + P.otherExp;
+  const personalKm = sum((data.trips || []).filter(t => t.app === PERSONAL && t.date >= from && t.date <= to), t => num(t.km));
+  const tax = sum(list, a => a.tax);
+  return { P, apps: list, personalKm, unalloc, tax, kept: P.net - tax };
 }
 
 // ── tax engines ──
@@ -555,7 +713,7 @@ function taxBase(data, from, to) {
   const st = data.settings, country = st.country, cfg = CONFIG.tax[country];
   const vmap = {}; data.vehicles.forEach(v => vmap[v.id] = v);
   const S = data.shifts.filter(s => s.date >= from && s.date <= to);
-  const E = data.expenses.filter(x => x.date >= from && x.date <= to);
+  const E = data.expenses.filter(x => !x.recurring && x.date >= from && x.date <= to).concat(recurringIn(data, from, to));
   const usesStd = v => {
     if (!v || !cfg) return false;
     if (country === "US") return v.type === "car" && v.taxMethod !== "actual";
@@ -580,6 +738,7 @@ function taxBase(data, from, to) {
   let actualVeh = 0, phone = 0, parking = 0, equipment = 0, other = 0;
   E.forEach(x => {
     const a = num(x.amount);
+    if (x.category === "carwash") { const v = vmap[x.vehicleId] || def; if (!usesStd(v)) actualVeh += a; return; }
     if (catV[x.category]) { const v = vmap[x.vehicleId] || def; if (!usesStd(v)) actualVeh += a; }
     else if (x.category === "phone") phone += a;
     else if (x.category === "parking") parking += a;
@@ -883,7 +1042,7 @@ function PhotoThumb({ id, pin, size, onOpen, onRemove }) {
     onRemove ? e("div", { style: { position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,.6)", borderRadius: 20, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", cursor: "pointer" }, onClick: ev => { ev.stopPropagation(); onRemove(); } }, e(Icon, { n: "x", s: 12 })) : null);
 }
 
-const EMPTY_DATA = { settings: Object.assign({}, CONFIG.defaults), vehicles: [], shifts: [], expenses: [] };
+const EMPTY_DATA = { settings: Object.assign({}, CONFIG.defaults), vehicles: [], shifts: [], expenses: [], trips: [] };
 
 // ════════════════════════════════════════════════════════════════
 //  APP
@@ -895,14 +1054,15 @@ function App() {
   const [authed, setAuthed] = useState(localMode);
   const [loginErr, setLoginErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(() => {
+  const [raw, setData] = useState(() => {
     const d = LS.get("kept_data", null);
     return d ? Object.assign({}, EMPTY_DATA, d, { settings: Object.assign({}, CONFIG.defaults, d.settings || {}) }) : EMPTY_DATA;
   });
+  // derived view: gig trips become sessions ("shifts") so every engine works on one list
+  const data = useMemo(() => Object.assign({}, raw, { trips: raw.trips || [], shifts: (raw.shifts || []).concat(tripsToShifts(raw.trips || [])) }), [raw]);
   const [view, setView] = useState("home");
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
-  const [active, setActive] = useState(LS.get("kept_active", null));
   const [tick, setTick] = useState(0);
   const [syncState, setSyncState] = useState(localMode ? "local" : "idle");
   const [homePeriod, setHomePeriod] = useState("today");
@@ -912,7 +1072,6 @@ function App() {
   const watchRef = useRef(null);
   const wakeRef = useRef(null);
   const flushingRef = useRef(false);
-  const proofRef = useRef(null);
   const pinRef = useRef(pin);
   pinRef.current = pin;
   const dataRef = useRef(data);
@@ -942,8 +1101,7 @@ function App() {
   const vName = v => v ? (v.name || T("t_" + v.type)) : "—";
 
   // ── persistence ──
-  useEffect(() => { LS.set("kept_data", data); }, [data]);
-  useEffect(() => { if (active) LS.set("kept_active", active); else LS.del("kept_active"); }, [active]);
+  useEffect(() => { LS.set("kept_data", raw); }, [raw]);
   useEffect(() => { document.documentElement.lang = st.lang || "en"; }, [st.lang]);
 
   const showToast = (msg) => { setToast({ msg }); setTimeout(() => setToast(null), 2400); };
@@ -1012,7 +1170,7 @@ function App() {
       pinRef.current = p;
       await flush();
       const res = await apiCall(p, "getAll");
-      setData({ settings: Object.assign({}, CONFIG.defaults, res.settings || {}), vehicles: res.vehicles || [], shifts: res.shifts || [], expenses: res.expenses || [] });
+      setData({ settings: Object.assign({}, CONFIG.defaults, res.settings || {}), vehicles: res.vehicles || [], shifts: res.shifts || [], expenses: res.expenses || [], trips: res.trips || [] });
       setPin(p); LS.set("kept_pin", p); setAuthed(true); setSyncState("synced");
     } catch (err) {
       if (/Unauthorized/i.test(err.message)) { setLoginErr(T("wrongPin")); LS.del("kept_pin"); }
@@ -1047,82 +1205,128 @@ function App() {
     fetchFuel().then(r => { if (applyFuel(r)) showToast("⛽ " + T("liveFuel") + " ✓"); }).catch(() => {});
   }, [authed]);
 
-  // ── GPS tracking (with mid-shift platform switching) ──
-  const onPos = pos => {
-    const c = pos.coords, now = Date.now();
-    setActive(a => {
-      if (!a) return a;
-      const cur = { lat: c.latitude, lon: c.longitude, t: now };
-      const n = Object.assign({}, a, { acc: Math.round(c.accuracy), gps: "ok", pos: { lat: c.latitude, lon: c.longitude } });
-      if (c.accuracy > 50) return n;                       // too noisy
-      if (!a.startPos && c.accuracy <= 100) n.startPos = { lat: +c.latitude.toFixed(5), lon: +c.longitude.toFixed(5) };
-      if (!a.last) { n.last = cur; return n; }
-      const d = haversine(a.last, cur), dt = Math.max(1, (now - a.last.t) / 1000);
-      if (d < 8) return n;                                 // jitter
-      if (d / dt > 70) { n.last = cur; return n; }         // teleport / bad fix
-      const km = d / 1000;
-      n.km = (a.km || 0) + km;
-      if (a.mode === "empty") n.emptyKm = (a.emptyKm || 0) + km;
-      const seg = Object.assign({}, a.seg || {}); const sp = Object.assign({ km: 0, mins: 0 }, seg[a.plat]); sp.km += km; seg[a.plat] = sp; n.seg = seg;
-      n.last = cur;
-      return n;
-    });
+  // ── always-on tracking (v4) ──
+  // Every mile is logged as a trip: Personal, online for an app (between orders), or on an order (Start ride → Complete ride).
+  // In the Android app (Capacitor plugin "KeptNative") the native service does this in the background and detects orders
+  // from gig-app notifications; the web tracker then stays off and just shows the native status.
+  const IDLE_MS = 10 * 60000;
+  const KN = () => (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.KeptNative) || null;
+  const nativeRef = useRef(null);
+  const trackRef = useRef(LS.get("kept_track", null));
+  const [, setTrackV] = useState(0);
+  const track = trackRef.current;
+  const commit = t => { trackRef.current = t; if (t) LS.set("kept_track", t); else LS.del("kept_track"); setTrackV(x => x + 1); };
+  const defaultVid = () => { const d = dataRef.current; return (d.vehicles.find(v => v.id === d.settings.defaultVehicleId) || d.vehicles.find(v => v.active !== false) || {}).id || ""; };
+  const blankTrack = mode => ({ on: true, mode: mode || PERSONAL, order: false, segStart: Date.now(), segKm: 0, lastMove: Date.now(), last: null, startPos: null, gps: "wait", acc: null, pos: null });
+  const restart = (t, patch) => Object.assign({}, t, { segStart: Date.now(), segKm: 0, lastMove: Date.now(), startPos: t.pos ? { lat: +t.pos.lat.toFixed(5), lon: +t.pos.lon.toFixed(5) } : null }, patch || {});
+  const recordSeg = (t, endTs, extra) => {
+    const kind = t.mode === PERSONAL ? "personal" : t.order ? "order" : "online";
+    if (!(t.segKm >= 0.1) && kind !== "order") return null;            // ignore anything under 100 m
+    const s = new Date(t.order && t.orderStart ? Math.min(t.segStart, t.orderStart) : t.segStart);
+    const rec = Object.assign({ id: genId(), date: dISO(s), start: s.toISOString(), end: new Date(Math.max(endTs, s.getTime())).toISOString(), km: +(t.segKm || 0).toFixed(3),
+      app: t.mode, kind, pay: "", tips: "", vehicleId: defaultVid(), loc: t.startPos || null, source: "gps" }, extra || {});
+    upsert("trips", rec);
+    return rec;
   };
-  const onPosErr = () => setActive(a => a ? Object.assign({}, a, { gps: "off" }) : a);
+  const onPos = pos => {
+    let t = trackRef.current; if (!t || !t.on || nativeRef.current) return;
+    const c = pos.coords, now = Date.now(), cur = { lat: c.latitude, lon: c.longitude, t: now };
+    t = Object.assign({}, t, { acc: Math.round(c.accuracy), gps: "ok", pos: { lat: c.latitude, lon: c.longitude } });
+    if (c.accuracy > 50) return commit(t);                               // too noisy
+    if (!t.startPos) t.startPos = { lat: +c.latitude.toFixed(5), lon: +c.longitude.toFixed(5) };
+    if (!t.last) { t.last = cur; return commit(t); }
+    const d = haversine(t.last, cur), dt = Math.max(1, (now - t.last.t) / 1000);
+    if (now - t.last.t > IDLE_MS) {                                      // the app was closed / GPS paused
+      if (t.order) { t.segKm += d / 1000; t.last = cur; t.lastMove = now; return commit(t); }
+      recordSeg(t, t.lastMove);
+      if (d > 500) recordSeg(Object.assign({}, t, { mode: PERSONAL, order: false, segKm: d / 1000, segStart: t.last.t, startPos: { lat: +t.last.lat.toFixed(5), lon: +t.last.lon.toFixed(5) } }), now, { source: "gap" });
+      t = restart(t); t.startPos = { lat: +c.latitude.toFixed(5), lon: +c.longitude.toFixed(5) }; t.last = cur;
+      return commit(t);
+    }
+    if (d < 8) return commit(t);                                         // jitter
+    if (d / dt > 70) { t.last = cur; return commit(t); }                 // teleport / bad fix
+    if (!t.order && t.segKm >= 0.1 && now - t.lastMove > IDLE_MS) { recordSeg(t, t.lastMove); t = restart(t); }
+    t.segKm = (t.segKm || 0) + d / 1000; t.lastMove = now; t.last = cur;
+    commit(t);
+  };
+  const onPosErr = () => { const t = trackRef.current; if (t) commit(Object.assign({}, t, { gps: "off" })); };
   const startWatch = () => {
     if (!navigator.geolocation) { onPosErr(); return; }
     if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
-    watchRef.current = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
-    requestWake();
+    watchRef.current = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 });
   };
   const stopWatch = () => {
     if (watchRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchRef.current);
-    watchRef.current = null;
-    try { wakeRef.current && wakeRef.current.release(); } catch (x) {}
-    wakeRef.current = null;
+    watchRef.current = null; releaseWake();
   };
-  const requestWake = async () => { try { if ("wakeLock" in navigator) wakeRef.current = await navigator.wakeLock.request("screen"); } catch (x) {} };
+  const requestWake = async () => { try { if ("wakeLock" in navigator && !wakeRef.current) wakeRef.current = await navigator.wakeLock.request("screen"); } catch (x) {} };
+  const releaseWake = () => { try { wakeRef.current && wakeRef.current.release(); } catch (x) {} wakeRef.current = null; };
+  // keep the screen awake only while working for an app (the browser pauses GPS when the screen is off)
+  useEffect(() => { if (track && track.on && track.mode !== PERSONAL && !nativeRef.current) requestWake(); else releaseWake(); }, [track && track.on, track && track.mode]);
   useEffect(() => {
-    if (active) startWatch();
-    const vis = () => { if (document.visibilityState === "visible" && LS.get("kept_active", null)) requestWake(); };
+    if (!authed || !st.onboarded || KN()) return;
+    if (!trackRef.current) { if (st.autoTrack === false) return; commit(blankTrack(PERSONAL)); }
+    if (!trackRef.current.on) return;                                    // paused by the user
+    startWatch();
+    const vis = () => { if (document.visibilityState === "visible" && trackRef.current && trackRef.current.on) { wakeRef.current = null; if (trackRef.current.mode !== PERSONAL) requestWake(); } };
     document.addEventListener("visibilitychange", vis);
-    return () => { document.removeEventListener("visibilitychange", vis); };
-  }, []);
-  useEffect(() => { if (!active) return; const iv = setInterval(() => setTick(t => t + 1), 1000); return () => clearInterval(iv); }, [!!active]);
+    return () => document.removeEventListener("visibilitychange", vis);
+  }, [authed, !!st.onboarded]);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const t = trackRef.current;
+      if (t && t.on && !nativeRef.current && !t.order && t.segKm >= 0.1 && Date.now() - t.lastMove > IDLE_MS) { recordSeg(t, t.lastMove); commit(restart(t)); }
+      setTick(x => x + 1);
+    }, track && track.order ? 1000 : 30000);
+    return () => clearInterval(iv);
+  }, [!!(track && track.order)]);
 
-  const closeSeg = a => { // add elapsed time to the current platform segment
-    const now = Date.now(), seg = Object.assign({}, a.seg || {});
-    const sp = Object.assign({ km: 0, mins: 0 }, seg[a.plat]); sp.mins += (now - (a.segStart || now)) / 60000; seg[a.plat] = sp;
-    return { seg, segStart: now };
+  const setMode = m => {
+    if (nativeRef.current) { nativeRef.current.setMode({ mode: m }).catch(() => {}); return; }
+    const t = trackRef.current || blankTrack(m);
+    if (t.mode === m && !t.order && t.on) return;
+    if (t.on) recordSeg(t, Date.now());
+    commit(restart(t, { mode: m, order: false, on: true }));
+    if (watchRef.current == null) startWatch();
+    if (m !== PERSONAL) LS.set("kept_lastPlatform", m);
   };
-  const switchPlatform = name => setActive(a => { if (!a || a.plat === name) return a; return Object.assign({}, a, closeSeg(a), { plat: name }); });
-  const startShift = vehicleId => {
-    const plat = LS.get("kept_lastPlatform", CONFIG.platforms[0]);
-    setActive({ start: new Date().toISOString(), vehicleId, km: 0, emptyKm: 0, mode: "empty", last: null, gps: "wait", acc: null, plat, seg: {}, segStart: Date.now(), photos: [] });
-    setTimeout(startWatch, 0);
-    if (vehicleId && vehicleId !== st.defaultVehicleId) saveSettings({ defaultVehicleId: vehicleId });
+  const startRide = () => {
+    if (nativeRef.current) { nativeRef.current.startRide({}).catch(() => {}); return; }
+    const t = trackRef.current; if (!t || t.mode === PERSONAL || t.order) return;
+    recordSeg(t, Date.now()); commit(restart(t, { order: true, orderStart: Date.now() }));
   };
-  const endShift = () => {
-    const a = active; if (!a) return;
-    const fin = closeSeg(a);
-    const names = Object.keys(fin.seg).filter(k => fin.seg[k].mins > 0.2 || fin.seg[k].km > 0);
-    const split = names.length > 1;
-    const plats = (names.length ? names : [a.plat]).map(n => ({ name: n, base: "", tips: "", bonus: "", fees: "", trips: "",
-      km: split ? +(fin.seg[n].km).toFixed(2) : "", mins: split ? Math.round(fin.seg[n].mins) : "" }));
-    setModal({ type: "shift", shift: {
-      id: genId(), date: dISO(a.start), start: a.start, end: new Date().toISOString(), vehicleId: a.vehicleId,
-      km: +(a.km || 0).toFixed(2), emptyKm: +(a.emptyKm || 0).toFixed(2), personalKm: 0,
-      platforms: plats, notes: "", photos: a.photos || [], loc: a.startPos || (a.pos ? { lat: +a.pos.lat.toFixed(5), lon: +a.pos.lon.toFixed(5) } : null) }, fromTracking: true });
+  const completeRide = () => {
+    if (nativeRef.current) { nativeRef.current.completeRide({}).catch(() => {}); return; }
+    const t = trackRef.current; if (!t || !t.order) return;
+    const rec = recordSeg(t, Date.now()); commit(restart(t, { order: false, orderStart: null }));
+    if (rec) setModal({ type: "earn", trip: rec });
   };
-  const finishTracking = () => { stopWatch(); setActive(null); };
-  const takeProof = async file => {
-    const a = active; if (!a || !file) return;
-    const lines = [new Date().toLocaleString(locale), (a.plat || "") + " · " + CONFIG.appName + " Quick Proof",
-      a.pos ? a.pos.lat.toFixed(5) + ", " + a.pos.lon.toFixed(5) + (a.acc ? "  ±" + a.acc + " m" : "") : "GPS —"];
-    const { id } = await storePhoto(file, lines);
-    setActive(x => x ? Object.assign({}, x, { photos: (x.photos || []).concat([id]) }) : x);
-    showToast("📷 " + T("saved"));
+  const setTracking = on => {
+    if (nativeRef.current) { if (on) LS.del("kept_nativePaused"); else LS.set("kept_nativePaused", true); (on ? nativeRef.current.startTracking({}) : nativeRef.current.stopTracking({})).catch(() => {}); return; }
+    const t = trackRef.current || blankTrack(PERSONAL);
+    if (!on) { if (t.on) recordSeg(t, Date.now()); stopWatch(); commit(Object.assign({}, restart(t), { on: false, order: false, last: null })); }
+    else { commit(restart(t, { on: true, last: null, gps: "wait" })); startWatch(); }
   };
+  // ── native bridge (Android app) ──
+  useEffect(() => {
+    const n = KN(); if (!n || !authed) return;
+    nativeRef.current = n; stopWatch();
+    const drain = async () => {
+      try { const r = await n.drainTrips(); const list = (r && r.trips) || [];
+        list.forEach(t => upsert("trips", Object.assign({ pay: "", tips: "", source: "native" }, t, { vehicleId: t.vehicleId || defaultVid() })));
+        if (list.length) n.ackTrips({ ids: list.map(t => t.id) }).catch(() => {});
+        return list; } catch (x) { return []; }
+    };
+    const onStatus = s => commit(Object.assign({}, trackRef.current || blankTrack(PERSONAL), s || {}, { native: true }));
+    const subs = [n.addListener("status", onStatus), n.addListener("tripsChanged", () => drain()),
+      n.addListener("rideCompleted", ev => drain().then(list => { const tr = list.find(x => x.id === (ev && ev.id)) || list[list.length - 1]; if (tr && tr.kind === "order") setModal({ type: "earn", trip: tr }); }))];
+    n.configure({ apps: st.apps || [], unit, rules: st.notifRules || {}, lang: st.lang || "en" }).catch(() => {});
+    n.getStatus().then(x => { onStatus(x); if (x && !x.on && st.autoTrack !== false && !LS.get("kept_nativePaused", false)) n.startTracking({}).catch(() => {}); }).catch(() => {});
+    drain();
+    const vis = () => { if (document.visibilityState === "visible") { drain(); n.getStatus().then(onStatus).catch(() => {}); } };
+    document.addEventListener("visibilitychange", vis);
+    return () => { subs.forEach(p => Promise.resolve(p).then(h => h && h.remove && h.remove()).catch(() => {})); document.removeEventListener("visibilitychange", vis); };
+  }, [authed, (st.apps || []).join("|"), JSON.stringify(st.notifRules || {})]);
 
   // ── per-shift net (vehicle cost from profile) ──
   const shiftNet = s => { const v = dataRef.current.vehicles.find(x => x.id === s.vehicleId); return shiftGross(s) - shiftFees(s) - num(s.km) * vehicleCost(v).total; };
@@ -1130,7 +1334,7 @@ function App() {
   const annualKmOf = vid => {
     const today = dISO(new Date()), from = addDays(today, -89);
     const ss = dataRef.current.shifts.filter(s => s.vehicleId === vid && s.date >= from);
-    const km = sum(ss, s => num(s.km) + num(s.personalKm));
+    const km = sum(ss, s => num(s.km) + num(s.personalKm)) + sum(dataRef.current.trips.filter(t => t.app === PERSONAL && t.vehicleId === vid && t.date >= from), t => num(t.km));
     if (km < 300) return 40000;
     const first = ss.reduce((m, s) => s.date < m ? s.date : m, today);
     return clamp(km / Math.max(14, daysBetween(first, today)) * 365, 5000, 120000);
@@ -1222,131 +1426,188 @@ function App() {
   // ════════════════════════════════════════════════════════════════
   //  VIEWS
   // ════════════════════════════════════════════════════════════════
+  // ── apps the driver works for + colors ──
+  const myApps = (st.apps && st.apps.length ? st.apps : null) || (() => { const r = []; data.shifts.forEach(s => (s.platforms || []).forEach(p => { if (r.indexOf(p.name) < 0) r.push(p.name); })); return r.length ? r.slice(0, 4) : ["Uber", "DoorDash"]; })();
+  const appColor = n => {
+    if (n === PERSONAL) return "#7A8AA8";
+    if (CONFIG.appColors[n]) return CONFIG.appColors[n];
+    let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
+    return CONFIG.extraColors[h % CONFIG.extraColors.length];
+  };
+  const appName = n => n === PERSONAL ? T("personal") : n;
+  const Dot = (n, sz) => e("span", { style: { display: "inline-block", width: sz || 10, height: sz || 10, borderRadius: 10, background: appColor(n), flexShrink: 0 } });
+  const appChip = (n, on, onClick, extra) => e("div", { key: n, className: "tap", style: Object.assign({}, S.chip(on), { display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }, on ? { background: appColor(n), borderColor: appColor(n), color: n === PERSONAL || /^#(E|F|D)/i.test(appColor(n)) ? "#0B1220" : "#fff" } : {}), onClick },
+    on ? null : Dot(n, 8), appName(n), extra || null);
+  const energyLabel = () => { const v = vmap[defaultVid()]; return v && v.energy === "electric" ? T("l_charge") : T("l_gas"); };
+  const openExpense = preset => setModal({ type: "expense", preset });
+  const QUICK_X = [["x_gas", "fuel", "fuel", ""], ["x_charge", "electricity", "spark", ""], ["x_oil", "maintenance", "wrench", "Oil change"], ["x_ins", "insurance", "tax", "", 1],
+                   ["x_repair", "maintenance", "wrench", ""], ["x_wash", "carwash", "car", ""], ["x_tolls", "parking", "pin", ""], ["x_phone", "phone", "gps", "", 1]];
+
+  const StatusCard = () => {
+    const t = track || {}, onApp = t.on && t.mode && t.mode !== PERSONAL;
+    const liveKm = t.on ? num(t.segKm) : 0;
+    const liveCost = liveKm * vehicleCost(vmap[defaultVid()]).total;
+    const rideMins = t.order && t.orderStart ? (Date.now() - t.orderStart) / 60000 : 0;
+    const col = t.on ? appColor(t.mode || PERSONAL) : C.muted;
+    return e("div", { style: Object.assign({}, S.card, { borderColor: t.order ? col : C.border, background: t.order ? "linear-gradient(135deg,#0F2236,#111B2E)" : C.card }) },
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 12 }) },
+        e("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 } },
+          e("div", { className: t.on ? "pulse" : "", style: { width: 10, height: 10, borderRadius: 10, background: col, flexShrink: 0 } }),
+          e("span", { style: { fontWeight: 800, fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+            !t.on ? T("trackingPaused") : t.order ? T("onRide") + " · " + t.mode : onApp ? T("onlineFor") + " · " + t.mode : T("trackingOn"))),
+        e("div", { style: { display: "flex", alignItems: "center", gap: 10, flexShrink: 0 } },
+          e("span", { style: Object.assign({}, S.small, { color: t.gps === "off" ? C.amber : C.muted, display: "flex", alignItems: "center", gap: 4 }) },
+            e(Icon, { n: "gps", s: 14 }), t.native ? "📱" : t.gps === "ok" ? "±" + t.acc + " m" : t.gps === "off" ? "GPS ✕" : "…"),
+          t.on && !t.order ? e("span", { className: "tap", style: { fontSize: 12, color: C.muted, cursor: "pointer", fontWeight: 700 }, onClick: () => setTracking(false) }, T("pause")) : null)),
+      t.on ? e("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 12 } },
+        [PERSONAL].concat(myApps).map(n => appChip(n, t.mode === n, () => { if (!t.order) setMode(n); }))) : null,
+      t.order ? e("div", null,
+          e("div", { style: { display: "flex", alignItems: "baseline", gap: 14, marginBottom: 12 } },
+            e("div", { style: { fontSize: 40, fontWeight: 900, letterSpacing: "-1px", fontVariantNumeric: "tabular-nums" } }, fmtDur(rideMins)),
+            e("div", { style: { color: C.sub, fontWeight: 700 } }, fmtDist(liveKm, 1))),
+          e("div", { style: { display: "flex", gap: 8 } },
+            e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { display: "flex", alignItems: "center", gap: 6 }), onClick: () => setModal({ type: "nav" }) }, e(Icon, { n: "pin", s: 18 }), T("navigate")),
+            e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, padding: 15, fontSize: 17 }), onClick: completeRide }, "✓  " + T("completeRide"))))
+      : onApp ? e("div", null,
+          e("button", { className: "tap", style: Object.assign(S.btn(), { width: "100%", padding: 15, fontSize: 17, background: col, color: /^#(E|F|D)/i.test(col) ? "#0B1220" : "#fff" }), onClick: startRide }, "▶  " + T("startRide") + " · " + t.mode),
+          e("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 13 } },
+            e("span", { style: { color: C.muted } }, T("thisDrive") + ": " + fmtDist(liveKm, 1) + " · " + money(liveCost)),
+            e("span", { className: "tap", style: { color: C.accent, fontWeight: 700, cursor: "pointer" }, onClick: () => setView("offer") }, T("checkOffer"))))
+      : t.on ? e("div", { style: { fontSize: 13, color: C.muted } }, T("thisDrive") + ": " + fmtDist(liveKm, 1))
+      : e("button", { className: "tap", style: Object.assign(S.btn(), { width: "100%", padding: 14 }), onClick: () => setTracking(true) }, "▶  " + T("resume")),
+      t.gps === "off" && !t.native ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginTop: 10 }) }, T("gpsOff")) : null,
+      !t.native && t.on ? e("div", { style: Object.assign({}, S.small, { marginTop: 10, lineHeight: 1.45 }) }, T("webTrackNote")) : null);
+  };
+
+  const CostLine = (label, v, opt) => v > 0.004 || (opt && opt.always) ? e("div", { style: { display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 14, color: opt && opt.bold ? C.text : C.sub, fontWeight: opt && opt.bold ? 800 : 500 } },
+    e("span", null, label), e("span", { style: { fontVariantNumeric: "tabular-nums", color: opt && opt.color ? opt.color : undefined } }, (opt && opt.plus ? "" : "−") + money(v))) : null;
+
   const HomeView = () => {
-    const [vPick, setVSel] = useState("");
-    const vSel = vmap[vPick] ? vPick : vmap[st.defaultVehicleId] ? st.defaultVehicleId : (data.vehicles.find(v => v.active !== false) || {}).id || "";
     const [a, b] = periodRange(homePeriod);
-    const P = computePeriod(data, a, b);
     const rate = setAsideRate(data);
-    const reserve = Math.max(0, P.net) * rate;
+    const B = appBreakdown(data, a, b, rate);
+    const P = B.P, t = track || {}, today = dISO(new Date());
+    const liveKm = t.on && b >= today ? num(t.segKm) : 0;
+    const miles = {}; B.apps.forEach(x => miles[x.name] = x.km); miles[PERSONAL] = B.personalKm;
+    if (liveKm) miles[t.mode] = (miles[t.mode] || 0) + liveKm;
+    const mNames = Object.keys(miles).filter(n => miles[n] > 0.01).sort((x, y) => (x === PERSONAL) - (y === PERSONAL) || miles[y] - miles[x]);
+    const totMi = sum(mNames, n => miles[n]), bizMi = totMi - (miles[PERSONAL] || 0);
     const days = [];
-    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = dISO(d); const p = computePeriod(data, k, k);
-      days.push({ label: d.toLocaleDateString(locale, { weekday: "short" }).slice(0, 2), v: p.net, hi: i === 0, label2: p.S.length ? Math.round(p.net) : "" }); }
-    const todayIso = dISO(new Date());
-    const todayP = homePeriod === "today" ? P : computePeriod(data, todayIso, todayIso);
-    const elapsed = active ? (Date.now() - new Date(active.start)) / 60000 : 0;
-    const activeV = active ? vmap[active.vehicleId] : null;
-    const liveCost = active ? (active.km || 0) * vehicleCost(activeV).total : 0;
-    const recent = data.shifts.slice().sort((x, y) => y.start.localeCompare(x.start)).slice(0, 3);
-    const bo = burnoutScore(data), tg = plannerTargets(data);
-    const goal = tg ? tg.dailyNet : num(st.dailyGoal);
-    const liveH = bo.hToday + (active ? elapsed / 60 : 0);
-    const heavy = liveH >= 9 || bo.level === "high";
-    const hit = goal > 0 && todayP.net >= goal;
-    const recentPlats = [];
-    data.shifts.slice().sort((x, y) => y.start.localeCompare(x.start)).forEach(s => (s.platforms || []).forEach(p => { if (recentPlats.indexOf(p.name) < 0) recentPlats.push(p.name); }));
-    const chipPlats = active ? Array.from(new Set([active.plat].concat(recentPlats.slice(0, 4), Object.keys(active.seg || {})))) : [];
-
+    for (let i = 6; i >= 0; i--) { const d = addDays(today, -i); const p = appBreakdown(data, d, d, rate);
+      days.push({ label: new Date(d + "T12:00").toLocaleDateString(locale, { weekday: "short" }).slice(0, 2), v: p.kept, hi: i === 0, label2: p.P.gross ? Math.round(p.kept) : "" }); }
+    const recentX = data.expenses.slice().sort((x, y) => (y.date + y.id).localeCompare(x.date + x.id)).slice(0, 3);
+    const tg = plannerTargets(data), goal = tg ? tg.dailyNet : num(st.dailyGoal);
+    const todayKept = homePeriod === "today" ? B.kept : appBreakdown(data, today, today, rate).kept;
     return e("div", null,
-      !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent, background: "linear-gradient(135deg,#10243A,#0E1729)" }) },
-        e("div", { style: { fontSize: 18, fontWeight: 900, marginBottom: 6 } }, T("welcome")),
-        e("div", { style: { color: C.sub, fontSize: 14, marginBottom: 12 } }, T("setupHint").replace(/\bkm\b/, unit)),
+      !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent }) },
+        e("div", { style: { fontWeight: 800, marginBottom: 8 } }, T("setupHint").replace(/\bkm\b/, unit)),
         e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, T("addVehicle"))) : null,
-
-      st.country === "US" && !st.state ? e("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: "rgba(245,181,68,.4)" }) },
-        e("div", { style: { flex: 1, minWidth: 200, fontSize: 13, color: C.sub } }, T("pickState")),
-        e("select", { style: Object.assign({}, S.input, { width: 200 }), value: "", onChange: ev => { saveSettings({ state: ev.target.value }); showToast(T("saved")); } },
-          e("option", { value: "" }, T("state") + "…"), US_STATES.map(x => e("option", { key: x.code, value: x.code }, x.name)))) : null,
-
-      // tracking card
-      e("div", { style: Object.assign({}, S.card, active ? { borderColor: C.accent } : {}) },
-        active
-          ? e("div", null,
-              e("div", { style: S.row },
-                e("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-                  e("div", { className: "pulse", style: { width: 10, height: 10, borderRadius: 10, background: C.accent } }),
-                  e("span", { style: { fontWeight: 700, color: C.sub } }, (activeV ? CONFIG.vehicleTypes[activeV.type].icon + " " + vName(activeV) : ""))),
-                e("span", { style: Object.assign({}, S.small, { color: active.gps === "off" ? C.amber : C.muted, display: "flex", alignItems: "center", gap: 4 }) },
-                  e(Icon, { n: "gps", s: 14 }), active.gps === "ok" ? "±" + active.acc + " m" : active.gps === "off" ? "GPS ✕" : "…")),
-              e("div", { style: { fontSize: 44, fontWeight: 900, letterSpacing: "-1px", margin: "10px 0 2px", fontVariantNumeric: "tabular-nums" } }, fmtDur(elapsed)),
-              e("div", { className: "grid3", style: { margin: "10px 0" } },
-                Stat(T("distance"), fmtDist(active.km || 0, 2)),
-                Stat(T("emptyKm"), fmtDist(active.emptyKm || 0, 2)),
-                Stat(T("vehicleWear"), money(liveCost))),
-              e("div", { style: Object.assign({}, S.label, { marginTop: 4 }) }, T("nowWorkingFor")),
-              e("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, alignItems: "center", paddingBottom: 2 } },
-                e("div", { style: { minWidth: 64, flexShrink: 0 } }, platformSelect("", v => switchPlatform(v), { padding: "6px 26px 6px 12px", fontSize: 13, borderRadius: 999 }, "+")),
-                chipPlats.map(n =>
-                  e("div", { key: n, className: "tap", style: S.chip(active.plat === n), onClick: () => switchPlatform(n) },
-                    n + (active.seg && (active.seg[n] || n === active.plat) ? " · " + Math.round(((active.seg[n] || {}).mins || 0) + (n === active.plat ? (Date.now() - active.segStart) / 60000 : 0)) + "m" : "")))),
-              e("div", { className: "grid2", style: { marginBottom: 10 } },
-                e("button", { style: active.mode === "job" ? S.btn() : S.btn("ghost"), onClick: () => setActive(x => Object.assign({}, x, { mode: "job" })) }, T("onJob")),
-                e("button", { style: active.mode === "empty" ? Object.assign(S.btn(), { background: C.amber }) : S.btn("ghost"), onClick: () => setActive(x => Object.assign({}, x, { mode: "empty" })) }, T("betweenJobs"))),
-              e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: C.accent, borderColor: "rgba(46,230,166,.4)" }), onClick: () => setView("offer") }, e(Icon, { n: "offer", s: 16 }), T("checkOffer")),
-              active.gps === "off" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginBottom: 8 }) }, T("gpsOff")) : null,
-              e("div", { style: { display: "flex", gap: 8 } },
-                e("button", { style: Object.assign(S.btn("ghost"), { display: "flex", alignItems: "center", gap: 6 }), onClick: () => proofRef.current && proofRef.current.click() },
-                  e(Icon, { n: "camera", s: 18 }), T("quickProof") + ((active.photos || []).length ? " (" + active.photos.length + ")" : "")),
-                e("input", { ref: proofRef, type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: ev => { takeProof(ev.target.files[0]); ev.target.value = ""; } }),
-                e("button", { style: Object.assign(S.btn("danger"), { flex: 1, padding: 14, fontSize: 16 }), onClick: endShift }, "■  " + T("endShift"))),
-              heavy ? e("div", { style: { marginTop: 10 } }, HeavyNote(liveH)) : null,
-              e("div", { style: Object.assign({}, S.small, { marginTop: 8, lineHeight: 1.4 }) }, T("keepOpen")))
-          : e("div", null,
-              data.vehicles.length ? e("div", { style: { marginBottom: 12 } }, Chips(data.vehicles.filter(v => v.active !== false).map(v => [v.id, CONFIG.vehicleTypes[v.type].icon + " " + vName(v)]), vSel, setVSel)) : null,
-              e("button", { className: "tap", style: Object.assign(S.btn(), { width: "100%", padding: 16, fontSize: 17 }), onClick: () => startShift(vSel) }, "▶  " + T("startShift")),
-              e("div", { style: { textAlign: "center", marginTop: 10 } },
-                e("span", { style: { color: C.muted, fontSize: 13, cursor: "pointer", textDecoration: "underline" }, onClick: () => setModal({ type: "shift" }) }, T("addManual")),
-                e("span", { style: { color: C.dim, margin: "0 8px" } }, "·"),
-                e("span", { style: { color: C.accent, fontSize: 13, cursor: "pointer", fontWeight: 700 }, onClick: () => setView("offer") }, T("checkOffer"))))),
-
-      // stop signal / heavy day (when not tracking)
-      !active && hit && liveH >= 6 ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent, background: C.accentDim, color: C.accent, fontWeight: 700 }) }, "✋ " + T("stopSignal")) : null,
-      !active && heavy && data.shifts.length ? e("div", { style: { marginBottom: 12 } }, HeavyNote(liveH)) : null,
-
-      // today's brief
+      e(StatusCardC),
+      // period + hero
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) },
+        Chips([["today", T("today")], ["week", T("week")], ["month", T("month")]], homePeriod, setHomePeriod),
+        e("span", { className: "tap", style: { color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }, onClick: () => setModal({ type: "earn" }) }, "+ " + T("addEarnings"))),
+      e("div", { style: S.card },
+        e("div", { style: Object.assign({}, S.row, { alignItems: "flex-end" }) },
+          e("div", null,
+            e("div", { style: S.statLabel }, T("youKept")),
+            e("div", { style: { fontSize: 40, fontWeight: 900, letterSpacing: "-1px", color: B.kept < 0 ? C.red : C.accent, lineHeight: 1.1 } }, money(B.kept))),
+          P.S.length ? e("span", { className: "tap", style: { color: C.muted, cursor: "pointer", padding: 4 }, onClick: () => setModal({ type: "wrap", period: homePeriod }) }, e(Icon, { n: "share", s: 18 })) : null),
+        e("div", { className: "grid3", style: { marginTop: 12 } },
+          Stat(T("earned"), money(P.gross)), Stat(T("costs"), "−" + money(P.costs + P.fees), C.amber), Stat(T("taxSetAside"), "−" + money(B.tax), C.purple)),
+        goal > 0 && homePeriod === "today" ? e("div", { style: { marginTop: 12 } },
+          e("div", { style: Object.assign({}, S.row, { fontSize: 12, color: C.muted, marginBottom: 6 }) }, e("span", null, T("goal")), e("span", null, money(todayKept, 0) + " / " + money(goal, 0))),
+          Progress(todayKept / goal * 100)) : null),
+      // miles by app
+      e("div", { style: S.card },
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("milesByApp")),
+          e("div", { style: { fontWeight: 800 } }, fmtDist(totMi, 1))),
+        totMi > 0 ? e("div", null,
+          e("div", { style: { display: "flex", height: 12, borderRadius: 8, overflow: "hidden", background: C.input, marginBottom: 10, gap: 2 } },
+            mNames.map(n => e("div", { key: n, style: { width: (miles[n] / totMi * 100) + "%", background: appColor(n) } }))),
+          mNames.map(n => e("div", { key: n, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 14 } },
+            Dot(n), e("span", { style: { flex: 1, color: C.sub } }, appName(n)),
+            e("span", { style: { color: C.muted, fontSize: 12, width: 44, textAlign: "right" } }, Math.round(miles[n] / totMi * 100) + "%"),
+            e("span", { style: { fontWeight: 700, width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums" } }, fmtDist(miles[n], 1)))),
+          totMi > 0 && bizMi > 0 ? e("div", { style: Object.assign({}, S.small, { marginTop: 6 }) }, T("bizShare") + ": " + Math.round(bizMi / totMi * 100) + "%") : null)
+        : e("div", { style: { color: C.muted, fontSize: 13 } }, T("webTrackNote"))),
+      // per-app cards
+      B.apps.length ? B.apps.map(x => e("div", { key: x.name, style: Object.assign({}, S.card, { borderLeft: "4px solid " + appColor(x.name) }) },
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 6 }) },
+          e("div", { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 16 } }, Dot(x.name, 12), x.name),
+          e("div", { style: { fontWeight: 900, fontSize: 18, color: x.kept < 0 ? C.red : C.accent } }, money(x.kept))),
+        e("div", { style: Object.assign({}, S.small, { marginBottom: 8 }) },
+          [fmtDist(x.km, 1), x.orders ? x.orders + " " + (x.orders === 1 ? T("k_order") : T("orders")).toLowerCase() : "", x.mins ? fmtDur(x.mins) : "", x.km > 0.5 && x.gross ? money(x.gross / dist(x.km)) + "/" + unit : ""].filter(Boolean).join(" · ")),
+        CostLine(T("earned"), x.gross, { plus: true, always: true, color: C.text }),
+        CostLine(T("l_fees"), x.fees), CostLine(energyLabel(), x.gas), CostLine(T("l_dep"), x.dep), CostLine(T("l_maint"), x.maint),
+        CostLine(T("l_ins"), x.ins), CostLine(T("l_fixed"), x.fixed), CostLine(T("l_actual"), x.actual || 0), CostLine(T("l_other"), x.other),
+        CostLine(T("taxSetAside") + " (" + pct(rate) + ")", x.tax),
+        e("div", { style: { borderTop: "1px solid " + C.border, marginTop: 4 } }, CostLine(T("youKept"), x.kept, { plus: true, bold: true, always: true, color: x.kept < 0 ? C.red : C.accent })),
+        e("div", { className: "tap", style: { color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 6 }, onClick: () => setModal({ type: "earn", app: x.name }) }, "+ " + T("addEarnings"))))
+      : e("div", { style: Object.assign({}, S.card, { color: C.muted, fontSize: 14, lineHeight: 1.5 }) }, T("noAppYet"),
+          B.unalloc > 0.004 ? e("div", { style: { marginTop: 10 } }, CostLine(T("fixedToday"), B.unalloc)) : null),
+      // expenses
+      e("div", { style: S.card },
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("quickAdd")),
+          e("span", { className: "tap", style: { color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer" }, onClick: () => setView("expenses") }, T("seeAll") + " →")),
+        e("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 } },
+          QUICK_X.map(q => e("div", { key: q[0], className: "tap", style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 4px", textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.sub },
+            onClick: () => openExpense({ category: q[1], note: q[3], recurring: q[4] || "" }) },
+            e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 4 } }, e(Icon, { n: q[2], s: 20 })), T(q[0])))),
+        recentX.length ? e("div", { style: { marginTop: 10 } }, recentX.map(x => e("div", { key: x.id, className: "tap", style: { display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid " + C.border, fontSize: 13, cursor: "pointer" }, onClick: () => setModal({ type: "expense", expense: x }) },
+          e("span", { style: { color: C.sub } }, T("c_" + x.category) + (x.note ? " · " + x.note : "") + (x.recurring ? " · " + T("r_" + x.recurring).toLowerCase() : "")),
+          e("span", { style: { fontWeight: 700 } }, money(num(x.amount)))))) : null),
+      // brief
       brief && data.shifts.length ? e("div", { style: Object.assign({}, S.card, { borderColor: "rgba(169,139,255,.35)", background: "linear-gradient(135deg,#151A36,#111B2E)" }) },
         e("div", { style: Object.assign({}, S.row, { marginBottom: 8 }) },
           e("div", { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 800 } }, e(Icon, { n: "spark", s: 16, c: C.purple }), T("brief"), brief.ai ? e("span", { style: S.badge(C.purple) }, T("aiBrief")) : null),
           e("span", { style: { fontSize: 12, color: C.purple, cursor: "pointer", fontWeight: 700 }, onClick: () => loadBrief(true) }, briefBusy ? "…" : T("refresh"))),
         e("div", { style: { fontSize: 14, color: C.sub, lineHeight: 1.55, whiteSpace: "pre-wrap" } }, brief.text)) : null,
+      e("div", { style: S.card }, e("div", { style: S.h2 }, T("last7")), Bars(days)));
+  };
 
-      // period summary
-      e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) },
-        Chips([["today", T("today")], ["week", T("week")], ["month", T("month")], ["year", T("year")]], homePeriod, setHomePeriod),
-        P.S.length ? e("span", { className: "tap", style: { color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }, onClick: () => setModal({ type: "wrap", period: homePeriod === "year" ? "month" : homePeriod }) }, e(Icon, { n: "share", s: 15 }), T("share")) : null),
-      e("div", { style: S.card },
-        e("div", { style: S.statLabel }, T("netEarnings")),
-        e("div", { style: { fontSize: 38, fontWeight: 900, letterSpacing: "-1px", color: P.net < 0 ? C.red : C.accent, marginBottom: 4 } }, money(P.net)),
-        e("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, color: C.sub, marginBottom: 6 } },
-          e("span", null, T("gross") + " ", e("b", null, money(P.gross))),
-          P.fees ? e("span", null, T("fees") + " ", e("b", null, "−" + money(P.fees))) : null,
-          e("span", null, T("costs") + " ", e("b", null, "−" + money(P.costs)))),
-        P.net > 0 ? e("div", { style: { fontSize: 13, color: C.sub, marginBottom: 14 } },
-          T("keptAfterTax") + ": ", e("b", { style: { color: C.text } }, money(P.net - reserve)),
-          e("span", { style: { color: C.muted } }, "  (" + T("taxReserve").toLowerCase() + " " + money(reserve) + " · " + pct(rate) + ")")) : e("div", { style: { height: 8 } }),
-        e("div", { className: "grid4" },
-          Stat(T("distance"), fmtDist(P.km)),
-          Stat(T("workTime"), fmtDur(P.mins)),
-          Stat(T("perHour"), money(P.perHour)),
-          Stat(T("per100") + " " + unit, money(unit === "mi" ? P.per100 * KM_PER_MI : P.per100))),
-        goal > 0 ? e("div", { style: { marginTop: 14 } },
-          e("div", { style: Object.assign({}, S.row, { fontSize: 12, color: C.muted, marginBottom: 6 }) },
-            e("span", null, (tg ? T("dailyNetTarget") : T("goal")) + " · " + T("today")), e("span", null, money(todayP.net, 0) + " / " + money(goal, 0))),
-          Progress(todayP.net / goal * 100)) : null),
-
-      // burnout mini
-      data.shifts.length ? e("div", { className: "tap", style: Object.assign({}, S.card, { cursor: "pointer" }), onClick: () => setView("coach") },
-        e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) },
-          e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("burnout")),
-          e("span", { style: S.badge(burnCol(bo.level)) }, bo.score + " · " + burnLabel(bo.level))),
-        Meter(bo.score, bo.level)) : null,
-
-      e("div", { style: S.card }, e("div", { style: S.h2 }, T("last7")), Bars(days)),
-
-      recent.length ? e("div", null,
-        e("div", { style: Object.assign({}, S.row, { margin: "4px 2px 8px" }) }, e("div", { style: S.h2 }, T("shifts")),
-          e("span", { style: { color: C.accent, fontSize: 13, cursor: "pointer", fontWeight: 700 }, onClick: () => setView("shifts") }, T("all") + " →")),
-        recent.map(s => ShiftRow(s))) : null);
+  // ── Trips (every drive, grouped by day) ──
+  const kindLabel = t => t.source === "gap" ? T("gapNote") : T("k_" + (t.kind || "personal"));
+  const TripsView = () => {
+    const [per, setPer] = useState("week");
+    const [a, b] = periodRange(per);
+    const list = data.trips.filter(t => t.date >= a && t.date <= b).sort((x, y) => (y.start || "").localeCompare(x.start || ""));
+    const legacy = (raw.shifts || []).filter(s => s.date >= a && s.date <= b);
+    const byDay = {}; list.forEach(t => (byDay[t.date] = byDay[t.date] || []).push(t));
+    legacy.forEach(s => (byDay[s.date] = byDay[s.date] || []).push(Object.assign({ legacy: true }, s)));
+    const dayKeys = Object.keys(byDay).sort().reverse();
+    const totKm = sum(list, t => num(t.km)) + sum(legacy, s => num(s.km) + num(s.personalKm)), persKm = sum(list.filter(t => t.app === PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.personalKm));
+    const earned = sum(list, t => num(t.pay) + num(t.tips)) + sum(legacy, shiftGross);
+    return e("div", null,
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h1, { marginBottom: 0 }) }, T("log")),
+        e("div", { style: { display: "flex", gap: 8 } },
+          e("button", { style: S.btn("ghost"), onClick: () => setModal({ type: "trip" }) }, "+ " + T("addTrip")),
+          e("button", { style: S.btn(), onClick: () => setModal({ type: "earn" }) }, "+ " + T("addEarnings")))),
+      e("div", { style: { marginBottom: 12 } }, Chips([["today", T("today")], ["week", T("week")], ["month", T("month")], ["year", T("year")]], per, setPer)),
+      e("div", { className: "grid4", style: { marginBottom: 12 } },
+        Stat(T("distance"), fmtDist(totKm, 0)), Stat(T("bizMiles"), fmtDist(totKm - persKm, 0)), Stat(T("personal"), fmtDist(persKm, 0)), Stat(T("earned"), money(earned, 0), C.accent)),
+      dayKeys.length ? dayKeys.map(d => {
+        const items = byDay[d];
+        return e("div", { key: d, style: { marginBottom: 14 } },
+          e("div", { style: Object.assign({}, S.row, { margin: "0 2px 6px", fontSize: 13, color: C.muted, fontWeight: 700 }) },
+            e("span", null, new Date(d + "T12:00").toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "short" })),
+            e("span", null, fmtDist(sum(items, t => num(t.km) + num(t.personalKm)), 1))),
+          e("div", { style: Object.assign({}, S.card, { padding: "4px 14px" }) },
+            items.map((t, i) => t.legacy
+              ? e("div", { key: t.id, className: "tap", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: i ? "1px solid " + C.border : "none", cursor: "pointer" }, onClick: () => setModal({ type: "shift", shift: t }) },
+                  Dot((t.platforms[0] || {}).name || "Other"),
+                  e("div", { style: { flex: 1, minWidth: 0 } },
+                    e("div", { style: { fontWeight: 700, fontSize: 14 } }, (t.platforms || []).map(p => p.name).join(", ") + " · " + T("shift1")),
+                    e("div", { style: S.small }, tHM(t.start) + "–" + tHM(t.end) + " · " + fmtDist(num(t.km), 1))),
+                  e("div", { style: { fontWeight: 800 } }, money(shiftGross(t))))
+              : e("div", { key: t.id, className: "tap", style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: i ? "1px solid " + C.border : "none", cursor: "pointer" }, onClick: () => setModal({ type: "trip", trip: t }) },
+                  Dot(t.app),
+                  e("div", { style: { flex: 1, minWidth: 0 } },
+                    e("div", { style: { fontWeight: 700, fontSize: 14 } }, appName(t.app), t.app !== PERSONAL || t.source === "gap" ? e("span", { style: { color: C.muted, fontWeight: 500 } }, " · " + kindLabel(t)) : null),
+                    e("div", { style: S.small }, (t.kind === "earning" ? "" : tHM(t.start) + "–" + tHM(t.end) + " · ") + fmtDist(num(t.km), 1))),
+                  num(t.pay) + num(t.tips) ? e("div", { style: { fontWeight: 800, color: C.accent } }, money(num(t.pay) + num(t.tips)))
+                    : t.kind === "order" ? e("span", { style: Object.assign({}, S.badge(C.amber)) }, "+ " + T("pay")) : null))));
+      }) : Empty(T("webTrackNote")));
   };
 
   const ShiftRow = s => {
@@ -1388,6 +1649,10 @@ function App() {
         e("div", { style: { display: "flex", gap: 8 } },
           e("button", { style: Object.assign(S.btn("ghost"), { display: "flex", alignItems: "center", gap: 6 }), onClick: () => setModal({ type: "expense", scan: true }) }, e(Icon, { n: "camera", s: 16 }), T("scanReceipt")),
           e("button", { style: S.btn(), onClick: () => setModal({ type: "expense" }) }, "+ " + T("add")))),
+      e("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 } },
+        QUICK_X.map(q => e("div", { key: q[0], className: "tap", style: { background: C.card, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 4px", textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.sub },
+          onClick: () => openExpense({ category: q[1], note: q[3], recurring: q[4] || "" }) },
+          e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 4 } }, e(Icon, { n: q[2], s: 20 })), T(q[0])))),
       e("div", { style: { marginBottom: 12 } }, Chips(PERIODS(), per, setPer)),
       byCat.length ? e("div", { style: S.card },
         e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: S.h2 }, T("expenses")), e("div", { style: { fontWeight: 800 } }, money(total))),
@@ -1400,12 +1665,12 @@ function App() {
       list.length ? list.map(x => e("div", { key: x.id, className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", padding: 14 }), onClick: () => setModal({ type: "expense", expense: x }) },
         e("div", { style: S.row },
           e("div", null,
-            e("div", { style: { fontWeight: 700, fontSize: 14 } }, T("c_" + x.category) + ((x.photos || []).length ? "  📎" : "")),
+            e("div", { style: { fontWeight: 700, fontSize: 14 } }, T("c_" + x.category) + (x.recurring ? " · " + T("r_" + x.recurring).toLowerCase() : "") + ((x.photos || []).length ? "  📎" : "")),
             e("div", { style: Object.assign({}, S.small, { marginTop: 3 }) }, new Date(x.date + "T12:00").toLocaleDateString(locale, { day: "numeric", month: "short" }) + (x.vehicleId && vmap[x.vehicleId] ? " · " + vName(vmap[x.vehicleId]) : "") + (x.note ? " · " + x.note : ""))),
           e("div", { style: { fontWeight: 800 } }, money(num(x.amount)))))) : Empty(T("noExpenses")));
   };
 
-  const odoOf = v => num(v.startOdo) + sum(data.shifts.filter(s => s.vehicleId === v.id), s => num(s.km) + num(s.personalKm));
+  const odoOf = v => num(v.startOdo) + sum(data.shifts.filter(s => s.vehicleId === v.id), s => num(s.km) + num(s.personalKm)) + sum(data.trips.filter(t => t.app === PERSONAL && t.vehicleId === v.id), t => num(t.km));
 
   const VehiclesView = () => {
     const [fuel, setFuel] = useState(LS.get("kept_fuel", null));
@@ -1808,6 +2073,32 @@ function App() {
             num(calc.hours) > 0 ? e("div", { style: Object.assign({}, S.small, { marginTop: 6 }) }, T("takeHome") + " / " + T("hours") + ": " + money(cTake / num(calc.hours))) : null))));
   };
 
+  // ── settings: your apps + (Android) notification-based ride detection ──
+  const AppsCard = () => {
+    const [log, setLog] = useState(null);
+    const [perm, setPerm] = useState(null);
+    const n = nativeRef.current;
+    useEffect(() => { if (n && n.checkPermissions) n.checkPermissions().then(setPerm).catch(() => {}); }, []);
+    const cur = st.apps || [];
+    const toggle = a => saveSettings({ apps: cur.indexOf(a) >= 0 ? cur.filter(x => x !== a) : cur.concat([a]) });
+    return e("div", { style: S.card },
+      e("div", { style: S.h2 }, T("yourApps")),
+      e("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 } },
+        CONFIG.quickApps.concat(cur.filter(a => CONFIG.quickApps.indexOf(a) < 0)).map(a => appChip(a, cur.indexOf(a) >= 0, () => toggle(a))),
+        e("div", { style: { width: 90 } }, platformSelect("", v => { if (cur.indexOf(v) < 0) saveSettings({ apps: cur.concat([v]) }); }, { padding: "6px 26px 6px 12px", fontSize: 13, borderRadius: 999 }, "+"))),
+      e("label", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.sub } },
+        e("input", { type: "checkbox", checked: st.autoTrack !== false, onChange: ev => { saveSettings({ autoTrack: ev.target.checked }); setTracking(ev.target.checked); } }), T("trackingOn")),
+      n ? e("div", { style: { marginTop: 12, paddingTop: 12, borderTop: "1px solid " + C.border } },
+        e("div", { style: Object.assign({}, S.small, { marginBottom: 8, color: C.accent }) }, T("nativeOn")),
+        e("label", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.sub, marginBottom: 10 } },
+          e("input", { type: "checkbox", checked: st.autoRide !== false, onChange: ev => { saveSettings({ autoRide: ev.target.checked, notifRules: Object.assign({}, st.notifRules || {}, { enabled: ev.target.checked }) }); } }), T("autoRide")),
+        e("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+          e("button", { style: S.btn(perm && perm.notifications ? "ghost" : undefined), onClick: () => n.openNotificationSettings().catch(() => {}) }, (perm && perm.notifications ? "✓ " : "") + T("notifAccess")),
+          e("button", { style: S.btn("ghost"), onClick: () => n.getNotificationLog().then(r => setLog((r && r.items) || [])).catch(() => setLog([])) }, T("learnLog"))),
+        log ? e("div", { style: { marginTop: 10, maxHeight: 260, overflowY: "auto", fontSize: 12, fontFamily: "monospace", background: C.input, borderRadius: 10, padding: 10, color: C.sub } },
+          log.length ? log.map((x, i) => e("div", { key: i, style: { marginBottom: 6 } }, tHM(x.time) + " [" + x.pkg + "] " + (x.title || "") + " — " + (x.text || "") + (x.action ? "  → " + x.action : ""))) : "—") : null) : null);
+  };
+
   const SettingsView = () => {
     const [f, setF] = useState(Object.assign({}, st));
     const [np, setNp] = useState("");
@@ -1836,7 +2127,7 @@ function App() {
         const d = JSON.parse(r.result);
         if (!d.shifts || !d.vehicles) throw new Error("Not a Kept backup");
         if (!confirm("Replace all data with this backup?")) return;
-        const nd = { settings: Object.assign({}, CONFIG.defaults, d.settings || {}), vehicles: d.vehicles, shifts: d.shifts, expenses: d.expenses || [] };
+        const nd = { settings: Object.assign({}, CONFIG.defaults, d.settings || {}), vehicles: d.vehicles, shifts: d.shifts || [], expenses: d.expenses || [], trips: d.trips || [] };
         setData(nd); enqueue({ op: "replaceAll", data: nd }); showToast(T("saved"));
       } catch (x) { alert(x.message); } };
       r.readAsText(file);
@@ -1846,12 +2137,13 @@ function App() {
       if (ans !== "DELETE") return;
       try { if (!localMode) await apiCall(pin, "deleteAll"); } catch (x) { alert(x.message); return; }
       await IDB.clear().catch(() => {});
-      ["kept_queue", "kept_photoQ", "kept_brief", "kept_active", "kept_fuel"].forEach(k => LS.del(k));
-      const nd = { settings: Object.assign({}, CONFIG.defaults, { lang: st.lang, country: st.country, currency: st.currency, unit: st.unit }), vehicles: [], shifts: [], expenses: [] };
-      setData(nd); setBrief(null); setActive(null); showToast(T("deleted"));
+      ["kept_queue", "kept_photoQ", "kept_brief", "kept_track", "kept_fuel"].forEach(k => LS.del(k)); stopWatch(); trackRef.current = null;
+      const nd = { settings: Object.assign({}, CONFIG.defaults, { lang: st.lang, country: st.country, currency: st.currency, unit: st.unit }), vehicles: [], shifts: [], expenses: [], trips: [] };
+      setData(nd); setBrief(null); showToast(T("deleted"));
     };
     return e("div", null,
       e("div", { style: S.h1 }, T("settings")),
+      e(AppsCardC),
       e("div", { className: "cols" },
         e("div", null,
           e("div", { style: S.card },
@@ -1914,7 +2206,7 @@ function App() {
     const avgPh = hrs > 0 ? hist.perHour : 0;
     const emptyShare = hist.km > 0 ? hist.emptyKm / hist.km : 0.25;
     const kph = hrs > 0 && hist.km > 0 ? hist.km / hrs : 25;
-    const [o, setO] = useState({ pay: "", pickup: "", trip: "", mins: "", ret: "", veh: (active && active.vehicleId) || st.defaultVehicleId || (data.vehicles[0] || {}).id || "" });
+    const [o, setO] = useState({ pay: "", pickup: "", trip: "", mins: "", ret: "", veh: st.defaultVehicleId || (data.vehicles[0] || {}).id || "" });
     const [log, setLog] = useState(LS.get("kept_offers", []));
     const [mh, setMh] = useState(st.offerMinHour || ""), [md, setMd] = useState(st.offerMinMile || "");
     const set = (k, v) => setO(x => Object.assign({}, x, { [k]: v }));
@@ -2062,7 +2354,7 @@ function App() {
   const MoreView = () => e("div", null,
     e("div", { style: S.h1 }, T("more")),
     e("div", { className: "grid2" },
-      [["expenses", "receipt"], ["map", "pin"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]].map(x =>
+      [["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]].map(x =>
         e("div", { key: x[0], className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", textAlign: "center", padding: 22, marginBottom: 0 }), onClick: () => setView(x[0]) },
           e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 8 } }, e(Icon, { n: x[1], s: 26 })),
           e("div", { style: { fontWeight: 700 } }, T(x[0]))))));
@@ -2089,6 +2381,143 @@ function App() {
         setIds(ids.concat(out));
       } })));
 
+  // ── trip / earnings editor (also the quick "what did this ride pay?" sheet after Complete ride) ──
+  function TripModal({ init, quick, app }) {
+    const nowIso = new Date().toISOString();
+    const isNew = !init || !data.trips.some(x => x.id === init.id);
+    const lastApp = LS.get("kept_lastPlatform", myApps[0]);
+    const base = init || (quick === "earn"
+      ? { id: genId(), kind: "earning", app: app || (myApps.indexOf(lastApp) >= 0 ? lastApp : myApps[0]), date: dISO(new Date()), start: nowIso, end: nowIso, km: 0, pay: "", tips: "", orders: "", vehicleId: defaultVid(), source: "manual" }
+      : { id: genId(), kind: "order", app: app || myApps[0], date: dISO(new Date()), start: new Date(Date.now() - 30 * 60000).toISOString(), end: nowIso, km: "", pay: "", tips: "", vehicleId: defaultVid(), source: "manual" });
+    const [f, setF] = useState(() => Object.assign({}, base, { km: base.km === "" ? "" : +dist(num(base.km)).toFixed(2), t1: tHM(base.start), t2: tHM(base.end) }));
+    const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
+    const pers = f.app === PERSONAL, earnOnly = f.kind === "earning";
+    const short = quick === "ride";
+    const save = () => {
+      const s = new Date(f.date + "T" + (f.t1 || "12:00")); let en = new Date(f.date + "T" + (f.t2 || f.t1 || "12:00")); if (en < s) en = new Date(en.getTime() + 86400000);
+      const rec = Object.assign({}, f, { app: f.app, kind: pers ? "personal" : f.kind === "personal" ? "order" : f.kind,
+        km: earnOnly && f.km === "" ? 0 : +toKm(f.km).toFixed(3), pay: pers ? "" : (f.pay === "" ? "" : num(f.pay)), tips: pers ? "" : (f.tips === "" ? "" : num(f.tips)),
+        orders: earnOnly ? num(f.orders) : "", start: short ? f.start : s.toISOString(), end: short ? f.end : en.toISOString() });
+      delete rec.t1; delete rec.t2; if (rec.source === "gap") rec.source = "edited";
+      upsert("trips", rec); if (!pers) LS.set("kept_lastPlatform", rec.app);
+      setModal(null); showToast(T("saved"));
+    };
+    const appRow = e("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 } },
+      (earnOnly ? [] : [PERSONAL]).concat(myApps, myApps.indexOf(f.app) < 0 && f.app !== PERSONAL ? [f.app] : []).map(n => appChip(n, f.app === n, () => set("app", n))),
+      e("div", { style: { minWidth: 70, flexShrink: 0 } }, platformSelect("", v => set("app", v), { padding: "6px 26px 6px 12px", fontSize: 13, borderRadius: 999 }, "+")));
+    const payRow = e("div", { className: "grid2" },
+      Field(T("pay"), e("input", { autoFocus: !!quick, style: Object.assign({}, S.input, { fontSize: 22, fontWeight: 800 }), inputMode: "decimal", placeholder: "0.00", value: f.pay, onChange: ev => set("pay", ev.target.value), onKeyDown: ev => { if (ev.key === "Enter") save(); } })),
+      Field(T("tips"), e("input", { style: Object.assign({}, S.input, { fontSize: 22, fontWeight: 800 }), inputMode: "decimal", placeholder: "0.00", value: f.tips, onChange: ev => set("tips", ev.target.value), onKeyDown: ev => { if (ev.key === "Enter") save(); } })));
+    if (short) return ModalShell(T("rideDone") + " · " + f.app, e("div", null,
+      e("div", { style: Object.assign({}, S.small, { marginBottom: 12 }) }, fmtDist(toKm(f.km), 1) + " · " + fmtDur(tripMins(base)) + " · " + T("whatEarn")),
+      payRow,
+      e("div", { style: { display: "flex", gap: 8 } },
+        e("button", { style: S.btn("ghost"), onClick: () => setModal(null) }, T("skip")),
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
+    return ModalShell(isNew ? (earnOnly ? T("addEarnings") : T("addTrip")) : T("edit"), e("div", null,
+      f.source === "gap" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginBottom: 10 }) }, T("gapNote")) : null,
+      Field(T("app"), appRow),
+      !pers && !earnOnly ? Field(T("kind"), Chips([["order", T("k_order")], ["online", T("k_online")]], f.kind, v => set("kind", v))) : null,
+      e("div", { className: earnOnly ? "grid2" : "grid3" },
+        Field(T("date"), e("input", { type: "date", style: S.input, value: f.date, onChange: ev => set("date", ev.target.value) })),
+        earnOnly ? null : Field(T("start"), e("input", { type: "time", style: S.input, value: f.t1, onChange: ev => set("t1", ev.target.value) })),
+        earnOnly ? Field(T("orders"), e("input", { style: S.input, inputMode: "numeric", value: f.orders, onChange: ev => set("orders", ev.target.value) }))
+                 : Field(T("end"), e("input", { type: "time", style: S.input, value: f.t2, onChange: ev => set("t2", ev.target.value) }))),
+      Field(T("distance") + " (" + unit + ")", e("input", { style: S.input, inputMode: "decimal", value: f.km, onChange: ev => set("km", ev.target.value) })),
+      pers ? null : payRow,
+      e("div", { style: { display: "flex", gap: 8 } },
+        !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("trips", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
+  }
+
+  function NavModal() {
+    const [q, setQ] = useState(LS.get("kept_lastDest", ""));
+    const go = url => { LS.set("kept_lastDest", q); window.open(url, "_blank"); setModal(null); };
+    const enc = encodeURIComponent(q.trim());
+    return ModalShell(T("navigate"), e("div", null,
+      Field(T("destination"), e("input", { autoFocus: true, style: S.input, value: q, onChange: ev => setQ(ev.target.value) })),
+      e("div", { className: "grid2" },
+        e("button", { style: S.btn(), disabled: !q.trim(), onClick: () => go("https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + enc) }, T("openGoogle")),
+        e("button", { style: S.btn("ghost"), disabled: !q.trim(), onClick: () => go("https://waze.com/ul?navigate=yes&q=" + enc) }, T("openWaze")))), () => setModal(null));
+  }
+
+  // ── 3-step onboarding: apps → car → state + location ──
+  function Onboarding() {
+    const [step, setStep] = useState(0);
+    const [apps, setApps] = useState(st.apps && st.apps.length ? st.apps.slice() : []);
+    const hasVeh = data.vehicles.length > 0;
+    const [v, setV] = useState({ type: "car", year: String(new Date().getFullYear() - 4), make: "", model: "", body: "midsize", fuelKind: "gasoline" });
+    const [ctry, setCtry] = useState(st.country || "US");
+    const [state, setState] = useState(st.state || "");
+    const [loc, setLoc] = useState("");
+    const [showTypes, setShowTypes] = useState(false);
+    const setv = (k, x) => setV(o => Object.assign({}, o, { [k]: x }));
+    const toggle = n => setApps(a => a.indexOf(n) >= 0 ? a.filter(x => x !== n) : a.concat([n]));
+    const askLoc = () => { if (!navigator.geolocation) { setLoc("no"); return; } setLoc("…");
+      navigator.geolocation.getCurrentPosition(() => setLoc("ok"), () => setLoc("no"), { enableHighAccuracy: true, timeout: 15000 }); };
+    const finish = () => {
+      let vid = st.defaultVehicleId;
+      if (!hasVeh) {
+        let rec = presetVehicle(v.type, ctry);
+        Object.assign(rec, { year: num(v.year), make: v.make, model: v.model.trim(), name: [v.year, v.make, v.model.trim()].filter(Boolean).join(" ") });
+        if (v.type === "car") Object.assign(rec, { body: v.body, fuelKind: v.fuelKind, fuelType: "petrol" }, typicalEnergy(v.body, v.fuelKind, ctry));
+        rec = applyAutoDep(rec, 0, 0);
+        upsert("vehicles", rec); vid = rec.id;
+      }
+      const patch = { apps: apps.length ? apps : ["Uber", "DoorDash"], country: ctry, state: ctry === "US" ? state : st.state, onboarded: true, defaultVehicleId: vid || (data.vehicles[0] || {}).id || "" };
+      if (ctry !== st.country) Object.assign(patch, ctry === "NL" ? { currency: "EUR", unit: "km" } : ctry === "US" ? { currency: "USD", unit: "mi" } : {});
+      saveSettings(patch);
+      setView("home");
+    };
+    const Tile = (on, label, onClick, icon) => e("div", { className: "tap", style: { flex: 1, minWidth: 0, padding: "14px 6px", borderRadius: 14, textAlign: "center", cursor: "pointer", fontWeight: 700, fontSize: 14,
+      background: on ? C.accentDim : C.card2, border: "1.5px solid " + (on ? C.accent : C.border), color: on ? C.accent : C.sub }, onClick }, icon ? e("div", { style: { fontSize: 22, marginBottom: 4 } }, icon) : null, label);
+    const years = []; for (let y = new Date().getFullYear() + 1; y >= 1995; y--) years.push(String(y));
+    const titles = [[T("ob1"), T("ob1s")], [T("ob2"), T("ob2s")], [T("ob3"), T("ob3s")]];
+    const canNext = step === 0 ? apps.length > 0 : step === 1 ? (hasVeh || v.type !== "car" || !!v.make) : true;
+    const body = step === 0
+      ? e("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+          CONFIG.quickApps.concat(apps.filter(a => CONFIG.quickApps.indexOf(a) < 0)).map(n => e("div", { key: n, className: "tap", onClick: () => toggle(n),
+            style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15,
+              background: apps.indexOf(n) >= 0 ? C.accentDim : C.card2, border: "1.5px solid " + (apps.indexOf(n) >= 0 ? C.accent : C.border), color: apps.indexOf(n) >= 0 ? C.text : C.sub } },
+            Dot(n, 12), n, apps.indexOf(n) >= 0 ? e("span", { style: { color: C.accent } }, "✓") : null)),
+          e("div", { style: { minWidth: 130 } }, platformSelect("", n => { if (apps.indexOf(n) < 0) setApps(a => a.concat([n])); }, { padding: "12px 30px 12px 14px", borderRadius: 14 }, T("otherApp"))))
+      : step === 1
+      ? (hasVeh ? e("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12 }) },
+            e("span", { style: { fontSize: 28 } }, CONFIG.vehicleTypes[data.vehicles[0].type].icon), e("div", { style: { fontWeight: 800 } }, vName(vmap[st.defaultVehicleId] || data.vehicles[0])))
+        : e("div", null,
+          showTypes || v.type !== "car" ? e("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
+            Object.keys(CONFIG.vehicleTypes).map(k => Tile(v.type === k, T("t_" + k), () => setv("type", k), CONFIG.vehicleTypes[k].icon))) : null,
+          e("div", { className: "grid2" },
+            Field(T("year4"), e("select", { style: S.input, value: v.year, onChange: ev => setv("year", ev.target.value) }, years.map(y => e("option", { key: y, value: y }, y)))),
+            Field(T("make"), v.type === "car"
+              ? e("select", { style: S.input, value: v.make, onChange: ev => setv("make", ev.target.value) }, e("option", { value: "" }, T("make") + "…"), MAKES.map(m => e("option", { key: m, value: m }, m)), e("option", { value: "Other" }, T("otherApp")))
+              : e("input", { style: S.input, value: v.make, onChange: ev => setv("make", ev.target.value) }))),
+          Field(T("model") + " (" + T("optional") + ")", e("input", { style: S.input, value: v.model, placeholder: v.type === "car" ? "Camry, RAV4, Model 3…" : "", onChange: ev => setv("model", ev.target.value) })),
+          v.type === "car" ? e("div", null,
+            e("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
+              [["midsize", "b_car"], ["smallsuv", "b_suv"], ["pickup", "b_pickup"], ["minivan", "b_van"]].map(b => Tile(v.body === b[0], T(b[1]), () => setv("body", b[0])))),
+            e("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
+              [["gasoline", "f_gas", "⛽"], ["hybrid", "f_hybrid", "🔋"], ["electric", "f_ev", "⚡"]].map(b => Tile(v.fuelKind === b[0], T(b[1]), () => setv("fuelKind", b[0]), b[2])))) : null,
+          !showTypes && v.type === "car" ? e("div", { className: "tap", style: { color: C.muted, fontSize: 13, textDecoration: "underline", cursor: "pointer", textAlign: "center" }, onClick: () => setShowTypes(true) }, T("notCar")) : null))
+      : e("div", null,
+          Field(T("country"), e("select", { style: S.input, value: ctry, onChange: ev => setCtry(ev.target.value) }, CONFIG.countries.map(c => e("option", { key: c[0], value: c[0] }, c[1])))),
+          ctry === "US" ? Field(T("state"), e("select", { style: S.input, value: state, onChange: ev => setState(ev.target.value) },
+            e("option", { value: "" }, T("state") + "…"), US_STATES.map(x => e("option", { key: x.code, value: x.code }, x.name)))) : null,
+          e("button", { className: "tap", style: Object.assign(S.btn(loc === "ok" ? "ghost" : undefined), { width: "100%", padding: 14, marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }), onClick: askLoc },
+            e(Icon, { n: "gps", s: 18 }), loc === "ok" ? T("locOk") : loc === "…" ? "…" : T("allowLoc")),
+          loc === "no" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginTop: 8 }) }, T("locNo")) : null);
+    return e("div", { style: { minHeight: "100vh", background: C.bg, color: C.text, display: "flex", justifyContent: "center", padding: "28px 16px calc(28px + env(safe-area-inset-bottom))" } },
+      e("div", { style: { width: "100%", maxWidth: 480, display: "flex", flexDirection: "column" } },
+        e("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 26 } }, e(LogoMark, { s: 34 }), e("span", { style: { fontWeight: 900, fontSize: 20 } }, CONFIG.appName),
+          e("div", { style: { flex: 1 } }), [0, 1, 2].map(i => e("div", { key: i, style: { width: i === step ? 22 : 8, height: 8, borderRadius: 8, background: i <= step ? C.accent : C.border, transition: "width .2s" } }))),
+        e("div", { style: { fontSize: 26, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 6 } }, titles[step][0]),
+        e("div", { style: { color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.45 } }, titles[step][1]),
+        e("div", { style: { flex: 1 } }, body),
+        e("div", { style: { display: "flex", gap: 8, marginTop: 24 } },
+          step > 0 ? e("button", { style: Object.assign(S.btn("ghost"), { padding: 15 }), onClick: () => setStep(step - 1) }, T("back")) : null,
+          e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, padding: 15, fontSize: 16, opacity: canNext ? 1 : .5 }), disabled: !canNext, onClick: () => step < 2 ? setStep(step + 1) : finish() }, step < 2 ? T("next") : T("letsGo")))));
+  }
+
   function ShiftModal({ init, fromTracking }) {
     const isNew = !init || !data.shifts.some(s => s.id === init.id);
     const base = init || { id: genId(), date: dISO(new Date()), start: new Date(Date.now() - 4 * 3600000).toISOString(), end: new Date().toISOString(),
@@ -2109,7 +2538,7 @@ function App() {
         platforms: f.platforms.filter(p => p.name).map(p => ({ name: p.name, base: num(p.base), tips: num(p.tips), bonus: num(p.bonus), fees: num(p.fees), trips: num(p.trips),
           km: multi && p.km !== "" ? +toKm(p.km).toFixed(3) : "", mins: multi && p.mins !== "" ? num(p.mins) : "" })), notes: f.notes, photos: f.photos, loc: base.loc || null };
       if (rec.platforms.length) LS.set("kept_lastPlatform", rec.platforms[rec.platforms.length - 1].name);
-      upsert("shifts", rec); if (fromTracking) finishTracking(); setModal(null); showToast(T("saved"));
+      upsert("shifts", rec); setModal(null); showToast(T("saved"));
     };
     const inp = (k, ph) => e("input", { style: S.input, inputMode: "decimal", placeholder: ph || "0", value: f[k], onChange: ev => set(k, ev.target.value) });
     return ModalShell(fromTracking ? T("endShift") : isNew ? T("addManual") : T("edit"), e("div", null,
@@ -2139,19 +2568,33 @@ function App() {
       e("div", { style: Object.assign({}, S.row, { background: C.accentDim, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
         e("span", { style: { color: C.sub, fontSize: 13 } }, T("estNet")), e("b", { style: { color: preview < 0 ? C.red : C.accent, fontSize: 18 } }, money(preview))),
       e("div", { style: { display: "flex", gap: 8 } },
-        !isNew || fromTracking ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; if (fromTracking) { (f.photos || []).forEach(p => IDB.del(p).catch(() => {})); finishTracking(); } else remove("shifts", base.id); setModal(null); showToast(T("deleted")); } }, fromTracking ? T("discard") : T("delete")) : null,
+        !isNew || fromTracking ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("shifts", base.id); setModal(null); showToast(T("deleted")); } }, fromTracking ? T("discard") : T("delete")) : null,
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
   }
 
-  function ExpenseModal({ init, scan }) {
+  function ExpenseModal({ init, scan, preset }) {
     const isNew = !init || !data.expenses.some(x => x.id === init.id);
-    const base = init || { id: genId(), date: dISO(new Date()), category: "fuel", amount: "", vehicleId: st.defaultVehicleId || "", qty: "", note: "", photos: [] };
+    const base = init || Object.assign({ id: genId(), date: dISO(new Date()), category: "fuel", amount: "", vehicleId: defaultVid(), qty: "", note: "", photos: [], recurring: "" }, preset || {});
     const [f, setF] = useState(Object.assign({ photos: [] }, base));
     const [ocr, setOcr] = useState(null);   // null | "busy" | "done" | "fail"
     const scanRef = useRef(null);
     const photoRef = useRef(null);
     const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
     const cat = CONFIG.expenseCategories.find(c => c.id === f.category) || {};
+    const qtyUnit = f.category === "fuel" ? (unit === "mi" ? "gal" : "L") : cat.qty;
+    // a receipt with quantity updates the vehicle's price per gallon / kWh; an oil change resets that maintenance item
+    const learn = rec => {
+      const v = vmap[rec.vehicleId]; if (!v) return;
+      const patch = {};
+      if ((rec.category === "fuel" && v.energy === "fuel" || rec.category === "electricity" && v.energy === "electric") && num(rec.qty) > 0) {
+        const per = num(rec.amount) / num(rec.qty), perUnit = rec.category === "fuel" && qtyUnit === "gal" ? per / L_PER_GAL : per;
+        if (perUnit > 0.05 && perUnit < 20) patch.price = +perUnit.toFixed(4);
+      }
+      if (rec.category === "maintenance" && /oil|olie|yağ/i.test(rec.note || "")) {
+        const odo = odoOf(v); patch.parts = (v.parts || []).map(p => /oil|olie|yağ|service/i.test(p.name) ? Object.assign({}, p, { lastAt: Math.round(odo) }) : p);
+      }
+      if (Object.keys(patch).length) upsert("vehicles", Object.assign({}, v, patch));
+    };
     useEffect(() => { if (scan) setTimeout(() => scanRef.current && scanRef.current.click(), 50); }, []);
     const doScan = async file => {
       if (!file) return;
@@ -2178,12 +2621,14 @@ function App() {
       e("div", { className: "grid2" },
         Field(T("vehicle"), e("select", { style: S.input, value: f.vehicleId || "", onChange: ev => set("vehicleId", ev.target.value) },
           e("option", { value: "" }, "—"), data.vehicles.map(v => e("option", { key: v.id, value: v.id }, vName(v))))),
-        cat.qty ? Field(T("quantity") + " (" + cat.qty + ")", e("input", { style: S.input, inputMode: "decimal", value: f.qty, onChange: ev => set("qty", ev.target.value) })) : e("div")),
+        cat.qty ? Field(T("quantity") + " (" + qtyUnit + ")", e("input", { style: S.input, inputMode: "decimal", value: f.qty, onChange: ev => set("qty", ev.target.value) })) : e("div")),
       Field(T("notes"), e("input", { style: S.input, value: f.note, onChange: ev => set("note", ev.target.value) })),
+      Field(T("repeats"), Chips([["", T("r_once")], ["1", T("r_1")], ["6", T("r_6")], ["12", T("r_12")]], String(f.recurring || ""), v => set("recurring", v)),
+        f.recurring ? T("recurHint") : (f.category === "fuel" || f.category === "electricity") && st.costMode !== "actual" ? T("gasSpread") : null),
       PhotoStrip(f.photos || [], ids => set("photos", ids), photoRef),
       e("div", { style: { display: "flex", gap: 8 } },
         !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("expenses", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
-        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: () => { if (!num(f.amount)) return; upsert("expenses", Object.assign({}, f, { amount: num(f.amount), qty: f.qty === "" ? "" : num(f.qty) })); setModal(null); showToast(T("saved")); } }, T("save")))), () => setModal(null));
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: () => { if (!num(f.amount)) return; const rec = Object.assign({}, f, { amount: num(f.amount), qty: f.qty === "" || f.qty == null ? "" : num(f.qty), qtyUnit: cat.qty ? qtyUnit : "", recurring: f.recurring ? num(f.recurring) : "" }); upsert("expenses", rec); learn(rec); setModal(null); showToast(T("saved")); } }, T("save")))), () => setModal(null));
   }
 
   function MpgLookup({ onPick }) {
@@ -2400,18 +2845,24 @@ function App() {
   const WrapModalC = stable("WrapModal", WrapModal);
   const MpgLookupC = stable("MpgLookup", MpgLookup);
   const BizPlannerC = stable("BizPlanner", BizPlanner);
+  const TripModalC = stable("TripModal", TripModal);
+  const NavModalC = stable("NavModal", NavModal);
+  const OnboardingC = stable("Onboarding", Onboarding);
+  const StatusCardC = stable("StatusCard", StatusCard);
+  const AppsCardC = stable("AppsCard", AppsCard);
   const VIEWS = { home: stable("home", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
     insights: stable("insights", InsightsView), coach: stable("coach", CoachView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
-    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView) };
+    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView) };
 
   if (!authed) return e(LoginC);
+  if (!st.onboarded) return e(OnboardingC);
 
   // ════════════════════════════════════════════════════════════════
   //  LAYOUT
   // ════════════════════════════════════════════════════════════════
-  const NAV = [["home", "home"], ["offer", "offer"], ["shifts", "list"], ["expenses", "receipt"], ["insights", "chart"], ["map", "pin"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["tax", "tax"], ["settings", "gear"]];
-  const MOBILE = [["home", "home"], ["offer", "offer"], ["shifts", "list"], ["insights", "chart"], ["more", "more"]];
-  const inMore = ["more", "expenses", "map", "coach", "vehicles", "compare", "tax", "settings"].indexOf(view) >= 0;
+  const NAV = [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]];
+  const MOBILE = [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
+  const inMore = ["more", "insights", "map", "offer", "coach", "vehicles", "compare", "settings", "shifts"].indexOf(view) >= 0;
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
 
   return e("div", { className: "app-root", style: S.root },
@@ -2419,7 +2870,7 @@ function App() {
       e("div", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }, onClick: () => setView("home") },
         e(LogoMark, { s: 32 }),
         e("span", { style: { fontWeight: 900, fontSize: 20, letterSpacing: "-0.5px" } }, CONFIG.appName),
-        active ? e("span", { className: "pulse", style: { marginLeft: 4, fontSize: 11, fontWeight: 800, color: "#05221A", background: C.accent, borderRadius: 999, padding: "3px 8px" } }, "LIVE") : null),
+        track && track.on ? e("span", { className: "pulse", style: { marginLeft: 4, fontSize: 11, fontWeight: 800, color: "#05221A", background: track.mode === PERSONAL ? "#9AA8C2" : C.accent, borderRadius: 999, padding: "3px 8px" } }, track.order ? "RIDE" : "LIVE") : null),
       e("div", { style: { display: "flex", alignItems: "center", gap: 12 } }, syncDot,
         e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9 } }))),
     e("div", { style: { flex: 1, display: "flex", minHeight: 0 } },
@@ -2432,8 +2883,11 @@ function App() {
         return e("div", { key: n[0], style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "9px 0 7px", color: on ? C.accent : C.muted, fontSize: 11, fontWeight: on ? 700 : 500, cursor: "pointer" }, onClick: () => setView(n[0]) },
           e(Icon, { n: n[1], s: 22 }), T(n[0])); })),
     modal && modal.type === "shift" ? e(ShiftModalC, { key: (modal.shift && modal.shift.id) || "new", init: modal.shift, fromTracking: modal.fromTracking }) : null,
-    modal && modal.type === "expense" ? e(ExpenseModalC, { key: (modal.expense && modal.expense.id) || (modal.scan ? "scan" : "new"), init: modal.expense, scan: modal.scan }) : null,
+    modal && modal.type === "expense" ? e(ExpenseModalC, { key: (modal.expense && modal.expense.id) || (modal.scan ? "scan" : "new" + ((modal.preset && modal.preset.category) || "")), init: modal.expense, scan: modal.scan, preset: modal.preset }) : null,
     modal && modal.type === "vehicle" ? e(VehicleModalC, { key: (modal.vehicle && modal.vehicle.id) || "new", init: modal.vehicle }) : null,
+    modal && modal.type === "trip" ? e(TripModalC, { key: (modal.trip && modal.trip.id) || "newtrip", init: modal.trip }) : null,
+    modal && modal.type === "earn" ? e(TripModalC, { key: (modal.trip && modal.trip.id) || "earn" + (modal.app || ""), init: modal.trip, quick: modal.trip ? "ride" : "earn", app: modal.app }) : null,
+    modal && modal.type === "nav" ? e(NavModalC, { key: "nav" }) : null,
     modal && modal.type === "wrap" ? e(WrapModalC, { key: "wrap", period: modal.period }) : null,
     viewer ? e("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setViewer(null) },
       e("img", { src: viewer, style: { maxWidth: "100%", maxHeight: "100%", borderRadius: 10 } })) : null,
