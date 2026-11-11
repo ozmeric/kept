@@ -389,6 +389,7 @@ const I18N = {
   localRate:["City / county income tax % (optional)","Lokale inkomstenbelasting % (optioneel)","Şehir / ilçe gelir vergisi % (isteğe bağlı)"], localTax:["Local income tax","Lokale belasting","Yerel gelir vergisi"],
   localHint:["Only if your city or county taxes income (e.g. NYC, Maryland counties, Ohio or Pennsylvania cities).","Alleen als je stad inkomen belast.","Yalnızca şehriniz/ilçeniz gelir vergisi alıyorsa (ör. NYC, Maryland ilçeleri, Ohio veya Pennsylvania şehirleri)."],
   // ── v4 dashboard / trips / onboarding ──
+  addOtherCar:["Add a different car","Ander voertuig toevoegen","Başka araç ekle"], useMyCar:["Use a car I already added","Bestaand voertuig gebruiken","Eklediğim aracı kullan"],
   log:["Trips","Ritten","Yolculuklar"], optional:["optional","optioneel","isteğe bağlı"], personal:["Personal","Privé","Kişisel"], onlineFor:["Online","Online","Çevrimiçi"], onRide:["On a ride","Onderweg met rit","Siparişte"],
   k_order:["Order","Rit","Sipariş"], k_online:["Between orders","Tussen ritten","Siparişler arası"], k_personal:["Personal","Privé","Kişisel"], k_earning:["Earnings","Inkomsten","Kazanç"],
   trackingOn:["Tracking every mile","Elke kilometer wordt bijgehouden","Her mil kaydediliyor"], trackingPaused:["Tracking paused","Bijhouden gepauzeerd","Takip duraklatıldı"],
@@ -2445,7 +2446,9 @@ function App() {
   function Onboarding() {
     const [step, setStep] = useState(0);
     const [apps, setApps] = useState(st.apps && st.apps.length ? st.apps.slice() : []);
-    const hasVeh = data.vehicles.length > 0;
+    const [newCar, setNewCar] = useState(false);
+    const [pickVid, setPickVid] = useState(st.defaultVehicleId || (data.vehicles[0] || {}).id || "");
+    const hasVeh = data.vehicles.length > 0 && !newCar;
     const [v, setV] = useState({ type: "car", year: String(new Date().getFullYear() - 4), make: "", model: "", body: "midsize", fuelKind: "gasoline" });
     const [ctry, setCtry] = useState(st.country || "US");
     const [state, setState] = useState(st.state || "");
@@ -2456,7 +2459,7 @@ function App() {
     const askLoc = () => { if (!navigator.geolocation) { setLoc("no"); return; } setLoc("…");
       navigator.geolocation.getCurrentPosition(() => setLoc("ok"), () => setLoc("no"), { enableHighAccuracy: true, timeout: 15000 }); };
     const finish = () => {
-      let vid = st.defaultVehicleId;
+      let vid = pickVid;
       if (!hasVeh) {
         let rec = presetVehicle(v.type, ctry);
         Object.assign(rec, { year: num(v.year), make: v.make, model: v.model.trim(), name: [v.year, v.make, v.model.trim()].filter(Boolean).join(" ") });
@@ -2482,9 +2485,14 @@ function App() {
             Dot(n, 12), n, apps.indexOf(n) >= 0 ? e("span", { style: { color: C.accent } }, "✓") : null)),
           e("div", { style: { minWidth: 130 } }, platformSelect("", n => { if (apps.indexOf(n) < 0) setApps(a => a.concat([n])); }, { padding: "12px 30px 12px 14px", borderRadius: 14 }, T("otherApp"))))
       : step === 1
-      ? (hasVeh ? e("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12 }) },
-            e("span", { style: { fontSize: 28 } }, CONFIG.vehicleTypes[data.vehicles[0].type].icon), e("div", { style: { fontWeight: 800 } }, vName(vmap[st.defaultVehicleId] || data.vehicles[0])))
+      ? (hasVeh ? e("div", null,
+            data.vehicles.filter(x => x.active !== false).map(x => e("div", { key: x.id, className: "tap", onClick: () => setPickVid(x.id),
+              style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, borderColor: pickVid === x.id ? C.accent : C.border, background: pickVid === x.id ? C.accentDim : C.card }) },
+              e("span", { style: { fontSize: 28 } }, CONFIG.vehicleTypes[x.type].icon), e("div", { style: { fontWeight: 800, flex: 1 } }, vName(x)),
+              pickVid === x.id ? e("span", { style: { color: C.accent, fontWeight: 900 } }, "✓") : null)),
+            e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", padding: 14, marginTop: 4, borderStyle: "dashed" }), onClick: () => setNewCar(true) }, "+ " + T("addOtherCar")))
         : e("div", null,
+          data.vehicles.length ? e("div", { className: "tap", style: { color: C.accent, fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 12 }, onClick: () => setNewCar(false) }, "← " + T("useMyCar")) : null,
           showTypes || v.type !== "car" ? e("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
             Object.keys(CONFIG.vehicleTypes).map(k => Tile(v.type === k, T("t_" + k), () => setv("type", k), CONFIG.vehicleTypes[k].icon))) : null,
           e("div", { className: "grid2" },
