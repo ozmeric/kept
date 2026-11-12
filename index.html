@@ -99,6 +99,19 @@ const CONFIG = {
   appColors: { "Uber":"#E6E8EC", "Uber Eats":"#06C167", "Lyft":"#FF00BF", "DoorDash":"#FF3008", "Instacart":"#F7A428", "Amazon Flex":"#00A8E1", "Grubhub":"#A86BFF", "Spark Driver":"#FFC220", "Other":"#8899AA" },
   extraColors: ["#4FA3FF","#F5B544","#2EE6A6","#FF7A59","#C792EA","#5CD6E0","#E36588","#9CCC65"],
 
+  // tax rules with their official source and the date they were last checked against it (shown in the Tax center)
+  taxSources: [
+    { rule:"US business mileage rate: 70¢ (2025); 72.5¢ Jan 1–Jun 30, 2026; 76¢ Jul 1–Dec 31, 2026", src:"IRS — Standard mileage rates", url:"https://www.irs.gov/tax-professionals/standard-mileage-rates", checked:"2026-11-11" },
+    { rule:"2026 federal tax brackets and standard deduction ($16,100 single, $32,200 joint, $24,150 head of household)", src:"IRS — 2026 Form 1040-ES", url:"https://www.irs.gov/pub/irs-pdf/f1040es.pdf", checked:"2026-11-11" },
+    { rule:"2026 Social Security wage base $184,500 (12.4% stops above it; 2.9% Medicare has no cap)", src:"SSA — Contribution and benefit base", url:"https://www.ssa.gov/oact/COLA/cbb.html", checked:"2026-11-11" },
+    { rule:"Tips deduction: up to $25,000, tax years 2025–2028, no more than the business's net profit, phases out above $150,000 MAGI ($300,000 joint)", src:"IRS — Working Families Tax Cuts: gig workers; IRS Tax Tip 2026-06", url:"https://www.irs.gov/newsroom/the-working-families-tax-cuts-what-gig-economy-workers-should-know", checked:"2026-11-11" },
+    { rule:"Tips deduction occupations include 802 app-based rideshare drivers and 804 app/platform-based delivery people", src:"IRS — Occupations that customarily received tips", url:"https://www.irs.gov/forms-pubs/occupations-that-customarily-and-regularly-received-tips-on-or-before-dec-31-2024", checked:"2026-11-11" },
+    { rule:"Tips deduction details: $100 less per $1,000 of MAGI over the threshold; not for married filing separately; reduces income tax only, not self-employment tax", src:"One Big Beautiful Bill Act §70201 (law text) — not stated on the IRS pages checked", url:"", checked:"" },
+    { rule:"Additional Medicare tax 0.9% above $200,000 / $250,000 joint / $125,000 separate; QBI deduction 20%", src:"Internal Revenue Code §1401(b)(2), §199A", url:"", checked:"" },
+    { rule:"State income tax: 2026 brackets, deductions, exemptions and credits for 50 states + DC", src:"Tax Foundation, State Individual Income Tax Rates and Brackets 2026 (secondary source)", url:"https://taxfoundation.org/data/all/state/state-income-tax-rates/", checked:"" },
+    { rule:"Netherlands 2026: box 1 rates, zelfstandigenaftrek €1,200, MKB 12.7%, Zvw 4.85%, €0.25/km", src:"Belastingdienst / KVK", url:"https://www.belastingdienst.nl/", checked:"" },
+  ],
+
   // vehicle:true = vehicle running cost (compared against the vehicle profile, not double-counted)
   expenseCategories: [
     {id:"fuel",        vehicle:true,  qty:"L"},
@@ -366,8 +379,8 @@ const I18N = {
   minHour:["My minimum per hour","Mijn minimum per uur","Saatlik alt sınırım"], minMile:["My minimum per","Mijn minimum per","Alt sınırım /"],
   verdictTake:["Take it","Aannemen","Kabul et"], verdictMaybe:["Borderline","Twijfelgeval","Sınırda"], verdictSkip:["Skip it","Overslaan","Geç"],
   profitAfterCost:["Profit after vehicle cost","Winst na voertuigkosten","Araç maliyeti sonrası kâr"], afterTax:["After tax set-aside","Na belastingreserve","Vergi payı sonrası"],
-  offerNote:["Type the numbers from the offer screen. Kept adds your real cost per mile and an empty return estimated from your own history. Platforms don't share live offer data, so entry is manual.","Vul de cijfers van het aanbod in. Kept rekent je echte kosten en een lege terugrit uit je historie mee. Platforms delen geen live data, dus invoer is handmatig.","Teklif ekranındaki rakamları girin. Kept gerçek mil başı maliyetinizi ve kendi geçmişinizden tahmini boş dönüşü ekler. Platformlar canlı teklif verisi paylaşmadığı için giriş elle yapılır."],
-  recentOffers:["Recent checks","Recente checks","Son kontroller"], checkOffer:["Check an offer","Aanbod checken","Teklif kontrol et"], took:["took","aangenomen","alındı"], skipped:["skipped","overgeslagen","geçildi"],
+  offerNote:["Type the numbers from the offer screen, or scan a screenshot and check what Kept read. Kept adds your real cost per mile and an empty return estimated from your own history. Kept never accepts or declines an order for you.","Vul de cijfers van het aanbod in of scan een screenshot en controleer. Kept rekent je echte kosten en een lege terugrit uit je historie mee. Kept accepteert of weigert nooit zelf.","Teklif ekranındaki rakamları girin ya da ekran görüntüsünü tarayıp Kept'in okuduklarını kontrol edin. Kept gerçek mil başı maliyetinizi ve geçmişinize göre boş dönüşü ekler. Kept sizin yerinize hiçbir siparişi kabul etmez veya reddetmez."],
+  recentOffers:["Recent checks","Recente checks","Son kontroller"], checkOffer:["Check an offer","Aanbod checken","Teklifi Değerlendir"], took:["took","aangenomen","alındı"], skipped:["skipped","overgeslagen","geçildi"],
   logOffer:["Save as taken","Opslaan: aangenomen","Alındı olarak kaydet"], logSkip:["Save as skipped","Opslaan: overgeslagen","Geçildi olarak kaydet"], offerTargetsHint:["Minimums default to your recent average — set your own.","Minimums standaard uit je gemiddelde.","Alt sınırlar son ortalamanızdan gelir — kendinizinkini girin."],
   // v3 — profit map
   map:["Profit map","Winstkaart","Kâr haritası"], mapTitle:["Where you earn the most","Waar je het meest verdient","En çok kazandığınız yerler"],
@@ -465,10 +478,41 @@ const I18N = {
   undo:["Undo","Ongedaan maken","Geri al"], restored:["Restored","Hersteld","Geri alındı"], errAmount:["Enter an amount greater than 0.","Vul een bedrag groter dan 0 in.","0'dan büyük bir tutar girin."], errIncome:["Enter at least one amount (pay, tips or bonus).","Vul minstens één bedrag in.","En az bir tutar girin (ödeme, bahşiş veya bonus)."], errMiles:["Enter the miles for this ride.","Vul de afstand in.","Bu siparişin mesafesini girin."],
   stg_banner:["STAGING PREVIEW · test data stays in this browser · not the live app","STAGING-VOORBEELD · testgegevens blijven in deze browser","ÖNİZLEME (STAGING) · test verileri yalnızca bu tarayıcıda · canlı uygulama değil"], stg_sample:["Preview with sample data (3 weeks)","Voorbeeld met testgegevens","Örnek verilerle önizle (3 hafta)"],
   restoreConfirm:["Replace all your data with this backup?","Alle gegevens vervangen door deze back-up?","Tüm verileriniz bu yedekle değiştirilsin mi?"],
+  rulesSrc:["Tax rules and sources","Belastingregels en bronnen","Vergi kuralları ve kaynakları"], rulesHint:["Each rule Kept uses, where it comes from, and when it was last checked against the official source. Estimates only — not tax advice.","Elke regel met bron en controledatum. Geen belastingadvies.","Kept'in kullandığı her kural, kaynağı ve resmi kaynakla en son ne zaman kontrol edildiği. Yalnızca tahmindir — vergi danışmanlığı değildir."],
+  checkedOn:["checked {d}","gecontroleerd {d}","kontrol tarihi {d}"], notRechecked:["not rechecked against an official page yet","nog niet opnieuw gecontroleerd","henüz resmi sayfayla yeniden kontrol edilmedi"],
+  src_learned:["mpg learned from your fill-ups","verbruik uit je tankbeurten","yakıt alımlarınızdan öğrenilen tüketim"],
+  vd_learned:["From your last {n} fill-ups over {d}, your real consumption is {v}.","Uit je laatste {n} tankbeurten over {d}: {v}.","Son {n} yakıt alımınıza ve {d} yolunuza göre gerçek tüketiminiz {v}."], vd_useLearned:["Use my real number","Gebruik mijn echte verbruik","Gerçek değerimi kullan"],
+  vd_day:["Per day","Per dag","Günlük"], vd_mon:["Per month","Per maand","Aylık"], vd_yr:["Per year","Per jaar","Yıllık"],
+  vd_batt:["EV battery","Accu (EV)","Batarya (EV)"], vd_battTxt:["Reserve for a {p} battery over {d}. Kept can't read battery health — ask your dealer for a battery health report.","Reserve voor een accu van {p} over {d}.","{d} için {p} tutarındaki batarya için ayrılan pay. Kept batarya sağlığını okuyamaz — bayinizden batarya sağlık raporu isteyin."],
+  vd_battNone:["No battery reserve set. Add battery price and expected life in Review.","Geen accureserve ingesteld.","Batarya payı ayarlanmadı. Gözden geçir'de batarya fiyatı ve ömrünü ekleyin."],
+  vd_econ:["Is your car paying off?","Verdient je auto zich terug?","Aracınız kazandırıyor mu?"], vd_econOk:["Yes — you earn more per mile than it costs","Ja","Evet — mil başına maliyetinden fazlasını kazanıyorsunuz"], vd_econBad:["No — it costs more per mile than you earn","Nee","Hayır — mil başına kazancınızdan fazla tutuyor"],
+  vd_econTxt:["Last 30 days: you earned {e} per business {u}; the car really costs {c} per {u} (all costs). That leaves {m} per {u}.","Laatste 30 dagen: {e} per {u}, kosten {c}, over {m}.","Son 30 gün: iş {u} başına {e} kazandınız; araç gerçekte {u} başına {c} tutuyor (tüm giderler). Geriye {u} başına {m} kalıyor."],
+  vd_irsHigh:["Your real cost ({c}/mi) is above the IRS rate ({r}/mi). The actual-expense method could give a bigger deduction — ask your tax preparer.","Je kosten zijn hoger dan het IRS-tarief.","Gerçek maliyetiniz ({c}/mil) IRS oranının ({r}/mil) üstünde. Gerçek gider yöntemi daha büyük indirim sağlayabilir — vergi uzmanınıza danışın."],
+  vd_irsLow:["The IRS rate ({r}/mi) is above your real cost ({c}/mi), so the standard mileage deduction is likely the better choice.","Het IRS-tarief is hoger dan je kosten.","IRS oranı ({r}/mil) gerçek maliyetinizin ({c}/mil) üstünde; standart mil indirimi muhtemelen daha avantajlı."],
+  vd_setDates:["Set dates","Datums instellen","Tarihleri ayarla"], rm_reg:["Registration renewal","Kentekenregistratie","Ruhsat yenileme"], rm_insp:["Inspection (APK / state)","Keuring (APK)","Muayene"], rm_insRenew:["Insurance renewal","Verlenging verzekering","Sigorta yenileme"],
+  rm_batt12:["12-volt battery (about 4 years)","Accu 12 V (±4 jaar)","12 V akü (yaklaşık 4 yıl)"], rm_battInst:["12-volt battery installed on","Accu geplaatst op","12 V akü takılma tarihi"],
+  rm_in:["in {n} days","over {n} dagen","{n} gün sonra"], rm_over:["{n} days overdue","{n} dagen te laat","{n} gün gecikti"],
+  odoNow:["Odometer now","Kilometerstand nu","Şu anki kilometre"], odoHint:["Read it from your dashboard. Kept adds the miles it tracks from here on.","Lees af van je dashboard.","Gösterge panelinden okuyun. Kept bundan sonra takip ettiği milleri ekler."],
+  vo_title:["Speak to Kept","Spreek tegen Kept","Kept'e söyleyin"], vo_tap:["Tap and speak","Tik en spreek","Dokunun ve konuşun"], vo_listening:["Listening…","Luisteren…","Dinleniyor…"],
+  vo_examples:["Try: “I spent 35 dollars on gas” · “Add a 12 dollar parking expense” · “I made 48 on DoorDash” · “How much did I earn this week?”","Bijv.: “35 euro getankt”","Örnek: “Bugün 35 dolar benzin aldım” · “12 dolarlık otopark gideri ekle” · “DoorDash'ten 48 kazandım” · “Bu hafta ne kadar kazandım?”"],
+  vo_type:["Or type it","Of typ het","Ya da yazın"], vo_ph:["I spent 35 dollars on gas","35 euro getankt","Bugün 35 dolar benzin aldım"], vo_go:["Understand","Begrijpen","Anla"],
+  vo_unknown:["Kept didn't understand that. Say an amount and what it was for, or ask how much you earned.","Niet begrepen.","Kept bunu anlayamadı. Bir tutar ve ne için olduğunu söyleyin ya da ne kadar kazandığınızı sorun."],
+  vo_noMic:["Speech isn't available in this browser — type the sentence instead.","Spraak niet beschikbaar — typ het.","Bu tarayıcıda konuşma yok — cümleyi yazın."], vo_blocked:["Microphone is blocked for Kept. Allow it in the browser settings, or type instead.","Microfoon geblokkeerd.","Kept için mikrofon engelli. Tarayıcı ayarlarından izin verin ya da yazın."],
+  vo_exp:["Add expense: {c}, {a}, today?","Uitgave: {c}, {a}, vandaag?","Gider eklensin mi: {c}, {a}, bugün?"], vo_inc:["Add income: {c}, {a}, today?","Inkomsten: {c}, {a}?","Gelir eklensin mi: {c}, {a}, bugün?"],
+  vo_check:["Check it, then tap Save. Nothing is saved until you do.","Controleer en tik op Opslaan.","Kontrol edin, sonra Kaydet'e dokunun. Siz dokunmadan hiçbir şey kaydedilmez."], vo_change:["Change","Wijzigen","Değiştir"], vo_read:["Read aloud","Voorlezen","Sesli oku"], vo_byVoice:["added by voice","via spraak","sesle eklendi"],
+  vo_answer:["{p}: you earned {g} and kept about {k} after costs and tax, over {m} of work driving.","{p}: {g} verdiend, {k} over.","{p}: {g} kazandınız; giderler ve vergi sonrası yaklaşık {k} kaldı, {m} iş sürüşüyle."],
+  os_btn:["Scan an offer screenshot","Scan een screenshot","Teklif ekran görüntüsünü tara"], os_found:["Read from the screenshot: {f}. Check each number against the offer before you rely on the result.","Gelezen: {f}. Controleer de getallen.","Ekran görüntüsünden okunan: {f}. Sonuca güvenmeden önce her rakamı teklifle karşılaştırın."],
+  os_none:["Kept couldn't read the numbers in that image. Type them in instead.","Geen getallen gevonden.","Kept bu görüntüdeki rakamları okuyamadı. Lütfen elle girin."],
+  reports:["Reports","Rapporten","Raporlar"], rp_lastMonth:["Last month","Vorige maand","Geçen ay"], rp_lastYear:["Last year","Vorig jaar","Geçen yıl"], rp_biz:["Business distance","Zakelijke afstand","İş mesafesi"], rp_pers:["Personal distance","Privé-afstand","Kişisel mesafe"],
+  rp_counts:["Trips / expense records","Ritten / uitgaven","Yolculuk / gider kaydı"], rp_pdf:["Save as PDF / print","PDF / afdrukken","PDF olarak kaydet / yazdır"], rp_xlsx:["Excel workbook","Excel-werkmap","Excel çalışma kitabı"], rp_csvMiles:["Mileage log (CSV)","Rittenlog (CSV)","Mil kaydı (CSV)"], rp_csvMoney:["Income and expenses (CSV)","Inkomsten en uitgaven (CSV)","Gelir ve giderler (CSV)"],
+  rp_fail:["Couldn't create the file — check your connection and try again.","Bestand maken mislukt.","Dosya oluşturulamadı — bağlantınızı kontrol edip tekrar deneyin."],
+  rp_note:["For your tax preparer. Estimates are labelled; actual records come from what you entered. Not tax advice. In the PDF dialog choose “Save as PDF”.","Voor je boekhouder. Geen belastingadvies.","Vergi uzmanınız için. Tahminler etiketlidir; gerçek kayıtlar girdiklerinizden gelir. Vergi danışmanlığı değildir. Yazdırma ekranında “PDF olarak kaydet”i seçin."],
+  vin:["VIN","Chassisnummer (VIN)","Şasi no (VIN)"], vinLookup:["Look up","Opzoeken","Sorgula"], vinCloud:["VIN lookup works when Kept is connected to its server.","Werkt alleen met server.","VIN sorgusu Kept sunucuya bağlıyken çalışır."],
+  vinFail:["That VIN couldn't be decoded. Check the 17 characters, or fill in year and make instead.","VIN niet gevonden.","Bu VIN çözülemedi. 17 karakteri kontrol edin ya da yıl ve markayı girin."], vinOk:["Found: {v} (NHTSA vehicle database). Check it matches your car.","Gevonden: {v}.","Bulundu: {v} (NHTSA araç veritabanı). Aracınızla eşleştiğini kontrol edin."],
   homeTab:["Home","Start","Ana sayfa"],
   money:["My money","Mijn geld","Param"], startWorking:["START WORKING","BEGIN MET WERKEN","ÇALIŞMAYA BAŞLA"], stopWorking:["Stop working","Stop met werken","Çalışmayı bitir"],
   working:["Working","Aan het werk","Çalışıyor"], whichApp:["Which app are you working for?","Voor welke app werk je?","Hangi uygulama için çalışıyorsunuz?"], switchApp:["Switch app","Andere app","Uygulama değiştir"],
-  addIncome:["Add income","Inkomsten","Gelir ekle"], addExpense:["Add expense","Kosten","Gider ekle"], checkOfferT:["Check an offer","Aanbod checken","Teklifi kontrol et"],
+  addIncome:["Add income","Inkomsten","Gelir ekle"], addExpense:["Add expense","Kosten","Gider ekle"], checkOfferT:["Check an offer","Aanbod checken","Teklifi Değerlendir"],
   todayProfit:["Today's profit","Winst vandaag","Bugünkü kâr"], earnedToday:["Earned today","Vandaag verdiend","Bugün kazanılan"],
   sayEarned:["You earned {g}. Car and other costs were about {c}. Set aside {t} for tax. You keep {k}.","Je verdiende {g}. Kosten ongeveer {c}. Zet {t} opzij voor belasting. Je houdt {k} over.","{g} kazandınız. Araç ve diğer giderler yaklaşık {c}. Vergi için {t} ayırın. Elinizde {k} kalır."],
   sayNoIncome:["No income yet today. Your car still costs about {c} a day (insurance and other fixed costs), even on days you don't drive.","Nog geen inkomsten vandaag. Je auto kost ongeveer {c} per dag (verzekering en vaste kosten), ook als je niet rijdt.","Bugün henüz gelir yok. Aracınız sürmediğiniz günlerde bile günde yaklaşık {c} tutar (sigorta ve sabit giderler)."],
@@ -891,6 +935,76 @@ function offerCalc(i) {
   return { retKm, totKm, totMins, cost, profit, ph, pd, afterTax: profit - Math.max(0, profit) * (i.rate || 0), ready, verdict, sensWait, sensRet };
 }
 
+// ── vehicle intelligence helpers (pure, unit-tested) ──
+// real consumption learned from fill-ups: fuel bought after the first fill ÷ miles tracked between first and last fill
+function learnedConsumption(data, v) {
+  const cat = v.energy === "electric" ? "electricity" : "fuel";
+  const fills = data.expenses.filter(x => x.category === cat && x.vehicleId === v.id && num(x.qty) > 0).sort((a, b) => a.date.localeCompare(b.date));
+  if (fills.length < 3) return null;
+  const from = fills[0].date, to = fills[fills.length - 1].date;
+  if (from === to) return null;
+  const qtyL = x => cat === "fuel" && (x.qtyUnit === "gal") ? num(x.qty) * L_PER_GAL : num(x.qty);
+  const used = sum(fills.slice(1), qtyL);
+  const km = sum(data.shifts.filter(s => s.vehicleId === v.id && s.date >= from && s.date < to), s => num(s.km) + num(s.personalKm))
+           + sum((data.trips || []).filter(t => t.app === PERSONAL && t.vehicleId === v.id && t.date >= from && t.date < to), t => num(t.km));
+  if (km < 80) return null;
+  const cons = used / km * 100;                      // L or kWh per 100 km
+  const ok = cat === "fuel" ? cons > 2 && cons < 30 : cons > 5 && cons < 60;
+  return ok ? { cons, fills: fills.length, km, used, from, to } : null;
+}
+// date-based health reminders (registration, inspection, insurance renewal, 12V battery age)
+function dateReminders(data, v, today) {
+  const out = [], days = d => Math.round((new Date(d + "T12:00") - new Date(today + "T12:00")) / 864e5);
+  if (v.regDue) out.push({ key: "reg", date: v.regDue, left: days(v.regDue) });
+  if (v.inspDue) out.push({ key: "insp", date: v.inspDue, left: days(v.inspDue) });
+  const ins = data.expenses.filter(x => x.category === "insurance" && x.recurring && (!x.vehicleId || x.vehicleId === v.id)).sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (ins && num(ins.recurring) >= 6) { let d = ins.date; while (d <= today) { const z = new Date(d + "T12:00"); z.setMonth(z.getMonth() + num(ins.recurring)); d = dISO(z); } out.push({ key: "insRenew", date: d, left: days(d) }); }
+  if (v.battDate) { const z = new Date(v.battDate + "T12:00"); z.setFullYear(z.getFullYear() + 4); const d = dISO(z); out.push({ key: "batt12", date: d, left: days(d) }); }
+  return out.sort((a, b) => a.left - b.left);
+}
+
+// ── Smart Offer Scan: read pay, distance and minutes from the text of an offer screenshot (OCR runs on the phone) ──
+// Returns only what it actually finds — never fills a value it can't see.
+function parseOffer(text) {
+  const t = String(text || "").replace(/[–—]/g, "-");
+  const amounts = (t.match(/\$\s?\d{1,3}(?:[.,]\d{2})/g) || []).map(x => num(x.replace(/[^\d.,]/g, ""))).filter(x => x > 0 && x < 500);
+  const dists = []; t.replace(/(\d+(?:[.,]\d+)?)\s?(mi|miles?|km)\b/gi, (_, n, u) => { dists.push({ v: num(n), km: /km/i.test(u) }); return _; });
+  let mins = 0, minsFound = 0;
+  t.replace(/(?:(\d+)\s?(?:h|hr|hrs|hour|hours)\s?)?(\d+)\s?(?:min|mins|minutes|dk)\b/gi, (_, h, m) => { mins += num(h) * 60 + num(m); minsFound++; return _; });
+  const app = /door\s?dash|dasher/i.test(t) ? "DoorDash" : /uber\s?eats/i.test(t) ? "Uber Eats" : /uber/i.test(t) ? "Uber" : /lyft/i.test(t) ? "Lyft" : /instacart/i.test(t) ? "Instacart" : /grubhub/i.test(t) ? "Grubhub" : /spark/i.test(t) ? "Spark Driver" : "";
+  return { pay: amounts.length ? Math.max.apply(null, amounts) : null, dists, mins: minsFound ? mins : null, app };
+}
+
+// ── Voice assistant: turn a short sentence into an expense, income or question. Nothing is saved without a confirm tap. ──
+const VOICE_CATS = [[/gas|fuel|petrol|benzin|yak[ıi]t|tank|diesel|mazot|brandstof|tanken/i, "fuel"], [/charg|şarj|sarj|laden/i, "electricity"],
+  [/oil|ya[gğ] de[gğ]i|olie/i, "maintenance", "Oil change"], [/repair|tamir|mechanic|tire|tyre|lastik|brake|fren|reparatie/i, "maintenance"],
+  [/wash|y[ıi]kama|wasstraat/i, "carwash"], [/park|toll|otoyol|köprü|kopru|tol\b/i, "parking"], [/insurance|sigorta|verzekering/i, "insurance"],
+  [/phone|telefon|data plan/i, "phone"]];
+function parseVoice(text, apps) {
+  const t = String(text || "").toLowerCase().trim();
+  const am = t.match(/(\d+(?:[.,]\d{1,2})?)/), amount = am ? num(am[1]) : 0;
+  const period = /today|bugün|bugun|vandaag/.test(t) ? "today" : /month|ay[ıi]? |bu ay|maand/.test(t + " ") ? "month" : /year|y[ıi]l|jaar/.test(t) ? "year" : "week";
+  if (/how much|ne kadar|hoeveel|what did i|kaç para|kac para/.test(t) && !/spent|harcad/.test(t)) return { kind: "question", period };
+  const app = (apps || []).concat(["Uber Eats", "DoorDash", "Uber", "Lyft", "Instacart", "Amazon Flex", "Grubhub", "Spark Driver"]).find(a => t.indexOf(a.toLowerCase()) >= 0) || "";
+  if (!amount) return { kind: "unknown" };
+  const tip = /\btips?\b|bahşiş|bahsis|fooi/.test(t);
+  if (app || tip || /earn|made|got paid|income|kazand|verdiend|bonus/.test(t)) return { kind: "income", amount, app, tip };
+  const c = VOICE_CATS.find(x => x[0].test(t));
+  return { kind: "expense", amount, category: c ? c[1] : "other", note: c && c[2] ? c[2] : "" };
+}
+
+// ── VIN decode (NHTSA vPIC, free US government service, called by the backend) → vehicle fields ──
+function mapVin(r) {
+  if (!r) return null;
+  const make = String(r.Make || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).replace(/^Bmw$/, "BMW").replace(/^Gmc$/, "GMC");
+  const el = String(r.ElectrificationLevel || ""), fuel = String(r.FuelTypePrimary || "") + " " + String(r.FuelTypeSecondary || "");
+  const fuelKind = /BEV|Battery Electric/i.test(el) || /^Electric/i.test(r.FuelTypePrimary || "") ? "electric" : /HEV|Hybrid/i.test(el) ? "hybrid" : /diesel/i.test(fuel) ? "diesel" : "gasoline";
+  const bc = String(r.BodyClass || "");
+  const body = /pickup/i.test(bc) ? "pickup" : /minivan/i.test(bc) ? "minivan" : /van/i.test(bc) ? "van" : /sport utility|suv|crossover/i.test(bc) ? "smallsuv" : "midsize";
+  const engine = [num(r.DisplacementL) ? num(r.DisplacementL).toFixed(1) + " L" : "", num(r.EngineCylinders) ? r.EngineCylinders + " cyl" : "", r.Trim || ""].filter(Boolean).join(", ");
+  return { year: num(r.ModelYear) || "", make, model: r.Model || "", body, fuelKind, engine, ok: String(r.ErrorCode || "0").split(",")[0].trim() === "0" };
+}
+
 // ── STAGING ONLY: realistic sample data so the preview can be judged with numbers (never used in production) ──
 function sampleData(country) {
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -899,7 +1013,7 @@ function sampleData(country) {
   Object.assign(car, { id: "veh_sample", name: "2021 Toyota RAV4 Hybrid", year: 2021, make: "Toyota", model: "RAV4 Hybrid", body: "smallsuv", fuelKind: "hybrid", engine: "2.5 L, 4 cyl, AWD",
     energy: "fuel", cons: 235.215 / 39, consLocked: true, consSrc: "lookup", price: us ? 3.14 / L_PER_GAL : 1.95, priceSrc: "receipt", priceDate: iso(new Date(Date.now() - 3 * 864e5)), startOdo: 61000 * KM_PER_MI });
   car.parts = car.parts.map(p => Object.assign({}, p, { lastAt: car.startOdo - (/oil|service/i.test(p.name) ? 9000 : 20000) * KM_PER_MI }));
-  const v = applyAutoDep(car, car.startOdo, 36000);
+  const v = Object.assign(applyAutoDep(car, car.startOdo, 36000), { regDue: dISO(new Date(Date.now() + 40 * 864e5)), inspDue: dISO(new Date(Date.now() + 150 * 864e5)), battDate: "2022-08-15" });
   const rates = { DoorDash: [7.5, 2.5], Uber: [13, 2], "Uber Eats": [6.5, 2.2] }, apps = ["DoorDash", "DoorDash", "Uber", "Uber Eats"];
   const trips = [];
   for (let back = 20; back >= 0; back--) {
@@ -922,7 +1036,9 @@ function sampleData(country) {
   const expenses = [
     { id: "smp_ins", date: d(60), category: "insurance", amount: 165, vehicleId: v.id, recurring: 1, qty: "", note: "", photos: [] },
     { id: "smp_ph", date: d(60), category: "phone", amount: 45, vehicleId: "", recurring: 1, qty: "", note: "", photos: [] },
-    { id: "smp_g1", date: d(3), category: "fuel", amount: 42.1, vehicleId: v.id, qty: 13.4, qtyUnit: "gal", note: "", photos: [] },
+    { id: "smp_g0", date: d(15), category: "fuel", amount: 38.9, vehicleId: v.id, qty: 12.1, qtyUnit: "gal", note: "", photos: [] },
+    { id: "smp_g2", date: d(9), category: "fuel", amount: 25.6, vehicleId: v.id, qty: 8.2, qtyUnit: "gal", note: "", photos: [] },
+    { id: "smp_g1", date: d(3), category: "fuel", amount: 26.3, vehicleId: v.id, qty: 8.4, qtyUnit: "gal", note: "", photos: [] },
     { id: "smp_w", date: d(0), category: "carwash", amount: 12, vehicleId: v.id, qty: "", note: "", photos: [] }];
   return { vehicles: [v], trips, expenses };
 }
@@ -1137,7 +1253,7 @@ const THEMES = {
            warnBg: "rgba(251,191,36,.10)", warnBorder: "rgba(251,191,36,.40)", dangerBg: "rgba(248,113,113,.12)", dangerBorder: "rgba(248,113,113,.40)",
            navBg: "rgba(14,22,38,.97)", overlay: "rgba(2,6,15,.72)", shadow: "none", scheme: "dark" },
   light: { bg: "#F7F9FC", card: "#FFFFFF", card2: "#F1F5F9", border: "#E2E8F0", input: "#FFFFFF", header: "#FFFFFF",
-           text: "#0F172A", sub: "#334155", muted: "#64748B", dim: "#94A3B8",
+           text: "#0F172A", sub: "#334155", muted: "#526072", dim: "#94A3B8",
            accent: "#047857", fill: "#10B981", onAccent: "#0B1220", accentDim: "rgba(16,185,129,.10)", accentBorder: "rgba(4,120,87,.40)", accentSoft: "rgba(16,185,129,.55)",
            red: "#DC2626", amber: "#B45309", blue: "#2563EB", purple: "#7C3AED",
            warnBg: "#FFFBEB", warnBorder: "#F59E0B", dangerBg: "#FEF2F2", dangerBorder: "#FCA5A5",
@@ -1207,6 +1323,7 @@ const ICONS = {
   share: "M12 3v12M7 8l5-5 5 5M5 14v6h14v-6",
   spark: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z",
   offer: "M12 2v20M16.5 6.5C16 4.9 14.2 4 12 4c-2.8 0-4.5 1.4-4.5 3.2 0 4.3 9 2.3 9 6.6 0 1.9-1.9 3.2-4.5 3.2-2.4 0-4.2-1-4.8-2.8",
+  mic: "M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zM19 11a7 7 0 0 1-14 0M12 18v3M8 21h8",
   check: "M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",
   pin: "M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
   fuel: "M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M14 9h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3M7 7h4",
@@ -1636,7 +1753,7 @@ function App() {
     : e("div", { style: { marginBottom: 12 } }, e("div", { style: S.label }, label), input, hint ? e("div", { style: Object.assign({}, S.small, { marginTop: 4 }) }, hint) : null);
   const Stat = (label, val, color) => e("div", { style: S.stat }, e("div", { style: S.statLabel }, label), e("div", { style: Object.assign({}, S.statVal, color ? { color } : {}) }, val));
   const Chips = (opts, val, set) => e("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 } },
-    opts.map(o => e("div", { key: o[0], className: "tap", style: S.chip(val === o[0]), onClick: () => set(o[0]) }, o[1])));
+    opts.map(o => e("button", { key: o[0], type: "button", className: "tap", "aria-pressed": val === o[0], style: Object.assign({ font: "inherit", whiteSpace: "nowrap" }, S.chip(val === o[0])), onClick: () => set(o[0]) }, o[1])));
   const PERIODS = () => [["week", T("week")], ["month", T("month")], ["quarter", T("quarter")], ["year", T("year")], ["all", T("all")]];
   const Bars = (items, opts) => {
     opts = opts || {};
@@ -1930,7 +2047,7 @@ function App() {
   // Simple-mode "More": every tool, one big row each
   const SimpleMore = () => e("div", { style: { maxWidth: 560, margin: "0 auto" } },
     e("div", { style: S.h1 }, T("allTools")),
-    [["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["coach", "coach"], ["map", "pin"], ["compare", "swap"], ["insights", "chart"], ["settings", "gear"]].map(x =>
+    [["expenses", "receipt"], ["log", "list"], ["reports", "share"], ["tax", "tax"], ["offer", "offer"], ["coach", "coach"], ["map", "pin"], ["compare", "swap"], ["insights", "chart"], ["settings", "gear"]].map(x =>
       e("button", { key: x[0], className: "tap", onClick: () => setView(x[0]),
         style: { width: "100%", display: "flex", alignItems: "center", gap: 14, minHeight: 60, padding: "0 16px", marginBottom: 8, borderRadius: 14, border: "1px solid " + C.border, background: C.card, color: C.text, fontSize: 18, fontWeight: 700, cursor: "pointer", textAlign: "left" } },
         e("span", { style: { color: C.accent } }, e(Icon, { n: x[1], s: 24 })), T(x[0]))),
@@ -2129,6 +2246,23 @@ function App() {
 
   const odoOf = v => num(v.startOdo) + sum(data.shifts.filter(s => s.vehicleId === v.id), s => num(s.km) + num(s.personalKm)) + sum(data.trips.filter(t => t.app === PERSONAL && t.vehicleId === v.id), t => num(t.km));
 
+  // simple side-view illustration by body type (no photos of real models are used)
+  const CAR_SHAPES = {
+    sedan:  { body: "M6 46 L10 36 Q14 30 26 28 L40 18 Q46 14 56 14 L76 14 Q86 14 94 22 L102 28 L116 31 Q124 33 124 40 L124 46 Z", win: "M44 20 L56 17 L74 17 Q82 17 88 24 L92 28 L40 28 Z" },
+    suv:    { body: "M6 46 L6 32 Q8 24 22 22 L34 10 Q38 6 48 6 L92 6 Q100 6 104 14 L112 24 Q124 26 124 34 L124 46 Z", win: "M38 12 L48 9 L90 9 Q96 9 99 15 L104 24 L32 24 Z" },
+    pickup: { body: "M6 46 L6 30 Q8 24 20 24 L30 10 Q33 6 42 6 L62 6 Q68 6 70 12 L72 26 L124 26 L124 46 Z", win: "M34 12 L42 9 L62 9 Q66 9 66 13 L67 24 L28 24 Z" },
+    van:    { body: "M6 46 L6 20 Q6 8 20 6 L106 6 Q122 6 124 22 L124 46 Z", win: "M18 10 L104 10 Q116 10 118 22 L118 24 L12 24 L12 18 Q12 10 18 10 Z" },
+  };
+  const bodyShape = b => /pickup/.test(b || "") ? "pickup" : /suv/.test(b || "") ? "suv" : /van|minivan/.test(b || "") ? "van" : "sedan";
+  const CarPic = (v, w) => {
+    if (v.type !== "car") return e("div", { "aria-hidden": true, style: { width: w || 120, height: 64, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 } }, CONFIG.vehicleTypes[v.type].icon);
+    const sh = CAR_SHAPES[bodyShape(v.body)];
+    return e("svg", { width: w || 120, height: 64, viewBox: "0 0 130 60", "aria-hidden": true },
+      e("path", { d: sh.body, fill: C.fill, opacity: 0.9 }),
+      e("path", { d: sh.win, fill: C.card, opacity: 0.85 }),
+      [32, 100].map(x => e("g", { key: x }, e("circle", { cx: x, cy: 47, r: 10, fill: C.text }), e("circle", { cx: x, cy: 47, r: 4, fill: C.card2 }))));
+  };
+
   // ── v5 Vehicle Intelligence dashboard: every figure says where it comes from ──
   const VehicleDash = () => {
     const list = data.vehicles.filter(v => v.active !== false);
@@ -2142,13 +2276,20 @@ function App() {
     const otherMonthly = num(v.rent) + num(v.otherFixed), otherKind = otherMonthly <= 0 ? null : v.fixedSrc === "user" ? "user" : "estimate";
     const fixedPerKm = annKm > 0 ? (insMonthly + otherMonthly) * 12 / annKm : 0;
     const perKm = c.total + fixedPerKm, monthly = c.total * annKm / 12 + insMonthly + otherMonthly;
-    const consKind = v.consSrc === "lookup" ? "verified" : v.consSrc === "user" || (v.consLocked && !v.consSrc) ? "user" : "estimate";
+    const consKind = v.consSrc === "lookup" ? "verified" : v.consSrc === "user" || v.consSrc === "learned" || (v.consLocked && !v.consSrc) ? "user" : "estimate";
+    const learned = learnedConsumption(data, v);
+    const learnedDiff = learned && Math.abs(learned.cons - num(v.cons)) / Math.max(0.1, num(v.cons)) > 0.05;
+    const consText = c2 => v.energy === "fuel" ? (mi ? (235.215 / c2).toFixed(1) + " mpg" : c2.toFixed(1) + " L/100 km") : (mi ? (c2 * KM_PER_MI).toFixed(1) + " kWh/100 mi" : c2.toFixed(1) + " kWh/100 km");
+    const today = dISO(new Date()), dRem = dateReminders(data, v, today);
+    const P30 = computePeriod(data, addDays(today, -29), today);
+    const bizKm30 = sum(P30.S.filter(s => s.vehicleId === v.id), s => num(s.km)), gross30 = sum(P30.S.filter(s => s.vehicleId === v.id), shiftGross);
+    const irs = st.country === "US" ? mileageRate("US", today) : null;
     const priceKind = v.priceSrc === "live" ? "live" : v.priceSrc === "receipt" || v.priceSrc === "user" ? "user" : "estimate";
     const fuelKind = consKind === "estimate" || priceKind === "estimate" ? "estimate" : consKind === "verified" && priceKind === "live" ? "verified" : "user";
     const depKind = v.leased ? "user" : v.depMode === "auto" ? "estimate" : "user";
     const effText = v.energy === "fuel" ? (mi ? (235.215 / Math.max(0.1, num(v.cons))).toFixed(1) + " mpg · " + money(num(v.price) * L_PER_GAL) + "/gal" : num(v.cons).toFixed(1) + " L/100 km · " + money(num(v.price)) + "/L")
       : v.energy === "electric" ? (mi ? (num(v.cons) * KM_PER_MI).toFixed(1) + " kWh/100 mi" : num(v.cons).toFixed(1) + " kWh/100 km") + " · " + money(num(v.price)) + "/kWh" : "";
-    const srcLine = [consKind === "verified" ? T("src_epa") : consKind === "user" ? T("src_userCons") : T("src_typical"),
+    const srcLine = [consKind === "verified" ? T("src_epa") : v.consSrc === "learned" ? T("src_learned") : consKind === "user" ? T("src_userCons") : T("src_typical"),
       priceKind === "live" ? fill(T("src_live"), { d: v.priceDate || "" }) : v.priceSrc === "receipt" ? fill(T("src_receipt"), { d: v.priceDate || "" }) : priceKind === "user" ? T("src_userPrice") : T("src_defPrice")].join(" · ");
     // maintenance reminders from the parts list (needs a known odometer)
     const odoKnown = num(v.startOdo) > 0 || (v.parts || []).some(p => num(p.lastAt) > 0);
@@ -2164,7 +2305,7 @@ function App() {
       list.length > 1 ? e("div", { style: { marginBottom: 12 } }, Chips(list.map(x => [x.id, CONFIG.vehicleTypes[x.type].icon + " " + vName(x)]), v.id, setPick)) : null,
       e("section", { "aria-label": vName(v), style: Object.assign({}, S.card, { padding: 20 }) },
         e("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 14 } },
-          e("div", { "aria-hidden": true, style: { width: 64, height: 64, borderRadius: 18, background: C.accentDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34 } }, CONFIG.vehicleTypes[v.type].icon),
+          e("div", { style: { flexShrink: 0, borderRadius: 18, background: C.accentDim, padding: "6px 8px" } }, CarPic(v, 112)),
           e("div", { style: { flex: 1, minWidth: 0 } },
             e("div", { style: { fontSize: 20, fontWeight: 900 } }, vName(v)),
             e("div", { style: { fontSize: 14, color: C.muted, marginTop: 2 } }, [T("fk_" + (v.fuelKind || (v.energy === "electric" ? "electric" : "gasoline"))), v.engine || "", odo > 0 ? fmtDist(odo, 0) + " " + (num(v.startOdo) > 0 ? T("odoLbl") : T("trackedLbl")) : ""].filter(Boolean).join(" · ")))),
@@ -2172,10 +2313,17 @@ function App() {
           e("div", { style: { fontSize: 16, color: C.sub, fontWeight: 700 } }, T("realCostPer") + " " + unit), Tag(insKind === "missing" || fuelKind === "estimate" || depKind === "estimate" ? "estimate" : "user")),
         e("div", { style: { fontSize: 44, fontWeight: 900, letterSpacing: "-1px", color: C.accent, fontVariantNumeric: "tabular-nums" } }, money(perUnit(perKm), 2)),
         e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, fill(T("vd_month"), { m: money(monthly, 0), d: fmtDist(annKm, 0) })),
+        e("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 12 } },
+          [["vd_day", monthly * 12 / 365], ["vd_mon", monthly], ["vd_yr", monthly * 12]].map(x => e("div", { key: x[0], style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 12px" } },
+            e("div", { style: { fontSize: 13, color: C.muted, fontWeight: 600 } }, T(x[0])), e("div", { style: { fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, money(x[1], 0))))),
         insKind === "missing" ? e("div", { role: "alert", style: { marginTop: 10, fontSize: 14, color: C.amber, fontWeight: 700 } }, "⚠ " + T("vd_insWarn")) : null,
         e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, marginTop: 14, fontSize: 16 }), onClick: () => setModal({ type: "vehicle", vehicle: v }) }, T("vd_review"))),
       e("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 12 } },
-        card(v.energy === "electric" ? T("l_charge") : T("l_gas"), "fuel", perU(c.energy), effText + (effText ? " — " : "") + srcLine, fuelKind),
+        card(v.energy === "electric" ? T("l_charge") : T("l_gas"), "fuel", perU(c.energy), effText + (effText ? " — " : "") + srcLine, fuelKind,
+          learned && learnedDiff ? e("div", { style: { marginTop: 6, padding: 10, borderRadius: 12, background: C.accentDim, fontSize: 14, color: C.text, lineHeight: 1.45 } },
+            fill(T("vd_learned"), { n: learned.fills, d: fmtDist(learned.km, 0), v: consText(learned.cons) }),
+            e("button", { className: "tap", style: Object.assign(S.btn(), { display: "block", marginTop: 8, minHeight: 44 }), onClick: () => { upsert("vehicles", Object.assign({}, v, { cons: +learned.cons.toFixed(3), consSrc: "learned", consLocked: true })); showToast(T("saved")); } }, T("vd_useLearned"))) : null),
+        v.energy === "electric" ? card(T("vd_batt"), "spark", perU(c.battery), num(v.battKm) > 0 ? fill(T("vd_battTxt"), { p: money(num(v.battPrice), 0), d: fmtDist(num(v.battKm), 0) }) : T("vd_battNone"), num(v.battKm) > 0 ? "estimate" : "missing") : null,
         card(T("l_maint"), "wrench", perU(c.parts + c.battery), T("vd_maintSrc"), "estimate"),
         card(T("l_dep"), "chart", perU(c.dep), v.leased ? T("vd_leased") : v.depMode === "auto" ? fill(T("vd_depSrc"), { v: money(num(v.valueNow), 0) }) : T("vd_depUser"), depKind),
         card(T("l_ins"), "tax", insKind === "missing" ? T("tg_missing") : money(insMonthly) + " / " + T("month").toLowerCase(),
@@ -2184,9 +2332,19 @@ function App() {
             e("button", { className: "tap", style: Object.assign(S.btn(), { minHeight: 44 }), onClick: () => openExpense({ category: "insurance", recurring: 1, vehicleId: v.id }) }, T("vd_insAdd")),
             insKind === "estimate" ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 44 }), onClick: () => { upsert("vehicles", Object.assign({}, v, { insSrc: "user" })); showToast(T("saved")); } }, T("vd_insConfirm")) : null) : null),
         otherKind ? card(T("l_fixed"), "receipt", money(otherMonthly) + " / " + T("month").toLowerCase(), otherKind === "estimate" ? T("vd_fixedEst") : null, otherKind) : null),
+      bizKm30 > 30 ? e("section", { "aria-label": T("vd_econ"), style: S.card },
+        e("div", { style: S.h2 }, T("vd_econ")),
+        (() => { const earnPer = gross30 / bizKm30, costPer = perKm, margin = earnPer - costPer;
+          return e("div", null,
+            e("div", { style: { fontSize: 18, fontWeight: 800, color: margin >= 0 ? C.accent : C.red, marginBottom: 6 } }, (margin >= 0 ? "▲ " : "▼ ") + T(margin >= 0 ? "vd_econOk" : "vd_econBad")),
+            e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.55 } }, fill(T("vd_econTxt"), { e: money(perUnit(earnPer), 2), c: money(perUnit(costPer), 2), m: money(perUnit(margin), 2), u: unit })),
+            irs ? e("div", { style: { fontSize: 14, color: C.muted, lineHeight: 1.5, marginTop: 8 } }, fill(T(perUnit(costPer) > irs.rate ? "vd_irsHigh" : "vd_irsLow"), { r: money(irs.rate, 3), c: money(perUnit(costPer), 3) })) : null); })()) : null,
       e("section", { "aria-label": T("vd_remind"), style: S.card },
-        e("div", { style: S.h2 }, T("vd_remind")),
-        !odoKnown ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, T("vd_needOdo"))
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 6 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("vd_remind")),
+          e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 44 }), onClick: () => setModal({ type: "vdates", vehicle: v }) }, T("vd_setDates"))),
+        dRem.map(x => e("div", { key: x.key, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: "1px solid " + C.border, fontSize: 16 } },
+          e("span", null, T("rm_" + x.key)), e("b", { style: { color: x.left < 0 ? C.red : x.left <= 30 ? C.amber : C.text } }, x.left < 0 ? "⚠ " + fill(T("rm_over"), { n: -x.left }) : fill(T("rm_in"), { n: x.left }) + " · " + new Date(x.date + "T12:00").toLocaleDateString(locale, { month: "short", day: "numeric" })))),
+        !odoKnown ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, paddingTop: 8 } }, T("vd_needOdo"))
           : due.map(x => e("div", { key: x.p.id || x.p.name, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: "1px solid " + C.border, fontSize: 16 } },
               e("span", null, x.p.name), e("b", { style: { color: x.left <= 0 ? C.red : x.left < 1600 ? C.amber : C.text } }, x.left <= 0 ? "⚠ " + T("vd_dueNow") : fill(T("vd_in"), { d: fmtDist(x.left, 0) })))),
         e("div", { style: { fontSize: 13, color: C.muted, marginTop: 8, lineHeight: 1.45 } }, T("vd_remindNote"))));
@@ -2661,7 +2819,18 @@ function App() {
             Line(T("netEarnings"), money(cNet), { bold: true }),
             Line(T("taxReserve") + " (" + T("marginal").toLowerCase() + ")", "−" + money(cTax)),
             Line(T("takeHome"), money(cTake), { bold: true, color: cTake < 0 ? C.red : C.accent }),
-            num(calc.hours) > 0 ? e("div", { style: Object.assign({}, S.small, { marginTop: 6 }) }, T("takeHome") + " / " + T("hours") + ": " + money(cTake / num(calc.hours))) : null))));
+            num(calc.hours) > 0 ? e("div", { style: Object.assign({}, S.small, { marginTop: 6 }) }, T("takeHome") + " / " + T("hours") + ": " + money(cTake / num(calc.hours))) : null))),
+      // rules and where they come from
+      e("section", { "aria-label": T("rulesSrc"), style: S.card },
+        e("div", { style: S.h2 }, T("rulesSrc")),
+        e("div", { style: Object.assign({}, S.small, { fontSize: 13, marginBottom: 8, lineHeight: 1.5 }) }, T("rulesHint")),
+        CONFIG.taxSources.filter(r => country === "NL" ? /Netherlands/.test(r.rule) : !/Netherlands/.test(r.rule)).map((r, i) => e("div", { key: i, style: { padding: "10px 0", borderTop: "1px solid " + C.border } },
+          e("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" } },
+            e("span", { style: { fontSize: 15, color: C.text, lineHeight: 1.45 } }, r.rule),
+            r.checked ? Tag("verified") : Tag("estimate")),
+          e("div", { style: { fontSize: 13, color: C.muted, marginTop: 4 } },
+            r.url ? e("a", { href: r.url, target: "_blank", rel: "noopener", style: { color: C.accent } }, r.src) : r.src,
+            r.checked ? " · " + fill(T("checkedOn"), { d: r.checked }) : " · " + T("notRechecked"))))));
   };
 
   // ── settings: your apps + (Android) notification-based ride detection ──
@@ -2808,6 +2977,22 @@ function App() {
     const [o, setO] = useState({ pay: "", pickup: "", trip: "", mins: "", wait: "", ret: "", veh: st.defaultVehicleId || (data.vehicles[0] || {}).id || "" });
     const [log, setLog] = useState(LS.get("kept_offers", []));
     const [det, setDet] = useState(false);
+    const [scan, setScan] = useState(null), [scanMsg, setScanMsg] = useState(null);
+    const scanRef = useRef(null);
+    // Smart Offer Scan: the screenshot is read on the phone and not stored; the driver confirms every number
+    const scanOffer = async file => {
+      if (!file) return; setScan("busy"); setScanMsg(null);
+      try { const text = await ocrImage(file); const r = parseOffer(text);
+        const cv = d => d.km === (unit === "km") ? d.v : unit === "km" ? d.v * KM_PER_MI : d.v / KM_PER_MI;
+        const patch = {};
+        if (r.pay != null) patch.pay = r.pay.toFixed(2);
+        if (r.dists.length >= 2) { patch.pickup = +cv(r.dists[0]).toFixed(1); patch.trip = +cv(r.dists[1]).toFixed(1); } else if (r.dists.length === 1) { patch.pickup = ""; patch.trip = +cv(r.dists[0]).toFixed(1); }
+        if (r.mins != null) patch.mins = r.mins;
+        setO(x => Object.assign({}, x, patch));
+        const found = [r.pay != null ? money(r.pay) : null, r.dists.length ? r.dists.map(d => d.v + (d.km ? " km" : " mi")).join(" + ") : null, r.mins != null ? r.mins + " min" : null, r.app || null].filter(Boolean);
+        setScanMsg(found.length ? { ok: true, text: fill(T("os_found"), { f: found.join(" · ") }) } : { ok: false, text: T("os_none") });
+      } catch (x) { setScanMsg({ ok: false, text: T("os_none") }); } finally { setScan(null); }
+    };
     const [mh, setMh] = useState(st.offerMinHour || ""), [md, setMd] = useState(st.offerMinMile || "");
     const set = (k, v) => setO(x => Object.assign({}, x, { [k]: v }));
     const v = vmap[o.veh], cpk = vehicleCost(v).total;
@@ -2832,6 +3017,11 @@ function App() {
       e("div", { style: S.h1 }, T("offerTitle")),
       e("div", { className: "cols" },
         e("div", { style: S.card },
+          e("button", { className: "tap", disabled: scan === "busy", onClick: () => scanRef.current && scanRef.current.click(),
+            style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 56, fontSize: 16, marginBottom: 10, borderStyle: "dashed", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }) },
+            e(Icon, { n: "camera", s: 20 }), scan === "busy" ? T("scanning") : T("os_btn")),
+          e("input", { ref: scanRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: ev => { scanOffer(ev.target.files[0]); ev.target.value = ""; } }),
+          scanMsg ? e("div", { role: "status", style: { fontSize: 14, lineHeight: 1.5, marginBottom: 10, padding: 10, borderRadius: 12, background: scanMsg.ok ? C.accentDim : C.warnBg, color: scanMsg.ok ? C.text : C.amber } }, scanMsg.text) : null,
           big("pay", T("offerPay"), "0.00"),
           e("div", { className: "grid2" }, big("pickup", T("pickupDist") + " (" + unit + ")"), big("trip", T("tripDist") + " (" + unit + ")")),
           e("div", { className: "grid2" }, big("mins", T("estMins")), big("wait", T("waitMins"))),
@@ -2985,7 +3175,7 @@ function App() {
   const MoreView = () => e("div", null,
     e("div", { style: S.h1 }, T("more")),
     e("div", { className: "grid2" },
-      [["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]].map(x =>
+      [["insights", "chart"], ["reports", "share"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]].map(x =>
         e("div", { key: x[0], className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", textAlign: "center", padding: 22, marginBottom: 0 }), onClick: () => setView(x[0]) },
           e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 8 } }, e(Icon, { n: x[1], s: 26 })),
           e("div", { style: { fontWeight: 700 } }, T(x[0]))))));
@@ -3083,6 +3273,110 @@ function App() {
       e("div", { style: { display: "flex", gap: 8 } },
         !isNew ? e("button", { style: S.btn("danger"), onClick: () => askConfirm(T("confirmDelete"), () => { remove("trips", f.id); setModal(null); showToast(T("deleted")); }) }, T("delete")) : null,
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
+  }
+
+  // ── Voice assistant (browser speech recognition where available, typing always works) ──
+  function VoiceModal() {
+    const [text, setText] = useState("");
+    const [listening, setListening] = useState(false);
+    const [res, setRes] = useState(null);
+    const [err, setErr] = useState("");
+    const recRef = useRef(null);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const run = t => { const r = parseVoice(t, myApps); setRes(r); setErr(r.kind === "unknown" ? T("vo_unknown") : ""); };
+    const listen = () => {
+      if (!SR) { setErr(T("vo_noMic")); return; }
+      try { const rec = new SR(); recRef.current = rec; rec.lang = LOCALES[st.lang] || "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
+        rec.onresult = ev => { const t = ev.results[0][0].transcript; setText(t); run(t); };
+        rec.onerror = ev => setErr(ev.error === "not-allowed" ? T("vo_blocked") : T("vo_unknown"));
+        rec.onend = () => setListening(false); setListening(true); setErr(""); rec.start(); } catch (x) { setListening(false); setErr(T("vo_noMic")); }
+    };
+    useEffect(() => () => { try { recRef.current && recRef.current.abort(); } catch (x) {} }, []);
+    const answer = r => { const [a, b] = periodRange(r.period), B = appBreakdown(data, a, b, setAsideRate(data));
+      return fill(T("vo_answer"), { p: T(r.period), g: money(B.P.gross), k: money(B.kept), m: fmtDist(sum(B.apps, x => x.km), 0) }); };
+    const speak = s => { try { const u = new SpeechSynthesisUtterance(s); u.lang = LOCALES[st.lang] || "en-US"; window.speechSynthesis.speak(u); } catch (x) {} };
+    const save = () => {
+      if (res.kind === "expense") upsert("expenses", { id: genId(), date: dISO(new Date()), category: res.category, amount: res.amount, vehicleId: defaultVid(), qty: "", note: res.note || T("vo_byVoice"), photos: [], recurring: "" });
+      if (res.kind === "income") { const now = new Date().toISOString(); upsert("trips", { id: genId(), kind: "earning", app: res.app || (myApps[0] || "Other"), date: dISO(new Date()), start: now, end: now, km: 0, pay: res.tip ? "" : res.amount, tips: res.tip ? res.amount : "", orders: "", vehicleId: defaultVid(), source: "voice" }); }
+      setModal(null); showToast(T("saved"));
+    };
+    const summary = !res ? null : res.kind === "expense" ? fill(T("vo_exp"), { a: money(res.amount), c: T("c_" + res.category) + (res.note ? " · " + res.note : "") })
+      : res.kind === "income" ? fill(T("vo_inc"), { a: money(res.amount), c: (res.tip ? T("tips") : T("pay")) + (res.app ? " · " + res.app : "") }) : res.kind === "question" ? answer(res) : null;
+    return ModalShell(T("vo_title"), e("div", null,
+      e("button", { className: "tap", onClick: listen, disabled: listening, "aria-label": T("vo_tap"),
+        style: Object.assign(S.btn(), { width: "100%", minHeight: 72, fontSize: 19, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }) },
+        e(Icon, { n: "mic", s: 26 }), listening ? T("vo_listening") : T("vo_tap")),
+      e("div", { style: { fontSize: 14, color: C.muted, margin: "10px 0 6px", lineHeight: 1.45 } }, T("vo_examples")),
+      Field(T("vo_type"), e("input", { style: Object.assign({}, S.input, { fontSize: 17 }), value: text, placeholder: T("vo_ph"), onChange: ev => setText(ev.target.value), onKeyDown: ev => { if (ev.key === "Enter") run(text); } })),
+      !res ? e("button", { style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 16 }), disabled: !text.trim(), onClick: () => run(text) }, T("vo_go")) : null,
+      err ? e("div", { role: "alert", style: { color: C.amber, fontWeight: 700, fontSize: 15, margin: "10px 0" } }, "⚠ " + err) : null,
+      summary ? e("div", { role: "status", style: { marginTop: 12, padding: 14, borderRadius: 14, background: C.card2, border: "1px solid " + C.border } },
+        e("div", { style: { fontSize: 17, fontWeight: 700, lineHeight: 1.45, color: C.text } }, summary),
+        res.kind === "question"
+          ? e("button", { style: Object.assign(S.btn("ghost"), { marginTop: 10, minHeight: 48 }), onClick: () => speak(summary) }, "🔊 " + T("vo_read"))
+          : e("div", null, e("div", { style: { fontSize: 14, color: C.muted, margin: "8px 0 10px" } }, T("vo_check")),
+              e("div", { style: { display: "flex", gap: 8 } },
+                e("button", { style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => { setRes(null); } }, T("vo_change")),
+                e("button", { style: Object.assign(S.btn(), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: save }, T("save"))))) : null), () => setModal(null));
+  }
+
+  // ── Reports: P&L summary, mileage log and expenses for a tax preparer (PDF via print, CSV, Excel) ──
+  const ReportsView = () => {
+    const [per, setPer] = useState("month");
+    const [busy, setBusy] = useState(false);
+    const today = dISO(new Date()), y = new Date().getFullYear();
+    const ranges = { month: periodRange("month"), lastMonth: (() => { const d = new Date(); d.setDate(0); return periodRange("month", d); })(), quarter: periodRange("quarter"), year: [y + "-01-01", today], lastYear: [(y - 1) + "-01-01", (y - 1) + "-12-31"] };
+    const [a, b] = ranges[per], rate = setAsideRate(data), B = appBreakdown(data, a, b, rate), P = B.P, tb = taxBase(data, a, b);
+    const trips = data.trips.filter(t => t.date >= a && t.date <= b && t.kind !== "earning").sort((p, q) => (p.start || "").localeCompare(q.start || ""));
+    const legacy = (raw.shifts || []).filter(s => s.date >= a && s.date <= b);
+    const exps = data.expenses.filter(x => x.date >= a && x.date <= b).sort((p, q) => p.date.localeCompare(q.date));
+    const bizMi = sum(trips.filter(t => t.app !== PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.km)), persMi = sum(trips.filter(t => t.app === PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.personalKm));
+    const mileRows = () => [["Date", "Start", "End", "App", "Purpose", "Type", "Distance (" + unit + ")", "Source"]].concat(
+      trips.map(t => [t.date, tHM(t.start), tHM(t.end), t.app === PERSONAL ? "" : t.app, t.app === PERSONAL ? "Personal" : "Business", t.kind, +dist(num(t.km)).toFixed(2), t.source || ""]),
+      legacy.map(s => [s.date, tHM(s.start), tHM(s.end), (s.platforms || []).map(p => p.name).join(" / "), "Business", "shift", +dist(num(s.km)).toFixed(2), "shift"]));
+    const incRows = () => [["Date", "App", "Type", "Pay", "Tips", "Bonus", "Cancellation", "Adjustment", "Total", "Cash"]].concat(
+      data.trips.filter(t => t.date >= a && t.date <= b && tripEarn(t) !== 0).map(t => [t.date, t.app, t.kind, num(t.pay), num(t.tips), num(t.bonus), num(t.cancel), num(t.adjust), +tripEarn(t).toFixed(2), t.cash ? "yes" : ""]),
+      legacy.map(s => [s.date, (s.platforms || []).map(p => p.name).join(" / "), "shift", sum(s.platforms || [], p => num(p.base)), shiftTips(s), sum(s.platforms || [], p => num(p.bonus)), 0, 0, +shiftGross(s).toFixed(2), ""]));
+    const expRows = () => [["Date", "Category", "Amount", "Repeats (months)", "Vehicle", "Quantity", "Note"]].concat(exps.map(x => [x.date, T("c_" + x.category), num(x.amount), x.recurring || "", x.vehicleId && vmap[x.vehicleId] ? vName(vmap[x.vehicleId]) : "", x.qty || "", x.note || ""]));
+    const sumRows = () => [["Kept report", a + " to " + b], ["Gross earnings", +P.gross.toFixed(2)], ["App fees", +P.fees.toFixed(2)], ["Actual cash expenses", +P.actualExp.toFixed(2)], ["Estimated vehicle operating costs", +P.estVehicle.toFixed(2)],
+      ["Economic profit", +P.net.toFixed(2)], ["Tax reserve (estimate)", +B.tax.toFixed(2)], ["Business distance (" + unit + ")", +dist(bizMi).toFixed(1)], ["Personal distance (" + unit + ")", +dist(persMi).toFixed(1)],
+      st.country === "US" ? ["Standard mileage deduction (estimate)", +tb.mileageDed.toFixed(2)] : ["Mileage deduction (estimate)", +tb.mileageDed.toFixed(2)], ["Note", "Estimates for planning, not tax advice."]];
+    const fname = ext => "kept-" + per + "-" + a + "." + ext;
+    const xlsx = async () => { setBusy(true);
+      try { await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"); const X = window.XLSX, wb = X.utils.book_new();
+        [["Summary", sumRows()], ["Mileage log", mileRows()], ["Income", incRows()], ["Expenses", expRows()]].forEach(s => X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(s[1]), s[0]));
+        X.writeFile(wb, fname("xlsx")); showToast(T("saved")); } catch (x) { showToast("⚠ " + T("rp_fail")); } finally { setBusy(false); } };
+    const btn = (label, icon, onClick) => e("button", { className: "tap no-print", onClick, disabled: busy, style: Object.assign(S.btn("ghost"), { minHeight: 56, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }) }, e(Icon, { n: icon, s: 20 }), label);
+    return e("div", { className: "print-area", style: { maxWidth: 760, margin: "0 auto" } },
+      e("div", { style: S.h1 }, T("reports")),
+      e("div", { className: "no-print", style: { marginBottom: 12 } }, Chips([["month", T("month")], ["lastMonth", T("rp_lastMonth")], ["quarter", T("quarter")], ["year", T("year")], ["lastYear", T("rp_lastYear")]], per, setPer)),
+      e("section", { style: S.card },
+        e("div", { style: Object.assign({}, S.small, { fontSize: 14, marginBottom: 6 }) }, (st.name ? st.name + " · " : "") + a + " – " + b),
+        MoneySummary(B, "month"),
+        e("div", { style: { marginTop: 10 } },
+          Line(T("rp_biz"), fmtDist(bizMi, 1)), Line(T("rp_pers"), fmtDist(persMi, 1)),
+          Line(T("mileageDeduction") + " (" + T("tg_est").toLowerCase() + ")", money(tb.mileageDed)),
+          Line(T("rp_counts"), trips.length + legacy.length + " / " + exps.length))),
+      e("div", { className: "no-print", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 12 } },
+        btn(T("rp_pdf"), "share", () => { try { window.print(); } catch (x) {} }),
+        btn(T("rp_xlsx"), "chart", xlsx),
+        btn(T("rp_csvMiles"), "list", () => downloadFile(fname("mileage.csv").replace(".mileage.csv", "-mileage.csv"), toCSV(mileRows()), "text/csv")),
+        btn(T("rp_csvMoney"), "receipt", () => downloadFile(fname("csv").replace(".csv", "-income-expenses.csv"), toCSV(incRows().concat([[]], expRows())), "text/csv"))),
+      e("div", { className: "no-print", style: Object.assign({}, S.small, { fontSize: 13, lineHeight: 1.5 }) }, T("rp_note")));
+  };
+
+  function VehDatesModal({ vehicle }) {
+    const [f, setF] = useState({ regDue: vehicle.regDue || "", inspDue: vehicle.inspDue || "", battDate: vehicle.battDate || "", startOdo: num(vehicle.startOdo) > 0 ? Math.round(dist(num(vehicle.startOdo))) : "" });
+    const set = (k, x) => setF(o => Object.assign({}, o, { [k]: x }));
+    const dIn = k => e("input", { type: "date", style: Object.assign({}, S.input, { fontSize: 17 }), value: f[k], onChange: ev => set(k, ev.target.value) });
+    return ModalShell(T("vd_setDates"), e("div", null,
+      Field(T("rm_reg"), dIn("regDue")), Field(T("rm_insp"), dIn("inspDue")), Field(T("rm_battInst"), dIn("battDate")),
+      Field(T("odoNow") + " (" + unit + ")", e("input", { style: Object.assign({}, S.input, { fontSize: 17 }), inputMode: "numeric", value: f.startOdo, onChange: ev => set("startOdo", ev.target.value) }), T("odoHint")),
+      e("div", { style: Object.assign({}, S.small, { fontSize: 13, marginBottom: 12, lineHeight: 1.5 }) }, T("vd_remindNote")),
+      e("button", { style: Object.assign(S.btn(), { width: "100%", minHeight: 56, fontSize: 17 }), onClick: () => {
+        const tracked = odoOf(vehicle) - num(vehicle.startOdo);
+        upsert("vehicles", Object.assign({}, vehicle, { regDue: f.regDue, inspDue: f.inspDue, battDate: f.battDate }, f.startOdo !== "" ? { startOdo: Math.max(0, toKm(f.startOdo) - tracked) } : {}));
+        setModal(null); showToast(T("saved")); } }, T("save"))), () => setModal(null));
   }
 
   function ConfirmDlg() {
@@ -3341,6 +3635,18 @@ function App() {
     // vehicles saved before v3 keep their own numbers ("manual"); new ones start automatic
     const [f, setF] = useState(() => init ? Object.assign({ depMode: "manual", fuelKind: init.energy === "electric" ? "electric" : init.fuelType === "diesel" ? "diesel" : "gasoline" }, JSON.parse(JSON.stringify(init))) : null);
     const [showLookup, setShowLookup] = useState(false);
+    const [vin, setVin] = useState((init && init.vin) || ""), [vinBusy, setVinBusy] = useState(false), [vinMsg, setVinMsg] = useState(null);
+    // VIN decode through the backend (NHTSA vPIC, free US government database)
+    const lookupVin = async () => {
+      if (localMode) { setVinMsg({ ok: false, text: T("vinCloud") }); return; }
+      setVinBusy(true); setVinMsg(null);
+      try { const r = mapVin(await apiCall(pinRef.current, "vin", { vin }));
+        if (!r || !r.ok || !r.make) { setVinMsg({ ok: false, text: T("vinFail") }); return; }
+        setF(x => Object.assign({}, x, { vin, vinSrc: "nhtsa", year: r.year || x.year, make: r.make, model: r.model || x.model, body: r.body, engine: r.engine || x.engine, name: x.name || [r.year, r.make, r.model].filter(Boolean).join(" ") }));
+        setFuelKind(r.fuelKind);
+        setVinMsg({ ok: true, text: fill(T("vinOk"), { v: [r.year, r.make, r.model, r.engine].filter(Boolean).join(" · ") }) });
+      } catch (x) { setVinMsg({ ok: false, text: T("vinFail") }); } finally { setVinBusy(false); }
+    };
     const [adv, setAdv] = useState(false);
     const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
     const setPart = (i, k, v) => setF(x => { const ps = x.parts.slice(); ps[i] = Object.assign({}, ps[i], { [k]: v }); return Object.assign({}, x, { parts: ps }); });
@@ -3407,6 +3713,10 @@ function App() {
       e("div", { style: S.row }, e("span", { style: { color: C.sub, fontSize: 13 } }, T("depAuto")), e("b", { style: { color: C.accent, fontSize: 16 } }, money(perUnit(est.perKm), 3) + " / " + unit)),
       e("div", { style: Object.assign({}, S.small, { marginTop: 6, lineHeight: 1.45 }) }, T("depAutoNote"))) : null;
     return ModalShell(CONFIG.vehicleTypes[f.type].icon + " " + (isNew ? T("addVehicle") : vName(f)), e("div", null,
+      isCar ? e("div", { style: { display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 4 } },
+        e("div", { style: { flex: 1 } }, Field(T("vin") + " (" + T("optional") + ")", e("input", { style: Object.assign({}, S.input, { textTransform: "uppercase", letterSpacing: ".05em" }), maxLength: 17, value: vin, placeholder: "17 characters", onChange: ev => setVin(ev.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase()) }))),
+        e("button", { style: Object.assign(S.btn("ghost"), { minHeight: 46, marginBottom: 12 }), disabled: vin.length !== 17 || vinBusy, onClick: lookupVin }, vinBusy ? "…" : T("vinLookup"))) : null,
+      vinMsg ? e("div", { role: "status", style: { fontSize: 14, marginBottom: 12, color: vinMsg.ok ? C.accent : C.amber, fontWeight: 600 } }, vinMsg.text) : null,
       isCar ? (showLookup ? e(MpgLookupC, { onPick: onMpg }) : (!localMode ? e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }, onClick: () => setShowLookup(true) }, "🔎 " + T("lookupMpg")) : null)) : null,
       isCar ? e("div", null,
         e("div", { style: { display: "grid", gridTemplateColumns: "90px 1fr 1fr", gap: 10, alignItems: "end" } },
@@ -3544,9 +3854,11 @@ function App() {
   const AppsCardC = stable("AppsCard", AppsCard);
   const VehicleDashC = stable("VehicleDash", VehicleDash);
   const ConfirmDlgC = stable("ConfirmDlg", ConfirmDlg);
+  const VehDatesModalC = stable("VehDatesModal", VehDatesModal);
+  const VoiceModalC = stable("VoiceModal", VoiceModal);
   const VIEWS = { home: simple ? stable("simpleHome", SimpleHome) : stable("home", HomeView), money: stable("money", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
     insights: stable("insights", InsightsView), coach: stable("coach", CoachView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
-    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: simple ? stable("simpleMore", SimpleMore) : stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView) };
+    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: simple ? stable("simpleMore", SimpleMore) : stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView), reports: stable("reports", ReportsView) };
 
   if (!authed) return e(LoginC);
   if (!st.onboarded) return e(OnboardingC);
@@ -3571,6 +3883,9 @@ function App() {
         e("select", { "aria-label": T("language"), value: st.lang || "en", onChange: ev => saveSettings({ lang: ev.target.value }),
           style: { background: C.card2, color: C.text, border: "1px solid " + C.border, borderRadius: 12, padding: "0 28px 0 12px", height: 44, fontSize: 15, fontWeight: 700, cursor: "pointer" } },
           CONFIG.languages.map(l => e("option", { key: l[0], value: l[0] }, l[0].toUpperCase()))),
+        e("button", { "aria-label": T("vo_title"), className: "tap", onClick: () => setModal({ type: "voice" }),
+          style: { width: 44, height: 44, borderRadius: 12, border: "1px solid " + C.border, background: C.card2, color: C.sub, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } },
+          e(Icon, { n: "mic", s: 22 })),
         e("button", { "aria-label": T("settings"), className: "tap", onClick: () => setView("settings"),
           style: { width: 44, height: 44, borderRadius: 12, border: "1px solid " + C.border, background: view === "settings" ? C.accentDim : C.card2, color: view === "settings" ? C.accent : C.sub, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } },
           e(Icon, { n: "gear", s: 22 })),
@@ -3592,6 +3907,8 @@ function App() {
     modal && modal.type === "trip" ? e(TripModalC, { key: (modal.trip && modal.trip.id) || "newtrip", init: modal.trip, noGps: modal.noGps }) : null,
     modal && modal.type === "earn" ? e(TripModalC, { key: (modal.trip && modal.trip.id) || "earn" + (modal.app || ""), init: modal.trip, quick: modal.trip ? "ride" : "earn", app: modal.app }) : null,
     modal && modal.type === "nav" ? e(NavModalC, { key: "nav" }) : null,
+    modal && modal.type === "voice" ? e(VoiceModalC, { key: "voice" }) : null,
+    modal && modal.type === "vdates" ? e(VehDatesModalC, { key: "vd" + modal.vehicle.id, vehicle: modal.vehicle }) : null,
     modal && modal.type === "pickApp" ? e(PickAppModalC, { key: "pick", switching: modal.switching }) : null,
     modal && modal.type === "pickExpense" ? e(PickExpenseModalC, { key: "pickx" }) : null,
     modal && modal.type === "summary" ? e(SummaryModalC, { key: "sum", from: modal.from, to: modal.to }) : null,
