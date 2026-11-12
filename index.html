@@ -16,12 +16,12 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body,#root{height:100%}
-  body{background:#0B1220;color:#EAF2FF;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{background:var(--bg,#0B1220);color:var(--text,#EAF2FF);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   input,select,textarea,button{font-family:inherit}
   button:disabled{opacity:.5;cursor:default}
   select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#7F93B5 50%),linear-gradient(135deg,#7F93B5 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px!important}
-  input[type=range]{width:100%;accent-color:#2EE6A6}
-  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#1E2A44;border-radius:8px}
+  input[type=range]{width:100%;accent-color:#10B981}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--thumb,#1E2A44);border-radius:8px}
   .bottom-nav{display:none}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end}
@@ -72,6 +72,7 @@ const CONFIG = {
   primaryColor: "#0B1220",
   accentColor:  "#2EE6A6",
   logoText:     "K",
+  staging:      !!(window.KEPT_CONFIG && window.KEPT_CONFIG.staging),   // preview build: banner + sample data, never a production API
   apiUrl:       (window.KEPT_CONFIG && window.KEPT_CONFIG.apiUrl) || "",   // empty = local-only mode
 
   defaults: { name:"", lang:"en", country:"US", currency:"USD", unit:"mi", setAsidePct:30,
@@ -82,7 +83,7 @@ const CONFIG = {
               livingCosts:0, workDays:5, autoFuel:true, emergencyPct:10,
               offerMinHour:"", offerMinMile:"",
               // v4: apps the driver works for, onboarding done, always-on tracking
-              apps:[], onboarded:false, autoTrack:true, uiMode:"simple", saveLoc:true },
+              apps:[], onboarded:false, autoTrack:true, uiMode:"simple", saveLoc:true, theme:"auto", textScale:1 },
 
   languages: [ ["en","English"], ["nl","Nederlands"], ["tr","Türkçe"] ],
   countries: [ ["US","United States (1099)"], ["NL","Netherlands (ZZP)"], ["OTHER","Other — flat set-aside %"] ],
@@ -367,7 +368,7 @@ const I18N = {
   profitAfterCost:["Profit after vehicle cost","Winst na voertuigkosten","Araç maliyeti sonrası kâr"], afterTax:["After tax set-aside","Na belastingreserve","Vergi payı sonrası"],
   offerNote:["Type the numbers from the offer screen. Kept adds your real cost per mile and an empty return estimated from your own history. Platforms don't share live offer data, so entry is manual.","Vul de cijfers van het aanbod in. Kept rekent je echte kosten en een lege terugrit uit je historie mee. Platforms delen geen live data, dus invoer is handmatig.","Teklif ekranındaki rakamları girin. Kept gerçek mil başı maliyetinizi ve kendi geçmişinizden tahmini boş dönüşü ekler. Platformlar canlı teklif verisi paylaşmadığı için giriş elle yapılır."],
   recentOffers:["Recent checks","Recente checks","Son kontroller"], checkOffer:["Check an offer","Aanbod checken","Teklif kontrol et"], took:["took","aangenomen","alındı"], skipped:["skipped","overgeslagen","geçildi"],
-  logOffer:["I took it","Aangenomen","Aldım"], logSkip:["I skipped it","Overgeslagen","Geçtim"], offerTargetsHint:["Minimums default to your recent average — set your own.","Minimums standaard uit je gemiddelde.","Alt sınırlar son ortalamanızdan gelir — kendinizinkini girin."],
+  logOffer:["Save as taken","Opslaan: aangenomen","Alındı olarak kaydet"], logSkip:["Save as skipped","Opslaan: overgeslagen","Geçildi olarak kaydet"], offerTargetsHint:["Minimums default to your recent average — set your own.","Minimums standaard uit je gemiddelde.","Alt sınırlar son ortalamanızdan gelir — kendinizinkini girin."],
   // v3 — profit map
   map:["Profit map","Winstkaart","Kâr haritası"], mapTitle:["Where you earn the most","Waar je het meest verdient","En çok kazandığınız yerler"],
   mapHint:["Areas where your GPS shifts started, colored by net per hour. Only your own data is used.","Gebieden waar je GPS-diensten begonnen, gekleurd op netto per uur. Alleen je eigen data.","GPS'li vardiyalarınızın başladığı bölgeler, saatlik nete göre renklendirildi. Yalnızca kendi verileriniz kullanılır."],
@@ -423,6 +424,48 @@ const I18N = {
   delLoc:["Delete my location history","Locatiegeschiedenis wissen","Konum geçmişimi sil"], delLocConfirm:["Remove the saved start location from every trip? Miles and money stay.","Locaties van alle ritten verwijderen?","Tüm yolculuklardaki kayıtlı başlangıç konumu silinsin mi? Mesafe ve para kayıtları kalır."],
   recordsN:["Records","Records","Kayıt"],
   noProfitYet:["no profit yet this year","nog geen winst dit jaar","bu yıl henüz kâr yok"],
+  theme:["Theme","Thema","Tema"], th_auto:["Automatic","Automatisch","Otomatik"], th_light:["Light","Licht","Açık"], th_dark:["Dark","Donker","Koyu"],
+  textSize:["Text size","Tekstgrootte","Yazı boyutu"], ts_1:["Normal","Normaal","Normal"], ts_2:["Large","Groot","Büyük"], ts_3:["Extra large","Extra groot","Çok büyük"],
+  // ── v5 ──
+  tg_actual:["Actual","Werkelijk","Gerçek"], tg_est:["Estimate","Schatting","Tahmini"], tg_verified:["Verified","Geverifieerd","Doğrulanmış"], tg_user:["Your number","Jouw getal","Sizin girdiğiniz"], tg_missing:["Missing","Ontbreekt","Eksik"], tg_live:["Live price","Live prijs","Güncel fiyat"],
+  gps_paused:["tracking paused","bijhouden gepauzeerd","takip duraklatıldı"], gps_native:["phone app is tracking","app houdt bij","telefon uygulaması takip ediyor"], gps_ok:["GPS on (±{a} m)","GPS aan (±{a} m)","GPS açık (±{a} m)"],
+  gps_weak:["no GPS signal right now","geen GPS-signaal","şu anda GPS sinyali yok"], gps_blocked:["location blocked","locatie geblokkeerd","konum engelli"], gps_none:["no GPS on this device","geen GPS op dit apparaat","bu cihazda GPS yok"],
+  ts_off:["Not being tracked","Niet bijgehouden","Takip edilmiyor"], ts_personal:["Driving personally","Privé rijden","Kişisel sürüş"], ts_order:["On an active order","Bezig met een rit","Aktif siparişte"], ts_between:["Working · between orders","Aan het werk · tussen ritten","Çalışıyor · siparişler arası"],
+  m_gross:["Gross earnings","Bruto inkomsten","Brüt kazanç"], m_cash:["Actual cash expenses","Werkelijke uitgaven","Gerçek nakit giderler"], m_veh:["Estimated vehicle operating costs","Geschatte autokosten","Tahmini araç işletme maliyeti"],
+  m_econ:["Economic profit","Economische winst","Ekonomik kâr"], m_tax:["Tax reserve","Belastingreserve","Vergi rezervi"], m_after:["Estimated after-tax profit","Geschatte winst na belasting","Tahmini vergi sonrası kâr"],
+  takeHomeToday:["Today's estimated take-home","Geschat over vandaag","Bugünkü tahmini net kazanç"], h_exp:["Expenses","Uitgaven","Giderler"], h_veh:["Vehicle costs","Autokosten","Araç maliyeti"],
+  insMissingHome:["Your insurance isn't entered, so costs may look too low. Tap to add it.","Verzekering ontbreekt — tik om toe te voegen.","Sigortanız girilmedi, giderler düşük görünebilir. Eklemek için dokunun."],
+  myEarnings:["My earnings","Mijn inkomsten","Kazançlarım"], language:["Language","Taal","Dil"],
+  g_denied_ios:["Location is blocked for Kept, so miles can't be counted. Fix on iPhone: Settings → Privacy & Security → Location Services → On. Then in Safari tap aA next to the address → Website Settings → Location → Allow. Then tap Try again.","Locatie geblokkeerd. iPhone: Instellingen → Privacy → Locatievoorzieningen → Aan; Safari aA → Website-instellingen → Locatie → Sta toe.","Kept için konum engelli, bu yüzden mil sayılamıyor. iPhone'da: Ayarlar → Gizlilik ve Güvenlik → Konum Servisleri → Açık. Sonra Safari'de adresin yanındaki aA → Web Sitesi Ayarları → Konum → İzin Ver. Sonra Tekrar dene'ye dokunun."],
+  offlineMsg:["You're offline. Everything you enter is saved on this phone and will sync when you're back online.","Je bent offline. Alles wordt op deze telefoon bewaard en later gesynchroniseerd.","Çevrimdışısınız. Girdiğiniz her şey bu telefonda saklanır ve tekrar bağlanınca eşitlenir."],
+  fk_gasoline:["Gasoline","Benzine","Benzin"], fk_diesel:["Diesel","Diesel","Dizel"], fk_hybrid:["Hybrid","Hybride","Hibrit"], fk_electric:["Electric","Elektrisch","Elektrikli"],
+  realCostPer:["Real cost per","Echte kosten per","Gerçek maliyet /"], vd_month:["About {m} a month at {d} a year (all miles, business and personal).","Ongeveer {m} per maand bij {d} per jaar.","Yılda {d} kullanımla ayda yaklaşık {m} (iş ve kişisel tüm miller)."],
+  vd_review:["Review and correct the numbers","Getallen controleren en aanpassen","Rakamları gözden geçir ve düzelt"],
+  vd_insWarn:["Insurance is missing, so the real cost above is too low.","Verzekering ontbreekt; kosten zijn te laag.","Sigorta eksik, bu yüzden yukarıdaki gerçek maliyet olduğundan düşük."],
+  src_epa:["mpg verified (fueleconomy.gov)","verbruik geverifieerd","tüketim doğrulandı (fueleconomy.gov)"], src_userCons:["mpg you entered","jouw verbruik","girdiğiniz tüketim"], src_typical:["typical mpg for this type — fill-up receipts will make it yours","typisch verbruik","bu tip için tipik tüketim — yakıt fişleri bunu size göre ayarlar"],
+  src_live:["live regional price {d}","live prijs {d}","güncel bölgesel fiyat {d}"], src_receipt:["price from your receipt {d}","prijs van je bon {d}","fişinizdeki fiyat {d}"], src_userPrice:["price you entered","jouw prijs","girdiğiniz fiyat"], src_defPrice:["default price — add a gas receipt with gallons","standaardprijs","varsayılan fiyat — galon bilgili bir yakıt fişi ekleyin"],
+  vd_maintSrc:["Typical tires, brakes and service costs spread per mile. Your receipts reset the reminders; adjust amounts in Review.","Typische onderhoudskosten per km.","Tipik lastik, fren ve servis maliyetleri mile dağıtılır. Fişleriniz hatırlatıcıları sıfırlar; tutarları Gözden geçir'de değiştirin."],
+  vd_depSrc:["Model estimate from year, make, body, fuel type and your mileage. Value now ≈ {v}.","Schatting op basis van bouwjaar en kilometers. Waarde nu ≈ {v}.","Yıl, marka, gövde, yakıt tipi ve kullanımınıza göre model tahmini. Şimdiki değer ≈ {v}."],
+  vd_depUser:["From the purchase and resale numbers you entered.","Van jouw aankoop- en restwaarde.","Girdiğiniz alış ve satış rakamlarından."], vd_leased:["Leased — no value loss counted.","Lease — geen waardeverlies.","Kiralık — değer kaybı sayılmaz."],
+  vd_insMissing:["Not entered. Kept doesn't guess insurance. Add your real premium.","Niet ingevuld. Kept raadt geen verzekering.","Girilmedi. Kept sigortayı tahmin etmez. Gerçek priminizi ekleyin."],
+  vd_insEst:["A default from an older version, not your real premium. Confirm or change it.","Standaardwaarde, niet jouw premie.","Eski sürümden kalan varsayılan değer, gerçek priminiz değil. Onaylayın ya da değiştirin."],
+  vd_insRec:["From your repeating insurance expense.","Van je terugkerende verzekeringskosten.","Tekrarlayan sigorta giderinizden."], vd_insUser:["The premium you entered.","De premie die je invulde.","Girdiğiniz prim."],
+  vd_insAdd:["Add my insurance","Verzekering toevoegen","Sigortamı ekle"], vd_insConfirm:["This is my real amount","Dit klopt","Bu gerçek tutarım"],
+  vd_fixedEst:["A default from an older version — check it in Review.","Standaardwaarde — controleer.","Eski sürümden varsayılan — Gözden geçir'de kontrol edin."],
+  vd_remind:["Maintenance reminders","Onderhoud","Bakım hatırlatıcıları"], vd_needOdo:["Add your odometer reading in Review to get reminders for oil, tires and brakes.","Vul je kilometerstand in voor herinneringen.","Yağ, lastik ve fren hatırlatmaları için Gözden geçir'de kilometre sayacınızı girin."],
+  vd_dueNow:["due now","nu nodig","zamanı geldi"], vd_in:["in {d}","over {d}","{d} sonra"],
+  vd_remindNote:["Reminders are based on mileage and typical service intervals — they don't diagnose problems with your car.","Gebaseerd op kilometers; geen diagnose.","Hatırlatmalar kilometreye ve tipik servis aralıklarına dayanır — aracınızdaki arızaları teşhis etmez."],
+  odoLbl:["on the odometer","op de teller","sayaçta"], trackedLbl:["tracked in Kept","bijgehouden in Kept","Kept ile kaydedilen"],
+  of_vs:["Your target {t}/h","Je doel {t}/u","Hedefiniz saatte {t}"], of_pay:["Offer payment","Aangeboden bedrag","Teklif ücreti"], of_cost:["Vehicle cost for these miles","Autokosten voor deze rit","Bu miller için araç maliyeti"],
+  of_profit:["Profit on this order, before tax","Winst op deze rit, vóór belasting","Bu siparişten kâr (vergi öncesi)"], of_hour:["Profit per hour","Winst per uur","Saatlik kâr"],
+  of_marginal:["This order only: gas, wear and value loss for these miles. Insurance and other fixed costs aren't included — you pay them either way.","Alleen deze rit; vaste kosten niet meegerekend.","Yalnızca bu sipariş: bu millerin yakıt, aşınma ve değer kaybı. Sigorta ve diğer sabit giderler dahil değil — onları her durumda ödüyorsunuz."],
+  of_full:["For comparison, your average real profit per hour with all costs included: {v}.","Ter vergelijking: je gemiddelde echte winst per uur: {v}.","Karşılaştırma için: tüm giderler dahil ortalama gerçek saatlik kârınız {v}."],
+  of_details:["See details","Details","Ayrıntıları gör"], of_perMile:["Profit per distance","Winst per afstand","Mesafe başına kâr"],
+  of_logHint:["Optional: save this offer to your log so Kept can show which offers you take.","Optioneel: bewaar in je logboek.","İsteğe bağlı: hangi teklifleri aldığınızı görmek için kaydedin."],
+  undo:["Undo","Ongedaan maken","Geri al"], restored:["Restored","Hersteld","Geri alındı"], errAmount:["Enter an amount greater than 0.","Vul een bedrag groter dan 0 in.","0'dan büyük bir tutar girin."], errIncome:["Enter at least one amount (pay, tips or bonus).","Vul minstens één bedrag in.","En az bir tutar girin (ödeme, bahşiş veya bonus)."], errMiles:["Enter the miles for this ride.","Vul de afstand in.","Bu siparişin mesafesini girin."],
+  stg_banner:["STAGING PREVIEW · test data stays in this browser · not the live app","STAGING-VOORBEELD · testgegevens blijven in deze browser","ÖNİZLEME (STAGING) · test verileri yalnızca bu tarayıcıda · canlı uygulama değil"], stg_sample:["Preview with sample data (3 weeks)","Voorbeeld met testgegevens","Örnek verilerle önizle (3 hafta)"],
+  restoreConfirm:["Replace all your data with this backup?","Alle gegevens vervangen door deze back-up?","Tüm verileriniz bu yedekle değiştirilsin mi?"],
+  homeTab:["Home","Start","Ana sayfa"],
   money:["My money","Mijn geld","Param"], startWorking:["START WORKING","BEGIN MET WERKEN","ÇALIŞMAYA BAŞLA"], stopWorking:["Stop working","Stop met werken","Çalışmayı bitir"],
   working:["Working","Aan het werk","Çalışıyor"], whichApp:["Which app are you working for?","Voor welke app werk je?","Hangi uygulama için çalışıyorsunuz?"], switchApp:["Switch app","Andere app","Uygulama değiştir"],
   addIncome:["Add income","Inkomsten","Gelir ekle"], addExpense:["Add expense","Kosten","Gider ekle"], checkOfferT:["Check an offer","Aanbod checken","Teklifi kontrol et"],
@@ -546,7 +589,7 @@ function presetVehicle(type, country) {
     depMode: "auto", year: new Date().getFullYear() - 3, make: "", model: "", body: "midsize", fuelKind: p.energy === "electric" ? "electric" : "gasoline",
     purchase: p.purchase, resale: p.resale, valueNow: "", lifeKm: p.lifeKm, energy: p.energy, cons: p.energy === "fuel" && type === "car" ? 235.215 / 30 : p.cons, price,
     battPrice: p.battPrice, battKm: p.battKm, startOdo: "",
-    insurance: p.fixed.insurance, rent: p.fixed.rent, otherFixed: p.fixed.other,
+    insurance: "", rent: 0, otherFixed: 0, insSrc: "missing",
     parts: p.parts.map(x => ({ id: genId(), name: x[0], cost: x[1], interval: x[2], lastAt: 0 })),
   };
 }
@@ -710,9 +753,12 @@ function computePeriod(data, from, to) {
   const est = settings.costMode !== "actual";
   const R = days ? recurringIn(data, effFrom, to) : [];
   const recIns = vid => expenses.some(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === vid));
-  let insurance = 0, fixedOther = 0, recurOther = 0, recurVeh = 0;
+  // insEst / fixedEst = the part of fixed costs that comes from an unconfirmed profile value (shown as "Estimated");
+  // an empty insurance field means "missing" and is not charged at all (v5: no guessed premiums)
+  let insurance = 0, fixedOther = 0, recurOther = 0, recurVeh = 0, insEst = 0, fixedEst = 0;
   if (est) vehicles.filter(v => v.active !== false).forEach(v => { const sh = bizShare(data, v.id) * days / 30.44;
-    if (!recIns(v.id)) insurance += num(v.insurance) * sh; fixedOther += (num(v.rent) + num(v.otherFixed)) * sh; });
+    if (!recIns(v.id)) { const a = num(v.insurance) * sh; insurance += a; if (v.insSrc !== "user") insEst += a; }
+    const fo = (num(v.rent) + num(v.otherFixed)) * sh; fixedOther += fo; if (v.fixedSrc !== "user") fixedEst += fo; });
   R.forEach(x => {
     if (x.category === "insurance") insurance += x.amount;
     else if (x.category === "rental") fixedOther += x.amount;
@@ -726,7 +772,10 @@ function computePeriod(data, from, to) {
   const costs = vehicleCosts + otherExp;
   const net = gross - fees - costs;
   const workDays = new Set(S.map(s => s.date)).size;
-  return { S, E, gross, tips, fees, mins, km, emptyKm, varCost, depCost, energyCost, maintCost, insurance, fixedOther, fixed, vehExp, otherExp, vehicleCosts, costs, net, workDays,
+  // estVehicle = estimated vehicle operating cost; actualExp = costs backed by the user's own records/numbers (+ app fees)
+  const estVehicle = est ? varCost + insEst + fixedEst : depCost;
+  const actualExp = costs - estVehicle + fees;
+  return { S, E, gross, tips, fees, mins, km, emptyKm, varCost, depCost, energyCost, maintCost, insurance, fixedOther, fixed, insEst, fixedEst, estVehicle, actualExp, vehExp, otherExp, vehicleCosts, costs, net, workDays,
            perHour: mins > 0 ? net / (mins / 60) : 0, per100: km > 0 ? net / km * 100 : 0, days };
 }
 
@@ -840,6 +889,42 @@ function offerCalc(i) {
   const sensWait = perHour(totMins + 10);
   const sensRet = (() => { const m = i.driveMins + (i.waitMins || 0) + worstRet / kph * 60; return m > 0 ? (i.pay - worstKm * i.cpk) / (m / 60) : 0; })();
   return { retKm, totKm, totMins, cost, profit, ph, pd, afterTax: profit - Math.max(0, profit) * (i.rate || 0), ready, verdict, sensWait, sensRet };
+}
+
+// ── STAGING ONLY: realistic sample data so the preview can be judged with numbers (never used in production) ──
+function sampleData(country) {
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const today = new Date(), iso = d => dISO(d), us = country !== "NL";
+  const car = presetVehicle("car", country);
+  Object.assign(car, { id: "veh_sample", name: "2021 Toyota RAV4 Hybrid", year: 2021, make: "Toyota", model: "RAV4 Hybrid", body: "smallsuv", fuelKind: "hybrid", engine: "2.5 L, 4 cyl, AWD",
+    energy: "fuel", cons: 235.215 / 39, consLocked: true, consSrc: "lookup", price: us ? 3.14 / L_PER_GAL : 1.95, priceSrc: "receipt", priceDate: iso(new Date(Date.now() - 3 * 864e5)), startOdo: 61000 * KM_PER_MI });
+  car.parts = car.parts.map(p => Object.assign({}, p, { lastAt: car.startOdo - (/oil|service/i.test(p.name) ? 9000 : 20000) * KM_PER_MI }));
+  const v = applyAutoDep(car, car.startOdo, 36000);
+  const rates = { DoorDash: [7.5, 2.5], Uber: [13, 2], "Uber Eats": [6.5, 2.2] }, apps = ["DoorDash", "DoorDash", "Uber", "Uber Eats"];
+  const trips = [];
+  for (let back = 20; back >= 0; back--) {
+    const day = new Date(today); day.setDate(day.getDate() - back);
+    const add = (app, kind, t0, mins, km, pay, tips) => { const s = new Date(day); s.setHours(0, t0, 0, 0); const en = new Date(s.getTime() + mins * 60000);
+      trips.push({ id: "smp" + back + "_" + trips.length, date: iso(day), start: s.toISOString(), end: en.toISOString(), km: +km.toFixed(3), app, kind, pay: pay == null ? "" : pay, tips: tips == null ? "" : tips, vehicleId: v.id, source: "sample",
+        loc: { lat: +(37.54 + (rnd() - .5) * .1).toFixed(5), lon: +(-77.43 + (rnd() - .5) * .12).toFixed(5) } }); };
+    add(PERSONAL, "personal", 8 * 60, 15, 5 + rnd() * 9);
+    if (back > 0 && rnd() < 0.2) continue;
+    let t = 10 * 60 + Math.floor(rnd() * 3) * 30, n = 4 + Math.floor(rnd() * 6);
+    for (let k = 0; k < n; k++) {
+      const app = apps[Math.floor(rnd() * apps.length)], r = rates[app];
+      add(app, "online", t, 8, 1 + rnd() * 3); t += 10;
+      const m = 12 + Math.floor(rnd() * 18), km = m * 0.55 * (0.8 + rnd() * 0.4);
+      add(app, "order", t, m, km, +(r[0] + km / 1.6 * 0.6 * (0.7 + rnd() * 0.6)).toFixed(2), [0, 0, r[1], r[1] * 2][Math.floor(rnd() * 4)]); t += m + 2 + Math.floor(rnd() * 8);
+    }
+    add(PERSONAL, "personal", t + 60, 20, 4 + rnd() * 6);
+  }
+  const d = n => iso(new Date(Date.now() - n * 864e5));
+  const expenses = [
+    { id: "smp_ins", date: d(60), category: "insurance", amount: 165, vehicleId: v.id, recurring: 1, qty: "", note: "", photos: [] },
+    { id: "smp_ph", date: d(60), category: "phone", amount: 45, vehicleId: "", recurring: 1, qty: "", note: "", photos: [] },
+    { id: "smp_g1", date: d(3), category: "fuel", amount: 42.1, vehicleId: v.id, qty: 13.4, qtyUnit: "gal", note: "", photos: [] },
+    { id: "smp_w", date: d(0), category: "carwash", amount: 12, vehicleId: v.id, qty: "", note: "", photos: [] }];
+  return { vehicles: [v], trips, expenses };
 }
 
 // "No tax on tips" (OBBBA §224, tax years 2025–2028): up to $25,000 of qualified tips, limited to the net profit of the
@@ -1043,16 +1128,29 @@ function parseReceipt(text, country) {
 // ════════════════════════════════════════════════════════════════
 //  Styles
 // ════════════════════════════════════════════════════════════════
-const C = { bg: "#0B1220", card: "#111B2E", card2: "#0E1729", border: "#1E2A44", input: "#0A1020",
-            text: "#EAF2FF", sub: "#B6C4DC", muted: "#7F93B5", dim: "#4F6286",
-            accent: CONFIG.accentColor, accentDim: "rgba(46,230,166,.12)", red: "#F26B6B", amber: "#F5B544", blue: "#5B9CFF", purple: "#A98BFF" };
-const S = {
+// ── v5 design tokens (light + dark). "accent" is the text-safe emerald (≥4.5:1 on its surface); "fill" is the brand emerald for buttons/bars.
+const THEMES = {
+  dark:  { bg: "#0B1220", card: "#172235", card2: "#111A2B", border: "#26344D", input: "#0E1626", header: "#0E1626",
+           text: "#F1F5F9", sub: "#CBD5E1", muted: "#94A3B8", dim: "#64748B",
+           accent: "#34D399", fill: "#10B981", onAccent: "#0B1220", accentDim: "rgba(16,185,129,.14)", accentBorder: "rgba(52,211,153,.45)", accentSoft: "rgba(16,185,129,.45)",
+           red: "#F87171", amber: "#FBBF24", blue: "#60A5FA", purple: "#A78BFA",
+           warnBg: "rgba(251,191,36,.10)", warnBorder: "rgba(251,191,36,.40)", dangerBg: "rgba(248,113,113,.12)", dangerBorder: "rgba(248,113,113,.40)",
+           navBg: "rgba(14,22,38,.97)", overlay: "rgba(2,6,15,.72)", shadow: "none", scheme: "dark" },
+  light: { bg: "#F7F9FC", card: "#FFFFFF", card2: "#F1F5F9", border: "#E2E8F0", input: "#FFFFFF", header: "#FFFFFF",
+           text: "#0F172A", sub: "#334155", muted: "#64748B", dim: "#94A3B8",
+           accent: "#047857", fill: "#10B981", onAccent: "#0B1220", accentDim: "rgba(16,185,129,.10)", accentBorder: "rgba(4,120,87,.40)", accentSoft: "rgba(16,185,129,.55)",
+           red: "#DC2626", amber: "#B45309", blue: "#2563EB", purple: "#7C3AED",
+           warnBg: "#FFFBEB", warnBorder: "#F59E0B", dangerBg: "#FEF2F2", dangerBorder: "#FCA5A5",
+           navBg: "rgba(255,255,255,.97)", overlay: "rgba(15,23,42,.45)", shadow: "0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.04)", scheme: "light" },
+};
+const C = Object.assign({}, THEMES.dark);
+const makeS = () => ({
   root: { display: "flex", flexDirection: "column", height: "100%", background: C.bg, color: C.text, overflow: "hidden" },
-  header: { background: C.card2, borderBottom: "1px solid " + C.border, padding: "0 16px", paddingTop: "env(safe-area-inset-top)", minHeight: 56, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 },
+  header: { background: C.header, borderBottom: "1px solid " + C.border, padding: "0 16px", paddingTop: "env(safe-area-inset-top)", minHeight: 56, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 },
   sidebar: { width: 220, background: C.card2, borderRight: "1px solid " + C.border, overflowY: "auto", flexShrink: 0, padding: "10px 0" },
   content: { flex: 1, overflowY: "auto", padding: "16px 16px 110px" },
   inner: { maxWidth: 980, margin: "0 auto" },
-  card: { background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: 16, marginBottom: 12 },
+  card: { background: C.card, border: "1px solid " + C.border, borderRadius: 18, padding: 18, marginBottom: 12, boxShadow: C.shadow },
   input: { width: "100%", background: C.input, border: "1px solid " + C.border, borderRadius: 10, padding: "11px 12px", color: C.text, fontSize: 15, outline: "none" },
   label: { display: "block", fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 },
   h1: { fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 12 },
@@ -1061,17 +1159,33 @@ const S = {
   btn: v => v === "ghost"
     ? { background: "transparent", border: "1px solid " + C.border, color: C.sub, borderRadius: 10, padding: "10px 14px", cursor: "pointer", fontSize: 14, fontWeight: 600 }
     : v === "danger"
-    ? { background: "rgba(242,107,107,.12)", border: "1px solid rgba(242,107,107,.35)", color: C.red, borderRadius: 10, padding: "10px 14px", cursor: "pointer", fontSize: 14, fontWeight: 700 }
-    : { background: C.accent, color: "#05221A", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 800 },
+    ? { background: C.dangerBg, border: "1px solid " + C.dangerBorder, color: C.red, borderRadius: 10, padding: "10px 14px", cursor: "pointer", fontSize: 14, fontWeight: 700 }
+    : { background: C.fill, color: C.onAccent, border: "none", borderRadius: 12, padding: "10px 16px", cursor: "pointer", fontSize: 15, fontWeight: 800 },
   chip: on => ({ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer", border: "1px solid " + (on ? C.accent : C.border), background: on ? C.accentDim : "transparent", color: on ? C.accent : C.muted, whiteSpace: "nowrap" }),
   sideLabel: { fontSize: 10, fontWeight: 800, color: C.dim, textTransform: "uppercase", letterSpacing: "0.12em", padding: "12px 18px 6px" },
-  sideItem: on => ({ padding: "10px 18px", cursor: "pointer", fontSize: 14, fontWeight: on ? 700 : 500, color: on ? C.accent : C.sub, background: on ? "rgba(46,230,166,.07)" : "transparent", borderLeft: "3px solid " + (on ? C.accent : "transparent"), display: "flex", alignItems: "center", gap: 10, userSelect: "none" }),
+  sideItem: on => ({ padding: "10px 18px", cursor: "pointer", fontSize: 14, fontWeight: on ? 700 : 500, color: on ? C.accent : C.sub, background: on ? C.accentDim : "transparent", borderLeft: "3px solid " + (on ? C.accent : "transparent"), display: "flex", alignItems: "center", gap: 10, userSelect: "none" }),
   stat: { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 12px" },
   statLabel: { fontSize: 11, color: C.muted, fontWeight: 600, marginBottom: 4 },
   statVal: { fontSize: 17, fontWeight: 800 },
   row: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
   badge: col => ({ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: col + "22", color: col, textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap" }),
-};
+});
+const S = makeS();
+// switch theme in place: every component reads C/S at render time
+let _themeNow = null;
+function applyTheme(pref, scale) {
+  let name = pref === "light" || pref === "dark" ? pref : "dark";
+  if (pref !== "light" && pref !== "dark") { try { name = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"; } catch (x) {} }
+  const key = name + "|" + (scale || 1);
+  if (_themeNow === key) return name;
+  _themeNow = key;
+  Object.assign(C, THEMES[name]); Object.assign(S, makeS());
+  const r = document.documentElement;
+  r.style.setProperty("--bg", C.bg); r.style.setProperty("--text", C.text); r.style.setProperty("--thumb", C.border); r.style.setProperty("--muted", C.muted);
+  r.style.colorScheme = C.scheme; document.body.style.background = C.bg; document.body.style.zoom = scale && scale !== 1 ? String(scale) : "";
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", C.bg);
+  return name;
+}
 
 // minimal icon set (24px stroke)
 const ICONS = {
@@ -1192,6 +1306,9 @@ function App() {
   };
 
   const st = data.settings;
+  const themeName = applyTheme(st.theme, num(st.textScale) || 1);
+  const [, setSysTheme] = useState(0);
+  useEffect(() => { try { const mq = window.matchMedia("(prefers-color-scheme: light)"); const f = () => setSysTheme(x => x + 1); mq.addEventListener("change", f); return () => mq.removeEventListener("change", f); } catch (x) {} }, []);
   const L = Math.max(0, CONFIG.languages.findIndex(l => l[0] === st.lang));
   const T = k => { const r = I18N[k]; return r ? (r[L] || r[0]) : k; };
   const locale = LOCALES[st.lang] || "en-US";
@@ -1209,7 +1326,12 @@ function App() {
   useEffect(() => { LS.set("kept_data", raw); }, [raw]);
   useEffect(() => { document.documentElement.lang = st.lang || "en"; }, [st.lang]);
 
-  const showToast = (msg) => { setToast({ msg }); setTimeout(() => setToast(null), 2400); };
+  // in-app confirmation (browser confirm()/prompt() are hard to read for older users and blocked in some app views)
+  const [dlg, setDlg] = useState(null);
+  const askConfirm = (msg, ok, opts) => setDlg(Object.assign({ msg, ok }, opts || {}));
+  const toastTimer = useRef(null);
+  const showToast = (msg, action) => { clearTimeout(toastTimer.current); setToast({ msg, action }); toastTimer.current = setTimeout(() => setToast(null), action ? 7000 : 2400); };
+  useEffect(() => { const k = ev => { if (ev.key === "Escape") setModal(null); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, []);
 
   // ── sync queue (records) + photo upload queue ──
   const flushPhotos = async () => {
@@ -1248,11 +1370,15 @@ function App() {
     setData(d => { const list = d[coll].slice(); const i = list.findIndex(x => x.id === rec.id); if (i >= 0) list[i] = rec; else list.push(rec); return Object.assign({}, d, { [coll]: list }); });
     enqueue({ op: "upsert", collection: coll, record: rec });
   };
+  // deletes can be undone for a few seconds (photos are only removed once the undo window has passed)
   const remove = (coll, id) => {
-    const rec = dataRef.current[coll].find(x => x.id === id);
-    ((rec && rec.photos) || []).forEach(p => IDB.del(p).catch(() => {}));
+    const rec = (raw[coll] || []).find(x => x.id === id) || dataRef.current[coll].find(x => x.id === id);
+    const photos = (rec && rec.photos) || [];
     setData(d => Object.assign({}, d, { [coll]: d[coll].filter(x => x.id !== id) }));
     enqueue({ op: "remove", collection: coll, id });
+    if (!rec) return;
+    const tm = setTimeout(() => photos.forEach(p => IDB.del(p).catch(() => {})), 8000);
+    setTimeout(() => showToast(T("deleted"), { label: T("undo"), fn: () => { clearTimeout(tm); upsert(coll, rec); showToast(T("restored")); } }), 0);
   };
   const saveSettings = patch => {
     const ns = Object.assign({}, dataRef.current.settings, patch);
@@ -1298,7 +1424,8 @@ function App() {
       const per = v.fuelType === "diesel" ? r.diesel : r.petrol;
       if (!(per > 0)) return;
       const perL = r.unit === "gal" ? per / L_PER_GAL : per;
-      if (Math.abs(perL - num(v.price)) > 0.001) { upsert("vehicles", Object.assign({}, v, { price: +perL.toFixed(4) })); n++; }
+      if (v.priceSrc === "user" || v.priceSrc === "receipt") return;     // never overwrite the user's own price
+      if (Math.abs(perL - num(v.price)) > 0.001 || v.priceSrc !== "live") { upsert("vehicles", Object.assign({}, v, { price: +perL.toFixed(4), priceSrc: "live", priceDate: r.date || dISO(new Date()) })); n++; }
     });
     return n;
   };
@@ -1503,7 +1630,10 @@ function App() {
   // ════════════════════════════════════════════════════════════════
   //  Small UI pieces
   // ════════════════════════════════════════════════════════════════
-  const Field = (label, input, hint) => e("div", { style: { marginBottom: 12 } }, e("label", { style: S.label }, label), input, hint ? e("div", { style: Object.assign({}, S.small, { marginTop: 4 }) }, hint) : null);
+  // form controls are wrapped in their <label> so screen readers announce the field name
+  const Field = (label, input, hint) => (input && typeof input.type === "string" && /^(input|select|textarea)$/.test(input.type))
+    ? e("label", { style: { display: "block", marginBottom: 12 } }, e("span", { style: S.label }, label), input, hint ? e("span", { style: Object.assign({}, S.small, { marginTop: 4, display: "block" }) }, hint) : null)
+    : e("div", { style: { marginBottom: 12 } }, e("div", { style: S.label }, label), input, hint ? e("div", { style: Object.assign({}, S.small, { marginTop: 4 }) }, hint) : null);
   const Stat = (label, val, color) => e("div", { style: S.stat }, e("div", { style: S.statLabel }, label), e("div", { style: Object.assign({}, S.statVal, color ? { color } : {}) }, val));
   const Chips = (opts, val, set) => e("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 } },
     opts.map(o => e("div", { key: o[0], className: "tap", style: S.chip(val === o[0]), onClick: () => set(o[0]) }, o[1])));
@@ -1515,11 +1645,11 @@ function App() {
       items.map((i, k) => e("div", { key: k, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%", minWidth: 0 } },
         e("div", { style: { fontSize: 10, color: C.muted, whiteSpace: "nowrap" } }, i.label2 || ""),
         e("div", { style: { flex: 1, width: "100%", display: "flex", alignItems: "flex-end" } },
-          e("div", { title: i.title || "", style: { width: "100%", height: Math.max(i.v ? 4 : 2, Math.abs(i.v) / max * 100) + "%", background: i.v < 0 ? C.red : (i.hi ? C.accent : (opts.color || "rgba(46,230,166,.45)")), borderRadius: 6 } })),
+          e("div", { title: i.title || "", style: { width: "100%", height: Math.max(i.v ? 4 : 2, Math.abs(i.v) / max * 100) + "%", background: i.v < 0 ? C.red : (i.hi ? C.fill : (opts.color || C.accentSoft)), borderRadius: 6 } })),
         e("div", { style: { fontSize: 11, color: i.hi ? C.text : C.muted, fontWeight: i.hi ? 700 : 500, whiteSpace: "nowrap" } }, i.label))));
   };
   const Progress = (p, color) => e("div", { style: { height: 8, background: C.input, borderRadius: 8, overflow: "hidden" } },
-    e("div", { style: { width: clamp(p, 0, 100) + "%", height: "100%", background: color || C.accent, borderRadius: 8 } }));
+    e("div", { style: { width: clamp(p, 0, 100) + "%", height: "100%", background: color || C.fill, borderRadius: 8 } }));
   const Empty = (msg, action) => e("div", { style: Object.assign({}, S.card, { textAlign: "center", padding: 28, color: C.muted }) }, e("div", { style: { marginBottom: action ? 12 : 0 } }, msg), action || null);
   const Line = (l, v, opts) => e("div", { style: Object.assign({}, S.row, { padding: "8px 0", borderBottom: "1px solid " + C.border, fontSize: 14 }, opts && opts.bold ? { fontWeight: 800 } : {}) },
     e("span", { style: { color: opts && opts.bold ? C.text : C.sub } }, l), e("span", { style: opts && opts.color ? { color: opts.color, fontWeight: 800 } : { fontWeight: 600, textAlign: "right" } }, v));
@@ -1527,12 +1657,12 @@ function App() {
   const burnLabel = lvl => T(lvl === "high" ? "b_high" : lvl === "watch" ? "b_watch" : "b_fresh");
   const Meter = (score, lvl) => e("div", { style: { position: "relative", height: 12, borderRadius: 12, background: "linear-gradient(90deg,#2EE6A6 0%,#2EE6A6 35%,#F5B544 50%,#F26B6B 80%)", opacity: .9 } },
     e("div", { style: { position: "absolute", top: -4, left: "calc(" + clamp(score, 0, 100) + "% - 8px)", width: 16, height: 20, borderRadius: 6, background: "#fff", border: "3px solid " + burnCol(lvl) } }));
-  const HeavyNote = h => e("div", { style: { padding: "10px 12px", borderRadius: 12, background: "rgba(245,181,68,.1)", border: "1px solid rgba(245,181,68,.35)", fontSize: 13, color: C.amber, lineHeight: 1.45 } },
+  const HeavyNote = h => e("div", { style: { padding: "10px 12px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, fontSize: 13, color: C.amber, lineHeight: 1.45 } },
     e("b", null, T("heavyDay") + ": "), T("heavyMsg").replace("{h}", fmtDur(h * 60)));
   const platformSelect = (value, onChange, style, placeholder) => {
     const opts = CONFIG.platforms.concat(value && CONFIG.platforms.indexOf(value) < 0 ? [value] : []);
-    return e("select", { style: Object.assign({}, S.input, style || {}), value: value || "", onChange: ev => {
-      if (ev.target.value === "__custom") { const n = (prompt(T("customPlatform")) || "").trim(); if (n) onChange(n); }
+    return e("select", { "aria-label": placeholder && placeholder !== "+" ? placeholder : T("otherApp"), style: Object.assign({}, S.input, style || {}), value: value || "", onChange: ev => {
+      if (ev.target.value === "__custom") askConfirm(T("customPlatform"), v => { const n = String(v || "").trim(); if (n) onChange(n); }, { input: true, okLabel: T("add") });
       else if (ev.target.value) onChange(ev.target.value);
     } }, placeholder ? e("option", { value: "" }, placeholder) : null, opts.map(n => e("option", { key: n, value: n }, n)), e("option", { value: "__custom" }, T("otherApp")));
   };
@@ -1563,7 +1693,7 @@ function App() {
     const liveCost = liveKm * vehicleCost(vmap[defaultVid()]).total;
     const rideMins = t.order && t.orderStart ? (Date.now() - t.orderStart) / 60000 : 0;
     const col = t.on ? appColor(t.mode || PERSONAL) : C.muted;
-    return e("div", { style: Object.assign({}, S.card, { borderColor: t.order ? col : C.border, background: t.order ? "linear-gradient(135deg,#0F2236,#111B2E)" : C.card }) },
+    return e("div", { style: Object.assign({}, S.card, { borderColor: t.order ? col : C.border, background: t.order ? C.card : C.card }) },
       e("div", { style: Object.assign({}, S.row, { marginBottom: 12 }) },
         e("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 } },
           e("div", { className: t.on ? "pulse" : "", style: { width: 10, height: 10, borderRadius: 10, background: col, flexShrink: 0 } }),
@@ -1607,8 +1737,8 @@ function App() {
     const g = t.gps;
     if (!t.on || !(gpsBad(g) || g === "wait")) return null;
     if (g === "wait") return e("div", { style: { fontSize: big ? 15 : 13, color: C.muted, marginTop: 10 } }, "⌛ " + T("g_wait"));
-    const msg = T(g === "denied" ? "g_denied" : g === "none" ? "g_none" : g === "off" ? "g_off" : "g_weak");
-    return e("div", { role: "alert", style: { marginTop: 12, padding: 12, borderRadius: 12, background: "rgba(245,181,68,.10)", border: "1px solid rgba(245,181,68,.4)" } },
+    const msg = T(g === "denied" ? (isIOS ? "g_denied_ios" : "g_denied") : g === "none" ? "g_none" : g === "off" ? "g_off" : "g_weak");
+    return e("div", { role: "alert", style: { marginTop: 12, padding: 12, borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder } },
       e("div", { style: { fontSize: big ? 16 : 14, color: C.amber, fontWeight: 700, lineHeight: 1.45, marginBottom: 10 } }, "⚠ " + msg),
       e("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
         g !== "none" ? e("button", { style: Object.assign(S.btn(), { minHeight: 48, fontSize: 15 }), onClick: retryGps }, T("tryAgain")) : null,
@@ -1626,48 +1756,88 @@ function App() {
   const BigBtn = (label, onClick, opts) => e("button", { className: "tap", onClick, "aria-label": typeof label === "string" ? label : undefined,
     style: Object.assign(S.btn(opts && opts.kind), { width: "100%", minHeight: 64, fontSize: 20, fontWeight: 900, borderRadius: 16, letterSpacing: ".02em" }, opts && opts.style || {}) }, label);
 
+  // ── v5 shared pieces: provenance tags, tracking state, money summary ──
+  // kind: actual | estimate | verified | user | missing — always shown as words, never color alone
+  const TAGS = { actual: ["tg_actual", "accent"], estimate: ["tg_est", "amber"], verified: ["tg_verified", "blue"], user: ["tg_user", "accent"], missing: ["tg_missing", "red"], live: ["tg_live", "blue"] };
+  const Tag = kind => { const t = TAGS[kind] || TAGS.estimate, col = C[t[1]];
+    return e("span", { style: { fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, border: "1px solid " + col, color: col, whiteSpace: "nowrap", letterSpacing: ".02em" } }, T(t[0])); };
+  const isIOS = (() => { try { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); } catch (x) { return false; } })();
+  // the five states the brief asks for, plus GPS status in words
+  const trackState = t => !t || !t.on || t.gps === "denied" || t.gps === "none" || t.gps === "off" ? "off"
+    : t.mode === PERSONAL ? "personal" : t.order ? "order" : "between";
+  const gpsWords = t => !t || !t.on ? T("gps_paused") : t.native ? T("gps_native") : t.gps === "ok" ? fill(T("gps_ok"), { a: t.acc || "?" }) : t.gps === "wait" ? T("g_wait")
+    : t.gps === "weak" ? T("gps_weak") : t.gps === "denied" ? T("gps_blocked") : t.gps === "none" ? T("gps_none") : T("gps_blocked");
+  const StateRow = t => { const k = trackState(t), col = k === "off" ? C.amber : k === "personal" ? C.muted : appColor(t.mode);
+    return e("div", { role: "status", style: { display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: C.sub, marginBottom: 12 } },
+      e("span", { "aria-hidden": true, style: { width: 12, height: 12, borderRadius: 12, background: col, flexShrink: 0 } }),
+      e("span", null, e("b", { style: { color: C.text } }, T("ts_" + k) + (k === "order" || k === "between" ? " · " + t.mode : "")), " · " + gpsWords(t))); };
+  // money summary: six clearly separated figures, used on Money and the Pro home
+  const MoneySummary = (B, period) => { const P = B.P;
+    const row = (label, val, kind, opts) => e("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: opts && opts.first ? "none" : "1px solid " + C.border } },
+      e("span", { style: { flex: 1, fontSize: 16, color: opts && opts.bold ? C.text : C.sub, fontWeight: opts && opts.bold ? 800 : 500 } }, label),
+      kind ? Tag(kind) : null,
+      e("span", { style: { minWidth: 96, textAlign: "right", fontSize: opts && opts.bold ? 18 : 16, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: opts && opts.color || C.text } }, val));
+    return e("div", null,
+      row(T("m_gross"), money(P.gross), "actual", { first: true }),
+      row(T("m_cash"), "−" + money(P.actualExp), "actual"),
+      row(T("m_veh"), "−" + money(P.estVehicle), "estimate"),
+      row(T("m_econ"), money(P.net), null, { bold: true, color: P.net < 0 ? C.red : C.text }),
+      row(T("m_tax"), "−" + money(B.tax), "estimate"),
+      row(T("m_after"), money(B.kept), null, { bold: true, color: B.kept < 0 ? C.red : C.accent }),
+      e("button", { className: "tap", style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "10px 0 0", cursor: "pointer", minHeight: 44 },
+        onClick: () => setModal({ type: "explain", period: period || "today" }) }, "ⓘ " + T("howCalc")));
+  };
+  const insMissing = () => { const v = vmap[defaultVid()]; return !!v && v.type === "car" && (v.insurance === "" || v.insurance == null) && !data.expenses.some(x => x.recurring && x.category === "insurance"); };
+
   const SimpleHome = () => {
     const t = track || {}, today = dISO(new Date()), rate = setAsideRate(data);
     const B = appBreakdown(data, today, today, rate), P = B.P;
     const working = t.on && t.mode && t.mode !== PERSONAL;
     const w = LS.get("kept_work", null), workFrom = (w && w.start) || t.segStart || Date.now();
-    const costs = P.costs + P.fees, col = working ? appColor(t.mode) : C.accent, dark = /^#(E|F|D)/i.test(col);
+    const col = working ? appColor(t.mode) : C.fill, dark = /^#(E|F|D)/i.test(col) || col === C.fill;
     const liveKm = t.on ? num(t.segKm) : 0;
     const persKm = B.personalKm + (t.on && t.mode === PERSONAL ? liveKm : 0);
     const workKm = sum(B.apps, a => a.km) + (working ? liveKm : 0);
     const rideMins = t.order && t.orderStart ? (Date.now() - t.orderStart) / 60000 : 0;
-    const sentence = P.gross > 0 ? fill(T("sayEarned"), { g: money(P.gross), c: money(costs), t: money(B.tax), k: money(B.kept) })
-      : costs > 0.004 ? fill(T("sayNoIncome"), { c: money(costs) }) : T("sayNothing");
+    const has = P.gross > 0, costs = P.actualExp + P.estVehicle;
+    const stat = (label, val, kind, color) => e("div", { style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 14, padding: "12px 14px" } },
+      e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6 } },
+        e("span", { style: { fontSize: 14, color: C.sub, fontWeight: 600 } }, label), Tag(kind)),
+      e("div", { style: { fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: color || C.text } }, val));
     const tile = (label, icon, onClick) => e("button", { className: "tap bigtile", onClick, "aria-label": label,
-      style: { background: C.card, border: "1px solid " + C.border, borderRadius: 18, color: C.text, fontSize: 17, fontWeight: 800, cursor: "pointer", padding: 12 } },
-      e("span", { style: { color: C.accent } }, e(Icon, { n: icon, s: 30 })), label);
+      style: { background: C.card, border: "1px solid " + C.border, borderRadius: 18, color: C.text, fontSize: 17, fontWeight: 800, cursor: "pointer", padding: 12, boxShadow: C.shadow } },
+      e("span", { "aria-hidden": true, style: { width: 48, height: 48, borderRadius: 14, background: C.accentDim, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, e(Icon, { n: icon, s: 26 })), label);
     return e("div", { style: { maxWidth: 560, margin: "0 auto" } },
-      !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accent }) },
+      !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accentBorder }) },
         e("div", { style: { fontWeight: 800, fontSize: 16, marginBottom: 10 } }, T("setupHint").replace(/\bkm\b/, unit)),
         BigBtn(T("addVehicle"), () => setModal({ type: "vehicle" }))) : null,
-      // today's money
-      e("div", { style: Object.assign({}, S.card, { padding: 20 }) },
-        e("div", { style: { fontSize: 15, color: C.sub, fontWeight: 700 } }, P.gross > 0 ? T("todayProfit") : T("earnedToday")),
-        e("div", { style: { fontSize: 48, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.15, margin: "4px 0 8px", color: P.gross > 0 ? (P.net < 0 ? C.red : C.accent) : C.text } },
-          money(P.gross > 0 ? P.net : 0)),
-        P.gross <= 0 && costs > 0.004 ? e("div", { style: { fontSize: 15, color: C.amber, fontWeight: 700, marginBottom: 6 } }, T("costsSoFar") + ": −" + money(costs)) : null,
-        e("div", { style: { fontSize: 16, color: C.sub, lineHeight: 1.5 } }, sentence),
-        e("button", { className: "tap", style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "10px 0 0", cursor: "pointer", minHeight: 44 },
+      // 1. today's money: take-home + four clearly labelled parts
+      e("section", { "aria-label": T("todayProfit"), style: Object.assign({}, S.card, { padding: 20 }) },
+        e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } },
+          e("div", { style: { fontSize: 16, color: C.sub, fontWeight: 700 } }, has ? T("takeHomeToday") : T("earnedToday")), has ? Tag("estimate") : null),
+        e("div", { style: { fontSize: 46, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.15, margin: "4px 0 14px", fontVariantNumeric: "tabular-nums", color: has ? (B.kept < 0 ? C.red : C.accent) : C.text } },
+          money(has ? B.kept : 0)),
+        e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+          stat(T("earned"), money(P.gross), "actual"),
+          stat(T("h_exp"), "−" + money(P.actualExp), "actual"),
+          stat(T("h_veh"), "−" + money(P.estVehicle), "estimate"),
+          stat(T("m_tax"), "−" + money(B.tax), "estimate")),
+        !has ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, marginTop: 12 } }, costs > 0.004 ? fill(T("sayNoIncome"), { c: money(costs) }) : T("sayNothing")) : null,
+        insMissing() ? e("button", { className: "tap", onClick: () => setView("vehicles"),
+          style: { display: "block", width: "100%", textAlign: "left", marginTop: 12, padding: "10px 12px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 48 } },
+          "⚠ " + T("insMissingHome")) : null,
+        e("button", { className: "tap", style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "12px 0 0", cursor: "pointer", minHeight: 44 },
           onClick: () => setModal({ type: "explain", period: "today" }) }, "ⓘ " + T("howCalc"))),
-      // working
-      e("div", { style: Object.assign({}, S.card, { padding: 18, borderColor: working ? col : C.border }) },
+      // 2. work + tracking state
+      e("section", { "aria-label": T("working"), style: Object.assign({}, S.card, { padding: 18, borderColor: working ? col : C.border }) },
+        StateRow(t),
         !working
           ? e("div", null,
               BigBtn("▶  " + T("startWorking"), () => myApps.length === 1 ? startWorking(myApps[0]) : setModal({ type: "pickApp" }), { style: { minHeight: 76, fontSize: 22 } }),
-              e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } },
-                t.on ? T("personalToday") + ": " + fmtDist(persKm, 1) : T("trackingPaused")),
-              !t.on ? e("div", { style: { marginTop: 10 } }, BigBtn(T("resume"), () => setTracking(true), { kind: "ghost", style: { fontSize: 16, minHeight: 52 } })) : null)
+              e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } }, t.on ? T("personalToday") + ": " + fmtDist(persKm, 1) : T("trackingPaused")),
+              !t.on ? e("div", { style: { marginTop: 10 } }, BigBtn(T("resume"), () => setTracking(true), { kind: "ghost", style: { fontSize: 16, minHeight: 56 } })) : null)
           : e("div", null,
-              e("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 6 } },
-                e("div", { className: "pulse", style: { width: 12, height: 12, borderRadius: 12, background: col } }),
-                e("div", { style: { fontSize: 20, fontWeight: 900 } }, (t.order ? T("onRide") : T("working")) + " · " + t.mode)),
-              e("div", { style: { fontSize: 15, color: C.sub, marginBottom: 14 } },
-                fmtDur((Date.now() - workFrom) / 60000) + " · " + T("workMiles") + " " + fmtDist(workKm, 1)),
+              e("div", { style: { fontSize: 15, color: C.sub, marginBottom: 14 } }, T("working") + " " + fmtDur((Date.now() - workFrom) / 60000) + " · " + T("workMiles") + " " + fmtDist(workKm, 1)),
               t.order
                 ? e("div", null,
                     e("div", { style: { fontSize: 40, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginBottom: 12 } }, fmtDur(rideMins),
@@ -1676,15 +1846,15 @@ function App() {
                     e("div", { style: { marginTop: 10 } }, BigBtn(T("navigate"), () => setModal({ type: "nav" }), { kind: "ghost", style: { fontSize: 17, minHeight: 56 } })))
                 : BigBtn("▶  " + T("startRide"), startRide, { style: { background: col, color: dark ? "#0B1220" : "#fff" } }),
               !t.order ? e("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
-                e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 52, fontSize: 16 }), onClick: () => setModal({ type: "pickApp", switching: true }) }, T("switchApp")),
-                e("button", { className: "tap", style: Object.assign(S.btn("danger"), { flex: 1, minHeight: 52, fontSize: 16 }), onClick: stopWorking }, "■ " + T("stopWorking"))) : null),
+                e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => setModal({ type: "pickApp", switching: true }) }, T("switchApp")),
+                e("button", { className: "tap", style: Object.assign(S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: stopWorking }, "■ " + T("stopWorking"))) : null),
         GpsNote(t, true)),
-      // four everyday actions
+      // 3. four everyday actions
       e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 } },
         tile(T("addIncome"), "offer", () => setModal({ type: "earn", app: working ? t.mode : undefined })),
         tile(T("addExpense"), "receipt", () => setModal({ type: "pickExpense" })),
         tile(T("checkOfferT"), "check", () => setView("offer")),
-        tile(T("money"), "chart", () => setView("money"))));
+        tile(T("myEarnings"), "chart", () => setView("money"))));
   };
 
   function PickAppModal({ switching }) {
@@ -1760,7 +1930,7 @@ function App() {
   // Simple-mode "More": every tool, one big row each
   const SimpleMore = () => e("div", { style: { maxWidth: 560, margin: "0 auto" } },
     e("div", { style: S.h1 }, T("allTools")),
-    [["log", "list"], ["tax", "tax"], ["vehicles", "car"], ["offer", "offer"], ["coach", "coach"], ["map", "pin"], ["compare", "swap"], ["insights", "chart"], ["settings", "gear"]].map(x =>
+    [["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["coach", "coach"], ["map", "pin"], ["compare", "swap"], ["insights", "chart"], ["settings", "gear"]].map(x =>
       e("button", { key: x[0], className: "tap", onClick: () => setView(x[0]),
         style: { width: "100%", display: "flex", alignItems: "center", gap: 14, minHeight: 60, padding: "0 16px", marginBottom: 8, borderRadius: 14, border: "1px solid " + C.border, background: C.card, color: C.text, fontSize: 18, fontWeight: 700, cursor: "pointer", textAlign: "left" } },
         e("span", { style: { color: C.accent } }, e(Icon, { n: x[1], s: 24 })), T(x[0]))),
@@ -1799,13 +1969,11 @@ function App() {
             e("div", { style: S.statLabel }, T("youKept")),
             e("div", { style: { fontSize: 40, fontWeight: 900, letterSpacing: "-1px", color: B.kept < 0 ? C.red : C.accent, lineHeight: 1.1 } }, money(B.kept))),
           P.S.length ? e("span", { className: "tap", style: { color: C.muted, cursor: "pointer", padding: 4 }, onClick: () => setModal({ type: "wrap", period: homePeriod }) }, e(Icon, { n: "share", s: 18 })) : null),
-        e("div", { className: "grid3", style: { marginTop: 12 } },
-          Stat(T("earned"), money(P.gross)), Stat(T("costs"), "−" + money(P.costs + P.fees), C.amber), Stat(T("taxSetAside"), "−" + money(B.tax), C.purple)),
+        e("div", { style: { marginTop: 14 } }, MoneySummary(B, homePeriod)),
         goal > 0 && homePeriod === "today" ? e("div", { style: { marginTop: 12 } },
           e("div", { style: Object.assign({}, S.row, { fontSize: 12, color: C.muted, marginBottom: 6 }) }, e("span", null, T("goal")), e("span", null, money(todayKept, 0) + " / " + money(goal, 0))),
           Progress(todayKept / goal * 100)) : null,
-        e("button", { className: "tap", style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 14, padding: "10px 0 0", cursor: "pointer", minHeight: 40 },
-          onClick: () => setModal({ type: "explain", period: homePeriod }) }, "ⓘ " + T("howCalc"))),
+        null),
       // miles by app
       e("div", { style: S.card },
         e("div", { style: Object.assign({}, S.row, { marginBottom: 10 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("milesByApp")),
@@ -1846,7 +2014,7 @@ function App() {
           e("span", { style: { color: C.sub } }, T("c_" + x.category) + (x.note ? " · " + x.note : "") + (x.recurring ? " · " + T("r_" + x.recurring).toLowerCase() : "")),
           e("span", { style: { fontWeight: 700 } }, money(num(x.amount)))))) : null),
       // brief
-      brief && data.shifts.length ? e("div", { style: Object.assign({}, S.card, { borderColor: "rgba(169,139,255,.35)", background: "linear-gradient(135deg,#151A36,#111B2E)" }) },
+      brief && data.shifts.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.border, background: C.card }) },
         e("div", { style: Object.assign({}, S.row, { marginBottom: 8 }) },
           e("div", { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 800 } }, e(Icon, { n: "spark", s: 16, c: C.purple }), T("brief"), brief.ai ? e("span", { style: S.badge(C.purple) }, T("aiBrief")) : null),
           e("span", { style: { fontSize: 12, color: C.purple, cursor: "pointer", fontWeight: 700 }, onClick: () => loadBrief(true) }, briefBusy ? "…" : T("refresh"))),
@@ -1961,6 +2129,69 @@ function App() {
 
   const odoOf = v => num(v.startOdo) + sum(data.shifts.filter(s => s.vehicleId === v.id), s => num(s.km) + num(s.personalKm)) + sum(data.trips.filter(t => t.app === PERSONAL && t.vehicleId === v.id), t => num(t.km));
 
+  // ── v5 Vehicle Intelligence dashboard: every figure says where it comes from ──
+  const VehicleDash = () => {
+    const list = data.vehicles.filter(v => v.active !== false);
+    const [pick, setPick] = useState("");
+    const v = vmap[pick] || vmap[defaultVid()] || list[0];
+    if (!v) return null;
+    const c = vehicleCost(v), odo = odoOf(v), annKm = annualKmOf(v.id), mi = unit === "mi";
+    const recIns = data.expenses.filter(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === v.id)).sort((a, b) => b.date.localeCompare(a.date))[0];
+    const insMonthly = recIns ? monthlyOf(recIns) : num(v.insurance);
+    const insKind = recIns ? "user" : v.insurance === "" || v.insurance == null ? "missing" : v.insSrc === "user" ? "user" : "estimate";
+    const otherMonthly = num(v.rent) + num(v.otherFixed), otherKind = otherMonthly <= 0 ? null : v.fixedSrc === "user" ? "user" : "estimate";
+    const fixedPerKm = annKm > 0 ? (insMonthly + otherMonthly) * 12 / annKm : 0;
+    const perKm = c.total + fixedPerKm, monthly = c.total * annKm / 12 + insMonthly + otherMonthly;
+    const consKind = v.consSrc === "lookup" ? "verified" : v.consSrc === "user" || (v.consLocked && !v.consSrc) ? "user" : "estimate";
+    const priceKind = v.priceSrc === "live" ? "live" : v.priceSrc === "receipt" || v.priceSrc === "user" ? "user" : "estimate";
+    const fuelKind = consKind === "estimate" || priceKind === "estimate" ? "estimate" : consKind === "verified" && priceKind === "live" ? "verified" : "user";
+    const depKind = v.leased ? "user" : v.depMode === "auto" ? "estimate" : "user";
+    const effText = v.energy === "fuel" ? (mi ? (235.215 / Math.max(0.1, num(v.cons))).toFixed(1) + " mpg · " + money(num(v.price) * L_PER_GAL) + "/gal" : num(v.cons).toFixed(1) + " L/100 km · " + money(num(v.price)) + "/L")
+      : v.energy === "electric" ? (mi ? (num(v.cons) * KM_PER_MI).toFixed(1) + " kWh/100 mi" : num(v.cons).toFixed(1) + " kWh/100 km") + " · " + money(num(v.price)) + "/kWh" : "";
+    const srcLine = [consKind === "verified" ? T("src_epa") : consKind === "user" ? T("src_userCons") : T("src_typical"),
+      priceKind === "live" ? fill(T("src_live"), { d: v.priceDate || "" }) : v.priceSrc === "receipt" ? fill(T("src_receipt"), { d: v.priceDate || "" }) : priceKind === "user" ? T("src_userPrice") : T("src_defPrice")].join(" · ");
+    // maintenance reminders from the parts list (needs a known odometer)
+    const odoKnown = num(v.startOdo) > 0 || (v.parts || []).some(p => num(p.lastAt) > 0);
+    const due = (v.parts || []).filter(p => num(p.interval) > 0).map(p => ({ p, left: num(p.lastAt) + num(p.interval) - odo })).sort((a, b) => a.left - b.left).slice(0, 3);
+    const card = (title, icon, value, sub, kind, extra) => e("div", { style: { background: C.card, border: "1px solid " + C.border, borderRadius: 16, padding: 14, boxShadow: C.shadow, display: "flex", flexDirection: "column", gap: 6 } },
+      e("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+        e("span", { "aria-hidden": true, style: { color: C.accent } }, e(Icon, { n: icon, s: 20 })),
+        e("span", { style: { fontSize: 15, fontWeight: 700, color: C.sub, flex: 1 } }, title), kind ? Tag(kind) : null),
+      e("div", { style: { fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: kind === "missing" ? C.muted : C.text } }, value),
+      sub ? e("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.45 } }, sub) : null, extra || null);
+    const perU = x => money(perUnit(x), 3) + " / " + unit;
+    return e("div", null,
+      list.length > 1 ? e("div", { style: { marginBottom: 12 } }, Chips(list.map(x => [x.id, CONFIG.vehicleTypes[x.type].icon + " " + vName(x)]), v.id, setPick)) : null,
+      e("section", { "aria-label": vName(v), style: Object.assign({}, S.card, { padding: 20 }) },
+        e("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 14 } },
+          e("div", { "aria-hidden": true, style: { width: 64, height: 64, borderRadius: 18, background: C.accentDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34 } }, CONFIG.vehicleTypes[v.type].icon),
+          e("div", { style: { flex: 1, minWidth: 0 } },
+            e("div", { style: { fontSize: 20, fontWeight: 900 } }, vName(v)),
+            e("div", { style: { fontSize: 14, color: C.muted, marginTop: 2 } }, [T("fk_" + (v.fuelKind || (v.energy === "electric" ? "electric" : "gasoline"))), v.engine || "", odo > 0 ? fmtDist(odo, 0) + " " + (num(v.startOdo) > 0 ? T("odoLbl") : T("trackedLbl")) : ""].filter(Boolean).join(" · ")))),
+        e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } },
+          e("div", { style: { fontSize: 16, color: C.sub, fontWeight: 700 } }, T("realCostPer") + " " + unit), Tag(insKind === "missing" || fuelKind === "estimate" || depKind === "estimate" ? "estimate" : "user")),
+        e("div", { style: { fontSize: 44, fontWeight: 900, letterSpacing: "-1px", color: C.accent, fontVariantNumeric: "tabular-nums" } }, money(perUnit(perKm), 2)),
+        e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, fill(T("vd_month"), { m: money(monthly, 0), d: fmtDist(annKm, 0) })),
+        insKind === "missing" ? e("div", { role: "alert", style: { marginTop: 10, fontSize: 14, color: C.amber, fontWeight: 700 } }, "⚠ " + T("vd_insWarn")) : null,
+        e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, marginTop: 14, fontSize: 16 }), onClick: () => setModal({ type: "vehicle", vehicle: v }) }, T("vd_review"))),
+      e("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 12 } },
+        card(v.energy === "electric" ? T("l_charge") : T("l_gas"), "fuel", perU(c.energy), effText + (effText ? " — " : "") + srcLine, fuelKind),
+        card(T("l_maint"), "wrench", perU(c.parts + c.battery), T("vd_maintSrc"), "estimate"),
+        card(T("l_dep"), "chart", perU(c.dep), v.leased ? T("vd_leased") : v.depMode === "auto" ? fill(T("vd_depSrc"), { v: money(num(v.valueNow), 0) }) : T("vd_depUser"), depKind),
+        card(T("l_ins"), "tax", insKind === "missing" ? T("tg_missing") : money(insMonthly) + " / " + T("month").toLowerCase(),
+          insKind === "missing" ? T("vd_insMissing") : insKind === "estimate" ? T("vd_insEst") : recIns ? T("vd_insRec") : T("vd_insUser"), insKind,
+          insKind === "missing" || insKind === "estimate" ? e("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 } },
+            e("button", { className: "tap", style: Object.assign(S.btn(), { minHeight: 44 }), onClick: () => openExpense({ category: "insurance", recurring: 1, vehicleId: v.id }) }, T("vd_insAdd")),
+            insKind === "estimate" ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 44 }), onClick: () => { upsert("vehicles", Object.assign({}, v, { insSrc: "user" })); showToast(T("saved")); } }, T("vd_insConfirm")) : null) : null),
+        otherKind ? card(T("l_fixed"), "receipt", money(otherMonthly) + " / " + T("month").toLowerCase(), otherKind === "estimate" ? T("vd_fixedEst") : null, otherKind) : null),
+      e("section", { "aria-label": T("vd_remind"), style: S.card },
+        e("div", { style: S.h2 }, T("vd_remind")),
+        !odoKnown ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, T("vd_needOdo"))
+          : due.map(x => e("div", { key: x.p.id || x.p.name, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: "1px solid " + C.border, fontSize: 16 } },
+              e("span", null, x.p.name), e("b", { style: { color: x.left <= 0 ? C.red : x.left < 1600 ? C.amber : C.text } }, x.left <= 0 ? "⚠ " + T("vd_dueNow") : fill(T("vd_in"), { d: fmtDist(x.left, 0) })))),
+        e("div", { style: { fontSize: 13, color: C.muted, marginTop: 8, lineHeight: 1.45 } }, T("vd_remindNote"))));
+  };
+
   const VehiclesView = () => {
     const [fuel, setFuel] = useState(LS.get("kept_fuel", null));
     const [busy, setBusy] = useState(false);
@@ -1968,7 +2199,8 @@ function App() {
     const fuelLabel = r => { if (!r) return ""; const u = r.unit === "gal" ? "/gal" : "/L"; return [r.petrol ? T("petrol") + " " + money(r.petrol, 3) + u : "", r.diesel ? T("diesel") + " " + money(r.diesel, 3) + u : ""].filter(Boolean).join(" · ") + (r.date ? " (" + r.date + (r.area ? ", " + r.area : "") + ")" : ""); };
     return e("div", null,
       e("div", { style: Object.assign({}, S.row, { marginBottom: 12 }) }, e("div", { style: Object.assign({}, S.h1, { marginBottom: 0 }) }, T("vehicles")),
-        e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, "+ " + T("add"))),
+        e("button", { style: Object.assign(S.btn(), { minHeight: 44 }), onClick: () => setModal({ type: "vehicle" }) }, "+ " + T("add"))),
+      e(VehicleDashC),
       hasFuel && st.country !== "OTHER" ? e("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }) },
         e(Icon, { n: "fuel", s: 22, c: C.amber }),
         e("div", { style: { flex: 1, minWidth: 180 } },
@@ -2076,7 +2308,7 @@ function App() {
       e("div", { className: "grid4", style: { marginBottom: 12 } },
         Stat(T("netEarnings"), money(P.net, 0), P.net < 0 ? C.red : C.accent), Stat(T("perHour"), money(P.perHour)),
         Stat(T("per100") + " " + unit, money(unit === "mi" ? P.per100 * KM_PER_MI : P.per100, 0)), Stat(T("emptyKm"), P.km ? Math.round(P.emptyKm / P.km * 100) + "%" : "—")),
-      e("div", { style: Object.assign({}, S.card, { borderColor: "rgba(46,230,166,.35)" }) },
+      e("div", { style: Object.assign({}, S.card, { borderColor: C.accentBorder }) },
         e("div", { style: S.h2 }, T("keyInsights")),
         ins.length ? ins.map((t, i) => e("div", { key: i, style: { display: "flex", gap: 8, fontSize: 14, color: C.sub, marginBottom: 8, lineHeight: 1.45 } }, e("span", { style: { color: C.accent } }, "●"), t))
           : e("div", { style: S.small }, T("notEnough"))),
@@ -2443,7 +2675,11 @@ function App() {
     return e("div", null, e("div", { style: S.card },
       e("div", { style: S.h2 }, T("display")),
       Chips([["simple", T("simpleMode")], ["pro", T("proMode")]], st.uiMode === "pro" ? "pro" : "simple", v => saveSettings({ uiMode: v })),
-      e("div", { style: Object.assign({}, S.small, { marginTop: 8, lineHeight: 1.5 }) }, T("modeHint"))),
+      e("div", { style: Object.assign({}, S.small, { marginTop: 8, marginBottom: 14, lineHeight: 1.5 }) }, T("modeHint")),
+      e("div", { style: S.label }, T("theme")),
+      e("div", { style: { marginBottom: 14 } }, Chips([["auto", T("th_auto")], ["light", T("th_light")], ["dark", T("th_dark")]], st.theme || "auto", v => saveSettings({ theme: v }))),
+      e("div", { style: S.label }, T("textSize")),
+      Chips([["1", T("ts_1")], ["1.15", T("ts_2")], ["1.3", T("ts_3")]], String(num(st.textScale) || 1), v => saveSettings({ textScale: num(v) }))),
       e("div", { style: S.card },
       e("div", { style: S.h2 }, T("yourApps")),
       e("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 } },
@@ -2489,16 +2725,14 @@ function App() {
       r.onload = () => { try {
         const d = JSON.parse(r.result);
         if (!d.shifts || !d.vehicles) throw new Error("Not a Kept backup");
-        if (!confirm("Replace all data with this backup?")) return;
         const nd = { settings: Object.assign({}, CONFIG.defaults, d.settings || {}), vehicles: d.vehicles, shifts: d.shifts || [], expenses: d.expenses || [], trips: d.trips || [] };
-        setData(nd); enqueue({ op: "replaceAll", data: nd }); showToast(T("saved"));
-      } catch (x) { alert(x.message); } };
+        askConfirm(T("restoreConfirm"), () => { setData(nd); enqueue({ op: "replaceAll", data: nd }); showToast(T("saved")); });
+      } catch (x) { showToast("⚠ " + x.message); } };
       r.readAsText(file);
     };
-    const deleteAll = async () => {
-      const ans = prompt(T("deleteAllConfirm"));
-      if (ans !== "DELETE") return;
-      try { if (!localMode) await apiCall(pin, "deleteAll"); } catch (x) { alert(x.message); return; }
+    const deleteAll = () => askConfirm(T("deleteAllConfirm"), () => doDeleteAll(), { typed: "DELETE" });
+    const doDeleteAll = async () => {
+      try { if (!localMode) await apiCall(pin, "deleteAll"); } catch (x) { showToast("⚠ " + x.message); return; }
       await IDB.clear().catch(() => {});
       ["kept_queue", "kept_photoQ", "kept_brief", "kept_track", "kept_fuel"].forEach(k => LS.del(k)); stopWatch(); trackRef.current = null;
       const nd = { settings: Object.assign({}, CONFIG.defaults, { lang: st.lang, country: st.country, currency: st.currency, unit: st.unit }), vehicles: [], shifts: [], expenses: [], trips: [] };
@@ -2554,7 +2788,7 @@ function App() {
             e("div", { className: "grid2" },
               e("button", { style: S.btn(), onClick: async () => {
                 if (np.length < 4) return;
-                try { await apiCall(pin, "setPin", { newPin: np }); setPin(np); LS.set("kept_pin", np); setNp(""); showToast(T("saved")); } catch (x) { alert(x.message); }
+                try { await apiCall(pin, "setPin", { newPin: np }); setPin(np); LS.set("kept_pin", np); setNp(""); showToast(T("saved")); } catch (x) { showToast("⚠ " + x.message); }
               } }, T("save")),
               e("button", { style: S.btn("ghost"), onClick: () => { LS.del("kept_pin"); setPin(""); setAuthed(false); } }, T("logout")))) : null,
           e("div", { style: S.card },
@@ -2573,6 +2807,7 @@ function App() {
     const kph = hrs > 0 && hist.km > 0 ? hist.km / hrs : 25;
     const [o, setO] = useState({ pay: "", pickup: "", trip: "", mins: "", wait: "", ret: "", veh: st.defaultVehicleId || (data.vehicles[0] || {}).id || "" });
     const [log, setLog] = useState(LS.get("kept_offers", []));
+    const [det, setDet] = useState(false);
     const [mh, setMh] = useState(st.offerMinHour || ""), [md, setMd] = useState(st.offerMinMile || "");
     const set = (k, v) => setO(x => Object.assign({}, x, { [k]: v }));
     const v = vmap[o.veh], cpk = vehicleCost(v).total;
@@ -2605,23 +2840,33 @@ function App() {
             data.vehicles.length ? Field(T("vehicle"), e("select", { style: S.input, value: o.veh, onChange: ev => set("veh", ev.target.value) }, data.vehicles.map(x => e("option", { key: x.id, value: x.id }, CONFIG.vehicleTypes[x.type].icon + " " + vName(x))))) : e("div")),
           e("div", { style: Object.assign({}, S.small, { lineHeight: 1.45 }) }, T("offerNote"))),
         e("div", null,
-          e("div", { style: Object.assign({}, S.card, verdict ? { borderColor: vc, background: vc + "14" } : {}) },
-            e("div", { style: Object.assign({}, S.row, { marginBottom: 12 }) },
-              e("div", { style: { fontSize: 24, fontWeight: 900, color: vc || C.muted } }, verdict ? (verdict === "take" ? "▲ " : verdict === "skip" ? "▼ " : "● ") + vLabel(verdict) : T("v_none")),
-              ready ? e("div", { style: { fontSize: 13, color: C.sub, textAlign: "right" } }, fmtDist(totKm, 1), e("br"), Math.round(totMins) + " min") : null),
-            e("div", { className: "grid2", style: { marginBottom: 10 } },
-              Stat(T("perHour") + " (min " + money(minH, 0) + ")", money(ph), ready ? (okH ? C.accent : C.red) : null),
-              Stat("Net / " + unit + " (min " + money(minD, 2) + ")", money(pd), ready ? (okD ? C.accent : C.red) : null)),
-            Line(T("offerPay"), money(pay)),
-            Line(T("vehicleWear") + " · " + money(perUnit(cpk), 3) + "/" + unit, "−" + money(cost)),
-            Line(T("profitAfterCost"), money(profit), { bold: true, color: profit < 0 ? C.red : C.text }),
-            Line(T("afterTax"), money(take)),
-            ready ? e("div", { style: { fontSize: 13, color: C.sub, lineHeight: 1.5, marginTop: 10 } }, e("b", null, T("whyLbl") + ": "),
-              fill(T("whyTxt"), { ph: money(ph), th: money(minH), pd: money(pd), td: money(minD), u: unit, c: money(perUnit(cpk), 3) }), " ",
-              fill(T("sensTxt"), { a: money(R.sensWait), b: money(R.sensRet) })) : null,
-            ready ? e("div", { className: "grid2", style: { marginTop: 12 } },
-              e("button", { style: S.btn("ghost"), onClick: () => record(false) }, T("logSkip")),
-              e("button", { style: S.btn(), onClick: () => record(true) }, T("logOffer"))) : null),
+          e("section", { "aria-label": T("offerTitle"), "aria-live": "polite", style: Object.assign({}, S.card, verdict ? { borderColor: vc, borderWidth: 2 } : {}) },
+            e("div", { style: { fontSize: 24, fontWeight: 900, color: vc || C.muted, marginBottom: 4 } }, verdict ? (verdict === "take" ? "▲ " : verdict === "skip" ? "▼ " : "● ") + vLabel(verdict) : "○ " + T("v_none")),
+            ready ? e("div", { style: { fontSize: 15, color: C.sub, marginBottom: 12 } }, fill(T("of_vs"), { t: money(minH, 0) }) + " · " + fmtDist(totKm, 1) + " · " + Math.round(totMins) + " min") : e("div", { style: { height: 8 } }),
+            (() => { const r = (label, val, kind, bold, color) => e("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "11px 0", borderTop: "1px solid " + C.border } },
+                e("span", { style: { flex: 1, fontSize: 16, color: bold ? C.text : C.sub, fontWeight: bold ? 800 : 500 } }, label), kind ? Tag(kind) : null,
+                e("span", { style: { minWidth: 90, textAlign: "right", fontSize: bold ? 20 : 17, fontWeight: 800, color: color || C.text, fontVariantNumeric: "tabular-nums" } }, val));
+              return e("div", null,
+                r(T("of_pay"), money(pay)),
+                r(T("of_cost"), "−" + money(cost), "estimate"),
+                r(T("of_profit"), money(profit), "estimate", true, profit < 0 ? C.red : C.text),
+                r(T("of_hour"), money(ph) + "/" + T("hours"), "estimate", true, ready ? (okH ? C.accent : C.red) : C.muted)); })(),
+            e("div", { style: { fontSize: 14, color: C.muted, lineHeight: 1.5, marginTop: 10 } }, T("of_marginal")),
+            avgPh > 0 ? e("div", { style: { fontSize: 14, color: C.sub, lineHeight: 1.5, marginTop: 6 } }, fill(T("of_full"), { v: money(avgPh) })) : null,
+            e("button", { className: "tap", "aria-expanded": !!det, onClick: () => setDet(!det), style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "12px 0 4px", cursor: "pointer", minHeight: 44 } },
+              (det ? "▾ " : "▸ ") + T("of_details")),
+            det ? e("div", null,
+              Line(T("of_perMile") + " (min " + money(minD, 2) + ")", money(pd) + "/" + unit),
+              Line(T("vehicleWear") + " · " + money(perUnit(cpk), 3) + "/" + unit, "−" + money(cost)),
+              Line(T("afterTax"), money(take)),
+              ready ? e("div", { style: { fontSize: 14, color: C.sub, lineHeight: 1.5, marginTop: 10 } }, e("b", null, T("whyLbl") + ": "),
+                fill(T("whyTxt"), { ph: money(ph), th: money(minH), pd: money(pd), td: money(minD), u: unit, c: money(perUnit(cpk), 3) }), " ",
+                fill(T("sensTxt"), { a: money(R.sensWait), b: money(R.sensRet) })) : null,
+              ready ? e("div", { style: { marginTop: 12 } },
+                e("div", { style: Object.assign({}, S.small, { marginBottom: 6, fontSize: 13 }) }, T("of_logHint")),
+                e("div", { className: "grid2" },
+                  e("button", { style: Object.assign(S.btn("ghost"), { minHeight: 48 }), onClick: () => record(false) }, T("logSkip")),
+                  e("button", { style: Object.assign(S.btn("ghost"), { minHeight: 48 }), onClick: () => record(true) }, T("logOffer")))) : null) : null),
           e("div", { style: S.card },
             e("div", { className: "grid2" },
               Field(T("minHour"), e("input", { style: S.input, inputMode: "decimal", placeholder: String(avgPh > 0 ? Math.round(avgPh) : 20), value: mh, onChange: ev => setMh(ev.target.value), onBlur: () => saveSettings({ offerMinHour: mh }) })),
@@ -2704,11 +2949,10 @@ function App() {
           e("div", { style: { marginTop: 4 } },
             e("label", { style: { display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: C.sub, minHeight: 44 } },
               e("input", { type: "checkbox", style: { width: 20, height: 20 }, checked: st.saveLoc !== false, onChange: ev => saveSettings({ saveLoc: ev.target.checked }) }), T("saveLoc")),
-            e("button", { style: Object.assign(S.btn("danger"), { minHeight: 44, marginTop: 6 }), onClick: () => {
-              if (!confirm(T("delLocConfirm"))) return;
+            e("button", { style: Object.assign(S.btn("danger"), { minHeight: 44, marginTop: 6 }), onClick: () => askConfirm(T("delLocConfirm"), () => {
               data.trips.filter(t => t.loc).forEach(t => upsert("trips", Object.assign({}, t, { loc: null })));
               (raw.shifts || []).filter(x => x.loc).forEach(x => upsert("shifts", Object.assign({}, x, { loc: null })));
-              showToast(T("deleted")); } }, T("delLoc")))));
+              showToast(T("deleted")); }) }, T("delLoc")))));
   };
 
   // ── Gig Business Planner card (inside Coach) ──
@@ -2749,10 +2993,11 @@ function App() {
   // ════════════════════════════════════════════════════════════════
   //  MODALS (own components, own state)
   // ════════════════════════════════════════════════════════════════
-  const ModalShell = (title, body, onClose) => e("div", { style: { position: "fixed", inset: 0, background: "rgba(3,7,15,.72)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }, onClick: onClose },
-    e("div", { style: { background: C.card, border: "1px solid " + C.border, borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto", padding: "18px 16px calc(18px + env(safe-area-inset-bottom))" }, onClick: ev => ev.stopPropagation() },
-      e("div", { style: Object.assign({}, S.row, { marginBottom: 14 }) }, e("div", { style: { fontSize: 18, fontWeight: 900 } }, title),
-        e("div", { style: { cursor: "pointer", color: C.muted, padding: 4 }, onClick: onClose }, e(Icon, { n: "x" }))),
+  const ModalShell = (title, body, onClose) => e("div", { style: { position: "fixed", inset: 0, background: C.overlay, zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }, onClick: onClose },
+    e("div", { role: "dialog", "aria-modal": true, "aria-label": typeof title === "string" ? title : undefined, tabIndex: -1, ref: el => { if (el && !el.dataset.f) { el.dataset.f = 1; if (!el.querySelector("[autofocus]")) el.focus(); } },
+      style: { background: C.card, border: "1px solid " + C.border, borderRadius: "22px 22px 0 0", width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto", padding: "20px 18px calc(20px + env(safe-area-inset-bottom))", outline: "none" }, onClick: ev => ev.stopPropagation() },
+      e("div", { style: Object.assign({}, S.row, { marginBottom: 14 }) }, e("h2", { style: { fontSize: 20, fontWeight: 900, margin: 0 } }, title),
+        e("button", { "aria-label": T("close"), style: { cursor: "pointer", color: C.sub, width: 48, height: 48, borderRadius: 12, border: "1px solid " + C.border, background: C.card2, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: onClose }, e(Icon, { n: "x" }))),
       body));
 
   // photo grid + "add photo" — the file input ref comes from the calling modal
@@ -2784,7 +3029,10 @@ function App() {
     const set = (k, v) => setF(x => { const n = Object.assign({}, x, { [k]: v }); if (draftKey) LS.set(draftKey, { at: Date.now(), f: n }); return n; });
     const pers = f.app === PERSONAL, earnOnly = f.kind === "earning";
     const short = quick === "ride";
+    const [err, setErr] = useState("");
     const save = () => {
+      if (earnOnly && !(["pay", "tips", "bonus", "cancel", "adjust"].some(k => num(f[k]) !== 0))) { setErr(T("errIncome")); return; }
+      if ((noGps || f.gpsMissing) && !(num(f.km) > 0) && !pers) { setErr(T("errMiles")); return; }
       const s = new Date(f.date + "T" + (f.t1 || "12:00")); let en = new Date(f.date + "T" + (f.t2 || f.t1 || "12:00")); if (en < s) en = new Date(en.getTime() + 86400000);
       const rec = Object.assign({}, f, { app: f.app, kind: pers ? "personal" : f.kind === "personal" ? "order" : f.kind,
         km: earnOnly && f.km === "" ? 0 : +toKm(f.km).toFixed(3), pay: pers ? "" : (f.pay === "" ? "" : num(f.pay)), tips: pers ? "" : (f.tips === "" ? "" : num(f.tips)),
@@ -2812,6 +3060,7 @@ function App() {
     if (short) return ModalShell(T("rideDone") + " · " + f.app, e("div", null,
       e("div", { style: Object.assign({}, S.small, { marginBottom: 12 }) }, fmtDist(toKm(f.km), 1) + " · " + fmtDur(tripMins(base)) + " · " + T("whatEarn")),
       payRow, moreRow,
+      err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, fontSize: 15, marginBottom: 10 } }, "⚠ " + err) : null,
       e("div", { style: { display: "flex", gap: 8 } },
         e("button", { style: S.btn("ghost"), onClick: () => setModal(null) }, T("skip")),
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
@@ -2830,9 +3079,25 @@ function App() {
       Field(T("distance") + " (" + unit + ")", e("input", { autoFocus: !!(noGps || f.gpsMissing), style: Object.assign({}, S.input, noGps || f.gpsMissing ? { borderColor: C.amber, fontSize: 20, fontWeight: 800 } : {}), inputMode: "decimal", value: f.km, onChange: ev => set("km", ev.target.value) })),
       pers ? null : payRow,
       pers ? null : moreRow,
+      err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, fontSize: 15, marginBottom: 10 } }, "⚠ " + err) : null,
       e("div", { style: { display: "flex", gap: 8 } },
-        !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("trips", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
+        !isNew ? e("button", { style: S.btn("danger"), onClick: () => askConfirm(T("confirmDelete"), () => { remove("trips", f.id); setModal(null); showToast(T("deleted")); }) }, T("delete")) : null,
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
+  }
+
+  function ConfirmDlg() {
+    const [v, setV] = useState("");
+    const d = dlg || {}, okEnabled = d.typed ? v.trim().toUpperCase() === d.typed : d.input ? v.trim().length > 0 : true;
+    const close = () => setDlg(null);
+    return e("div", { style: { position: "fixed", inset: 0, background: C.overlay, zIndex: 90, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: close },
+      e("div", { role: "alertdialog", "aria-modal": true, "aria-label": d.msg, onClick: ev => ev.stopPropagation(),
+        style: { background: C.card, border: "1px solid " + C.border, borderRadius: 20, padding: 22, width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,.35)" } },
+        e("div", { style: { fontSize: 18, fontWeight: 800, lineHeight: 1.45, marginBottom: 16, color: C.text } }, d.msg),
+        d.typed || d.input ? e("input", { autoFocus: true, "aria-label": d.typed ? d.typed : d.msg, style: Object.assign({}, S.input, { fontSize: 18, marginBottom: 16 }), placeholder: d.typed || "", value: v, onChange: ev => setV(ev.target.value),
+          onKeyDown: ev => { if (ev.key === "Enter" && okEnabled) { close(); d.ok(v); } } }) : null,
+        e("div", { style: { display: "flex", gap: 10 } },
+          e("button", { autoFocus: !(d.typed || d.input), style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 17 }), onClick: close }, T("cancel")),
+          e("button", { disabled: !okEnabled, style: Object.assign(d.input ? S.btn() : S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 17 }), onClick: () => { close(); d.ok(v); } }, d.okLabel || (d.input ? T("save") : T("delete"))))));
   }
 
   function NavModal() {
@@ -2918,16 +3183,21 @@ function App() {
           e("button", { className: "tap", style: Object.assign(S.btn(loc === "ok" ? "ghost" : undefined), { width: "100%", padding: 14, marginTop: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }), onClick: askLoc },
             e(Icon, { n: "gps", s: 18 }), loc === "ok" ? T("locOk") : loc === "…" ? "…" : T("allowLoc")),
           loc === "no" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginTop: 8 }) }, T("locNo")) : null);
-    return e("div", { style: { minHeight: "100vh", background: C.bg, color: C.text, display: "flex", justifyContent: "center", padding: "28px 16px calc(28px + env(safe-area-inset-bottom))" } },
+    return e("div", { style: { minHeight: "100vh", background: C.bg, color: C.text } },
+      CONFIG.staging ? e("div", { role: "note", style: { background: "#7C3AED", color: "#fff", fontSize: 13, fontWeight: 800, textAlign: "center", padding: "6px 10px" } }, T("stg_banner")) : null,
+      e("div", { style: { display: "flex", justifyContent: "center", padding: "28px 16px calc(28px + env(safe-area-inset-bottom))" } },
       e("div", { style: { width: "100%", maxWidth: 480, display: "flex", flexDirection: "column" } },
         e("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 26 } }, e(LogoMark, { s: 34 }), e("span", { style: { fontWeight: 900, fontSize: 20 } }, CONFIG.appName),
           e("div", { style: { flex: 1 } }), [0, 1, 2].map(i => e("div", { key: i, style: { width: i === step ? 22 : 8, height: 8, borderRadius: 8, background: i <= step ? C.accent : C.border, transition: "width .2s" } }))),
         e("div", { style: { fontSize: 26, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 6 } }, titles[step][0]),
         e("div", { style: { color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.45 } }, titles[step][1]),
         e("div", { style: { flex: 1 } }, body),
+        CONFIG.staging && step === 0 ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, marginTop: 16, fontSize: 15, borderStyle: "dashed" }),
+          onClick: () => { const smp = sampleData(ctry); smp.vehicles.forEach(x => upsert("vehicles", x)); smp.trips.forEach(x => upsert("trips", x)); smp.expenses.forEach(x => upsert("expenses", x));
+            saveSettings({ apps: ["Uber", "Uber Eats", "DoorDash"], country: "US", state: "VA", onboarded: true, defaultVehicleId: smp.vehicles[0].id, name: "Sample driver" }); setView("home"); } }, T("stg_sample")) : null,
         e("div", { style: { display: "flex", gap: 8, marginTop: 24 } },
           step > 0 ? e("button", { style: Object.assign(S.btn("ghost"), { padding: 15 }), onClick: () => setStep(step - 1) }, T("back")) : null,
-          e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, padding: 15, fontSize: 16, opacity: canNext ? 1 : .5 }), disabled: !canNext, onClick: () => step < 2 ? setStep(step + 1) : finish() }, step < 2 ? T("next") : T("letsGo")))));
+          e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, padding: 15, fontSize: 16, opacity: canNext ? 1 : .5 }), disabled: !canNext, onClick: () => step < 2 ? setStep(step + 1) : finish() }, step < 2 ? T("next") : T("letsGo"))))));
   }
 
   function ShiftModal({ init, fromTracking }) {
@@ -2980,7 +3250,7 @@ function App() {
       e("div", { style: Object.assign({}, S.row, { background: C.accentDim, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
         e("span", { style: { color: C.sub, fontSize: 13 } }, T("estNet")), e("b", { style: { color: preview < 0 ? C.red : C.accent, fontSize: 18 } }, money(preview))),
       e("div", { style: { display: "flex", gap: 8 } },
-        !isNew || fromTracking ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("shifts", base.id); setModal(null); showToast(T("deleted")); } }, fromTracking ? T("discard") : T("delete")) : null,
+        !isNew || fromTracking ? e("button", { style: S.btn("danger"), onClick: () => askConfirm(T("confirmDelete"), () => { remove("shifts", base.id); setModal(null); showToast(T("deleted")); }) }, fromTracking ? T("discard") : T("delete")) : null,
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
   }
 
@@ -2989,6 +3259,7 @@ function App() {
     const base = init || Object.assign({ id: genId(), date: dISO(new Date()), category: "fuel", amount: "", vehicleId: defaultVid(), qty: "", note: "", photos: [], recurring: "" }, preset || {});
     const [f, setF] = useState(Object.assign({ photos: [] }, base));
     const [ocr, setOcr] = useState(null);   // null | "busy" | "done" | "fail"
+    const [err, setErr] = useState("");
     const scanRef = useRef(null);
     const photoRef = useRef(null);
     const set = (k, v) => setF(x => Object.assign({}, x, { [k]: v }));
@@ -3000,7 +3271,7 @@ function App() {
       const patch = {};
       if ((rec.category === "fuel" && v.energy === "fuel" || rec.category === "electricity" && v.energy === "electric") && num(rec.qty) > 0) {
         const per = num(rec.amount) / num(rec.qty), perUnit = rec.category === "fuel" && qtyUnit === "gal" ? per / L_PER_GAL : per;
-        if (perUnit > 0.05 && perUnit < 20) patch.price = +perUnit.toFixed(4);
+        if (perUnit > 0.05 && perUnit < 20) { patch.price = +perUnit.toFixed(4); patch.priceSrc = "receipt"; patch.priceDate = rec.date; }
       }
       if (rec.category === "maintenance" && /oil|olie|yağ/i.test(rec.note || "")) {
         const odo = odoOf(v); patch.parts = (v.parts || []).map(p => /oil|olie|yağ|service/i.test(p.name) ? Object.assign({}, p, { lastAt: Math.round(odo) }) : p);
@@ -3028,7 +3299,7 @@ function App() {
       Field(T("category"), e("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
         CONFIG.expenseCategories.map(c => e("div", { key: c.id, style: S.chip(f.category === c.id), onClick: () => set("category", c.id) }, T("c_" + c.id))))),
       e("div", { className: "grid2" },
-        Field(T("amount"), e("input", { style: Object.assign({}, S.input, { fontSize: 20, fontWeight: 800 }), inputMode: "decimal", placeholder: "0.00", value: f.amount, onChange: ev => set("amount", ev.target.value) })),
+        Field(T("amount"), e("input", { "aria-invalid": !!err, "aria-describedby": err ? "xerr" : undefined, style: Object.assign({}, S.input, { fontSize: 20, fontWeight: 800 }, err ? { borderColor: C.red } : {}), inputMode: "decimal", placeholder: "0.00", value: f.amount, onChange: ev => { setErr(""); set("amount", ev.target.value); } })),
         Field(T("date"), e("input", { type: "date", style: S.input, value: f.date, onChange: ev => set("date", ev.target.value) }))),
       e("div", { className: "grid2" },
         Field(T("vehicle"), e("select", { style: S.input, value: f.vehicleId || "", onChange: ev => set("vehicleId", ev.target.value) },
@@ -3038,9 +3309,10 @@ function App() {
       Field(T("repeats"), Chips([["", T("r_once")], ["1", T("r_1")], ["6", T("r_6")], ["12", T("r_12")]], String(f.recurring || ""), v => set("recurring", v)),
         f.recurring ? T("recurHint") : (f.category === "fuel" || f.category === "electricity") && st.costMode !== "actual" ? T("gasSpread") : null),
       PhotoStrip(f.photos || [], ids => set("photos", ids), photoRef),
+      err ? e("div", { id: "xerr", role: "alert", style: { color: C.red, fontWeight: 700, fontSize: 15, marginBottom: 10 } }, "⚠ " + err) : null,
       e("div", { style: { display: "flex", gap: 8 } },
-        !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("expenses", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
-        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: () => { if (!num(f.amount)) return; const rec = Object.assign({}, f, { amount: num(f.amount), qty: f.qty === "" || f.qty == null ? "" : num(f.qty), qtyUnit: cat.qty ? qtyUnit : "", recurring: f.recurring ? num(f.recurring) : "" }); upsert("expenses", rec); learn(rec); setModal(null); showToast(T("saved")); } }, T("save")))), () => setModal(null));
+        !isNew ? e("button", { style: S.btn("danger"), onClick: () => askConfirm(T("confirmDelete"), () => { remove("expenses", f.id); setModal(null); showToast(T("deleted")); }) }, T("delete")) : null,
+        e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: () => { if (!(num(f.amount) > 0)) { setErr(T("errAmount")); return; } const rec = Object.assign({}, f, { amount: num(f.amount), qty: f.qty === "" || f.qty == null ? "" : num(f.qty), qtyUnit: cat.qty ? qtyUnit : "", recurring: f.recurring ? num(f.recurring) : "" }); upsert("expenses", rec); learn(rec); setModal(null); showToast(T("saved")); } }, T("save")))), () => setModal(null));
   }
 
   function MpgLookup({ onPick }) {
@@ -3059,7 +3331,7 @@ function App() {
         e("option", { value: "" }, T("make") + "…"), makes.map(m => e("option", { key: m.value, value: m.value }, m.text))) : null,
       models.length ? e("select", { style: Object.assign({}, S.input, { marginTop: 8 }), value: model, onChange: ev => { const m = ev.target.value; setModel(m); call({ step: "options", year: yr, make, model: m }, r => setOptsL(r.items || [])); } },
         e("option", { value: "" }, T("model") + "…"), models.map(m => e("option", { key: m.value, value: m.value }, m.text))) : null,
-      optsL.length ? e("select", { style: Object.assign({}, S.input, { marginTop: 8 }), value: "", onChange: ev => { const id = ev.target.value; if (id) call({ step: "vehicle", id }, r => onPick(Object.assign({ label: yr + " " + make + " " + model }, r))); } },
+      optsL.length ? e("select", { style: Object.assign({}, S.input, { marginTop: 8 }), value: "", onChange: ev => { const id = ev.target.value; if (id) call({ step: "vehicle", id }, r => onPick(Object.assign({ label: yr + " " + make + " " + model, engine: (optsL.find(o => String(o.value) === String(id)) || {}).text || "" }, r))); } },
         e("option", { value: "" }, T("option") + "…"), optsL.map(m => e("option", { key: m.value, value: m.value }, m.text))) : null,
       err ? e("div", { style: Object.assign({}, S.small, { color: C.red, marginTop: 6 }) }, err) : null);
   }
@@ -3087,10 +3359,10 @@ function App() {
     const usMpg = unit === "mi" && f.energy === "fuel", evMi = unit === "mi" && f.energy === "electric";
     const consLabel = f.energy === "fuel" ? (usMpg ? "mpg" : "L / 100 km") : (evMi ? "kWh / 100 mi" : "kWh / 100 km");
     const consVal = usMpg ? (num(f.cons) ? +(235.215 / num(f.cons)).toFixed(1) : "") : evMi ? +(num(f.cons) * KM_PER_MI).toFixed(2) : f.cons;
-    const setCons = v => setF(x => Object.assign({}, x, { cons: usMpg ? (num(v) ? 235.215 / num(v) : 0) : evMi ? num(v) / KM_PER_MI : v, consLocked: true }));
+    const setCons = v => setF(x => Object.assign({}, x, { cons: usMpg ? (num(v) ? 235.215 / num(v) : 0) : evMi ? num(v) / KM_PER_MI : v, consLocked: true, consSrc: "user" }));
     const priceLabel = f.energy === "fuel" ? (usMpg ? "/ gal" : "/ L") : "/ kWh";
     const priceVal = usMpg ? +(num(f.price) * L_PER_GAL).toFixed(3) : f.price;
-    const setPrice = v => set("price", usMpg ? num(v) / L_PER_GAL : v);
+    const setPrice = v => setF(x => Object.assign({}, x, { price: usMpg ? num(v) / L_PER_GAL : v, priceSrc: "user" }));
     const bodyOf = id => CONFIG.bodyTypes.find(b => b[0] === id) || CONFIG.bodyTypes[1];
     // typical consumption for a body type + fuel, used until the user or the lookup sets a real figure
     const typical = (bodyId, kind) => {
@@ -3106,7 +3378,7 @@ function App() {
     const setBody = id => setF(x => Object.assign({}, x, { body: id }, x.consLocked ? {} : { cons: +typical(id, x.fuelKind).cons.toFixed(3) }));
     const onMpg = r => {
       const body = vclassToBody(r.vclass, r.make || "");
-      const patch = { year: num(r.year) || f.year, make: r.make || f.make, model: r.model || f.model, body, name: f.name || r.label, consLocked: true };
+      const patch = { year: num(r.year) || f.year, make: r.make || f.make, model: r.model || f.model, body, name: f.name || r.label, consLocked: true, consSrc: "lookup", engine: r.engine || f.engine || "" };
       if (r.ev && r.kwhPer100mi) Object.assign(patch, { energy: "electric", fuelKind: "electric", cons: +(r.kwhPer100mi / KM_PER_MI).toFixed(3), price: f.energy === "electric" ? f.price : (st.country === "NL" ? 0.30 : 0.17) });
       else if (r.mpg) Object.assign(patch, { energy: "fuel", fuelKind: r.hybrid ? "hybrid" : /diesel/i.test(r.fuelType || "") ? "diesel" : "gasoline", cons: +(235.215 / r.mpg).toFixed(3), fuelType: /diesel/i.test(r.fuelType || "") ? "diesel" : "petrol", price: f.energy === "fuel" ? f.price : (st.country === "NL" ? 1.95 : 0.83) });
       setF(x => Object.assign({}, x, patch)); setShowLookup(false); showToast((r.mpg ? r.mpg + " mpg" : r.kwhPer100mi + " kWh/100mi") + " ✓");
@@ -3114,7 +3386,10 @@ function App() {
     const save = () => {
       let rec = Object.assign({}, f, {
         year: num(f.year), purchase: num(f.purchase), resale: num(f.resale), valueNow: f.valueNow === "" ? "" : num(f.valueNow), lifeKm: num(f.lifeKm), cons: num(f.cons), price: num(f.price), battPrice: num(f.battPrice), battKm: num(f.battKm),
-        startOdo: num(f.startOdo), insurance: num(f.insurance), rent: num(f.rent), otherFixed: num(f.otherFixed), pricePaid: f.pricePaid === "" || f.pricePaid == null ? "" : num(f.pricePaid),
+        startOdo: num(f.startOdo), insurance: f.insurance === "" || f.insurance == null ? "" : num(f.insurance), rent: num(f.rent), otherFixed: num(f.otherFixed),
+        // provenance: a value the user typed or changed here is "user"; an empty insurance stays "missing"
+        insSrc: f.insurance === "" || f.insurance == null ? "missing" : (!init || String(f.insurance) !== String(init.insurance) || f.insSrc === "user") ? "user" : (f.insSrc || "estimate"),
+        fixedSrc: (!init || String(f.rent) !== String(init.rent) || String(f.otherFixed) !== String(init.otherFixed) || f.fixedSrc === "user") ? "user" : (f.fixedSrc || "estimate"), pricePaid: f.pricePaid === "" || f.pricePaid == null ? "" : num(f.pricePaid),
         name: f.name || [f.year, f.make, f.model].filter(Boolean).join(" "),
         parts: f.parts.filter(p => p.name).map(p => ({ id: p.id || genId(), name: p.name, cost: num(p.cost), interval: num(p.interval), lastAt: num(p.lastAt) })) });
       if (rec.depMode === "auto") rec = applyAutoDep(rec, isNew ? rec.startOdo : odoKm, annKm);
@@ -3186,7 +3461,7 @@ function App() {
         st.country === "NL" ? chk("privateOwned", T("privatelyOwned"), true) : null,
         chk("active", T("active"), true)) : null,
       e("div", { style: { display: "flex", gap: 8 } },
-        !isNew ? e("button", { style: S.btn("danger"), onClick: () => { if (!confirm(T("confirmDelete"))) return; remove("vehicles", f.id); setModal(null); showToast(T("deleted")); } }, T("delete")) : null,
+        !isNew ? e("button", { style: S.btn("danger"), onClick: () => askConfirm(T("confirmDelete"), () => { remove("vehicles", f.id); setModal(null); showToast(T("deleted")); }) }, T("delete")) : null,
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
   }
 
@@ -3267,6 +3542,8 @@ function App() {
   const SummaryModalC = stable("SummaryModal", SummaryModal);
   const ExplainModalC = stable("ExplainModal", ExplainModal);
   const AppsCardC = stable("AppsCard", AppsCard);
+  const VehicleDashC = stable("VehicleDash", VehicleDash);
+  const ConfirmDlgC = stable("ConfirmDlg", ConfirmDlg);
   const VIEWS = { home: simple ? stable("simpleHome", SimpleHome) : stable("home", HomeView), money: stable("money", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
     insights: stable("insights", InsightsView), coach: stable("coach", CoachView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
     tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: simple ? stable("simpleMore", SimpleMore) : stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView) };
@@ -3278,28 +3555,37 @@ function App() {
   //  LAYOUT
   // ════════════════════════════════════════════════════════════════
   const NAV = [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]];
-  const MOBILE = simple ? [["home", "home"], ["money", "chart"], ["expenses", "receipt"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
-  if (simple) NAV.splice(0, NAV.length, ["home", "home"], ["money", "chart"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["vehicles", "car"], ["more", "more"]);
+  const MOBILE = simple ? [["home", "home"], ["money", "chart"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
+  if (simple) NAV.splice(0, NAV.length, ["home", "home"], ["money", "chart"], ["vehicles", "car"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["more", "more"]);
   const inMore = view === "more" || (MOBILE.every(m => m[0] !== view) && view !== "home");
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
 
   return e("div", { className: "app-root", style: S.root },
+    CONFIG.staging ? e("div", { role: "note", style: { background: "#7C3AED", color: "#fff", fontSize: 13, fontWeight: 800, textAlign: "center", padding: "6px 10px", paddingTop: "calc(6px + env(safe-area-inset-top))" } }, T("stg_banner")) : null,
     e("header", { style: S.header },
       e("div", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }, onClick: () => setView("home") },
         e(LogoMark, { s: 32 }),
         e("span", { style: { fontWeight: 900, fontSize: 20, letterSpacing: "-0.5px" } }, CONFIG.appName),
-        track && track.on ? e("span", { className: "pulse", style: { marginLeft: 4, fontSize: 11, fontWeight: 800, color: "#05221A", background: track.mode === PERSONAL ? "#9AA8C2" : C.accent, borderRadius: 999, padding: "3px 8px" } }, track.order ? "RIDE" : "LIVE") : null),
-      e("div", { style: { display: "flex", alignItems: "center", gap: 12 } }, syncDot,
-        e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9 } }))),
+        !simple && track && track.on ? e("span", { className: "pulse", style: { marginLeft: 4, fontSize: 11, fontWeight: 800, color: C.onAccent, background: track.mode === PERSONAL ? "#9AA8C2" : C.accent, borderRadius: 999, padding: "3px 8px" } }, track.order ? "RIDE" : "LIVE") : null),
+      e("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, syncDot,
+        e("select", { "aria-label": T("language"), value: st.lang || "en", onChange: ev => saveSettings({ lang: ev.target.value }),
+          style: { background: C.card2, color: C.text, border: "1px solid " + C.border, borderRadius: 12, padding: "0 28px 0 12px", height: 44, fontSize: 15, fontWeight: 700, cursor: "pointer" } },
+          CONFIG.languages.map(l => e("option", { key: l[0], value: l[0] }, l[0].toUpperCase()))),
+        e("button", { "aria-label": T("settings"), className: "tap", onClick: () => setView("settings"),
+          style: { width: 44, height: 44, borderRadius: 12, border: "1px solid " + C.border, background: view === "settings" ? C.accentDim : C.card2, color: view === "settings" ? C.accent : C.sub, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } },
+          e(Icon, { n: "gear", s: 22 })),
+        e("img", { className: "hide-m", src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9, marginLeft: 4 } }))),
     e("div", { style: { flex: 1, display: "flex", minHeight: 0 } },
       e("div", { className: "desktop-sidebar", style: S.sidebar },
         e("div", { style: S.sideLabel }, st.name || CONFIG.appName),
-        NAV.map(n => e("div", { key: n[0], style: S.sideItem(view === n[0]), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 18 }), T(n[0])))),
-      e("div", { className: "app-content", style: S.content }, e("div", { style: S.inner }, e(VIEWS[view] || VIEWS.home)))),
-    e("div", { className: "bottom-nav", style: { position: "fixed", left: 0, right: 0, bottom: 0, background: "rgba(14,23,41,.97)", backdropFilter: "blur(10px)", borderTop: "1px solid " + C.border, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 40 } },
+        e("nav", { "aria-label": "Main" }, NAV.map(n => e("button", { key: n[0], "aria-current": view === n[0] ? "page" : undefined, className: "navbtn", style: Object.assign({}, S.sideItem(view === n[0]), { display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", borderLeft: S.sideItem(view === n[0]).borderLeft, textAlign: "left", fontSize: 15, minHeight: 46 }), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 20 }), T(n[0]))))),
+      e("main", { className: "app-content", style: S.content }, e("div", { style: S.inner },
+        syncState === "offline" ? e("div", { role: "status", style: { marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, lineHeight: 1.45 } }, "⚡ " + T("offlineMsg")) : null,
+        e(VIEWS[view] || VIEWS.home)))),
+    e("div", { className: "bottom-nav", style: { position: "fixed", left: 0, right: 0, bottom: 0, background: C.navBg, backdropFilter: "blur(10px)", borderTop: "1px solid " + C.border, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 40 } },
       MOBILE.map(n => { const on = n[0] === "more" ? inMore : view === n[0];
-        return e("div", { key: n[0], style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "9px 0 7px", color: on ? C.accent : C.muted, fontSize: 11, fontWeight: on ? 700 : 500, cursor: "pointer" }, onClick: () => setView(n[0]) },
-          e(Icon, { n: n[1], s: 22 }), T(n[0])); })),
+        return e("button", { key: n[0], "aria-current": on ? "page" : undefined, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 60, padding: "8px 0 6px", background: "none", border: "none", color: on ? C.accent : C.muted, fontSize: 13, fontWeight: on ? 800 : 600, cursor: "pointer" }, onClick: () => setView(n[0]) },
+          e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0])); })),
     modal && modal.type === "shift" ? e(ShiftModalC, { key: (modal.shift && modal.shift.id) || "new", init: modal.shift, fromTracking: modal.fromTracking }) : null,
     modal && modal.type === "expense" ? e(ExpenseModalC, { key: (modal.expense && modal.expense.id) || (modal.scan ? "scan" : "new" + ((modal.preset && modal.preset.category) || "")), init: modal.expense, scan: modal.scan, preset: modal.preset }) : null,
     modal && modal.type === "vehicle" ? e(VehicleModalC, { key: (modal.vehicle && modal.vehicle.id) || "new", init: modal.vehicle }) : null,
@@ -3313,7 +3599,9 @@ function App() {
     modal && modal.type === "wrap" ? e(WrapModalC, { key: "wrap", period: modal.period }) : null,
     viewer ? e("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }, onClick: () => setViewer(null) },
       e("img", { src: viewer, style: { maxWidth: "100%", maxHeight: "100%", borderRadius: 10 } })) : null,
-    toast ? e("div", { style: { position: "fixed", left: "50%", bottom: 90, transform: "translateX(-50%)", background: C.accent, color: "#05221A", fontWeight: 800, padding: "10px 18px", borderRadius: 999, zIndex: 80, fontSize: 14, boxShadow: "0 8px 30px rgba(0,0,0,.4)", maxWidth: "90vw", textAlign: "center" } }, toast.msg) : null);
+    dlg ? e(ConfirmDlgC, { key: "dlg" + dlg.msg }) : null,
+    toast ? e("div", { role: "status", "aria-live": "polite", style: { position: "fixed", left: "50%", bottom: 90, display: "flex", alignItems: "center", gap: 12, transform: "translateX(-50%)", background: C.fill, color: C.onAccent, fontWeight: 800, padding: "10px 18px", borderRadius: 999, zIndex: 80, fontSize: 14, boxShadow: "0 8px 30px rgba(0,0,0,.4)", maxWidth: "90vw", textAlign: "center", fontSize: 15 } }, toast.msg,
+      toast.action ? e("button", { onClick: () => { const f = toast.action.fn; setToast(null); f(); }, style: { background: C.onAccent, color: "#fff", border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 800, fontSize: 15, cursor: "pointer", minHeight: 40 } }, toast.action.label) : null) : null);
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(e(App));
