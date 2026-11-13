@@ -1,0 +1,18 @@
+rules_version = '2';
+// Kept: every driver can read and write only their own records, under users/{their uid}/…
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    match /users/{uid} {
+      allow read, create, update, delete: if isOwner(uid);
+      match /{collection}/{docId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+                              && collection in ['vehicles', 'expenses', 'trips', 'shifts']
+                              && string(request.resource.data.id) == docId;
+      }
+    }
+    // everything else is closed
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,13 @@
+rules_version = '2';
+// Kept receipt photos: private to the driver, images only, up to 5 MB each
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{uid}/photos/{file} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && request.resource.size < 5 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+    }
+    match /{all=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kept route mark, white for the status bar -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="512" android:viewportHeight="512">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="44" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M132,372 C214,372 226,262 286,262 S352,166 382,142" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="38" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"
+        android:pathData="M332,128 L404,120 L396,192" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M132,342 a30,30 0 1,0 0.1,0 z" />
+</vector>

@@ -1,0 +1,60 @@
+# Builds the Kept Android app in the cloud. No Android Studio needed.
+# Run it: GitHub → Actions → "Build Kept Android" → Run workflow. When it finishes (about 8 minutes),
+# download "kept-android" at the bottom of the run page and install app-debug.apk on your phone.
+# For a Google Play upload, add the four KEYSTORE secrets (see android/README-ANDROID.md); the run then also
+# produces a signed app-release.aab.
+name: Build Kept Android
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "Site the app opens"
+        default: "https://kept.usebuildflow.io"
+        required: true
+  push:
+    paths: ["android/**", ".github/workflows/android.yml"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - uses: actions/setup-java@v4
+        with: { distribution: "temurin", java-version: "17" }
+      # GitHub's Ubuntu runners already include the Android SDK (ANDROID_HOME); just accept its licences
+      - name: Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Create the Android project
+        working-directory: android
+        env:
+          KEPT_URL: ${{ github.event.inputs.site_url || 'https://kept.usebuildflow.io' }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: "6.0.${{ github.run_number }}"
+        run: bash setup-android.sh
+      - name: Build debug APK
+        working-directory: android/android
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Build signed release bundle (only when signing secrets exist)
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+          ./gradlew --no-daemon bundleRelease
+          jarsigner -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" app/build/outputs/bundle/release/app-release.aab "$KEY_ALIAS"
+          rm release.keystore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kept-android
+          path: |
+            android/android/app/build/outputs/apk/debug/app-debug.apk
+            android/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: warn
