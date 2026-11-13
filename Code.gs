@@ -258,16 +258,17 @@ function brief(stats) {
     "Data (JSON): " + JSON.stringify(stats);
   var res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
-    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 300 } })
+    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 1024 } })
   });
   var j = JSON.parse(res.getContentText());
   // a retired or unknown model: look up the newest Flash model once and retry (unless the owner pinned GEMINI_MODEL)
   if (j.error && !prop("GEMINI_MODEL") && /no longer available|not found|not supported/i.test(j.error.message || "")) {
     var fresh = geminiModel(key, true);
     if (fresh && fresh !== model) {
+      model = fresh;
       res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + fresh + ":generateContent?key=" + encodeURIComponent(key), {
         method: "post", contentType: "application/json", muteHttpExceptions: true,
-        payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 300 } }) });
+        payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 1024 } }) });
       j = JSON.parse(res.getContentText());
     }
   }
@@ -275,22 +276,26 @@ function brief(stats) {
   var text = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
     ? j.candidates[0].content.parts.map(function (p) { return p.text || ""; }).join("").trim() : "";
   if (!text) throw new Error("Gemini returned no text");
-  return { text: text };
+  // a usable brief is plain sentences: no code marks or JSON, ends like a sentence, at least ~60 characters
+  if (/[`{}]/.test(text) || text.length < 60 || !/[.!?…]["”')]?$/.test(text)) throw new Error("Gemini gave an unclear answer; try again later");
+  return { text: text, model: model };
 }
 
-// newest stable "gemini-X.Y-flash" model this key can use (Google's model list), cached for a day
+// fastest current model for a 3-sentence brief: the newest stable "gemini-X.Y-flash-lite", else the newest
+// "gemini-X.Y-flash" (Google's model list), cached for a day. Thinking models are slow and waste the token budget.
 function geminiModel(key, refresh) {
   var cache = CacheService.getScriptCache();
-  if (!refresh) { var hit = cache.get("gemini_model"); if (hit) return hit; }
+  if (!refresh) { var hit = cache.get("gemini_model2"); if (hit) return hit; }
   var j = JSON.parse(UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + encodeURIComponent(key), { muteHttpExceptions: true }).getContentText());
-  var best = null, bestV = -1;
+  var best = null, bestScore = -1;
   (j.models || []).forEach(function (m) {
-    var name = String(m.name || "").replace(/^models\//, ""), mm = name.match(/^gemini-(\d+(?:\.\d+)?)-flash$/);
+    var name = String(m.name || "").replace(/^models\//, ""), mm = name.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/);
     if (!mm || (m.supportedGenerationMethods || []).indexOf("generateContent") < 0) return;
-    var v = parseFloat(mm[1]); if (v > bestV) { bestV = v; best = name; }
+    var score = (mm[2] ? 1000 : 0) + parseFloat(mm[1]);             // any Lite beats any non-Lite; then newest version
+    if (score > bestScore) { bestScore = score; best = name; }
   });
   if (!best) throw new Error("Gemini: no Flash model is available for this key");
-  cache.put("gemini_model", best, 86400);
+  cache.put("gemini_model2", best, 86400);
   return best;
 }
 
@@ -421,8 +426,8 @@ function testIntegrations() {
   try { Logger.log("VIN test: " + JSON.stringify(vin({ vin: "4T1B11HK4KU236014" }))); } catch (x) { Logger.log("VIN FAILED: " + x); }
   try { Logger.log("MPG makes 2022: " + mpg({ step: "make", year: 2022 }).items.length); } catch (x) { Logger.log("MPG FAILED: " + x); }
   try { Logger.log("MPG Toyota Prius 2022: " + JSON.stringify(mpg({ step: "options", year: 2022, make: "Toyota", model: "Prius" }))); } catch (x) { Logger.log("MPG options FAILED: " + x); }
-  try { Logger.log("Gemini: " + brief({ lang: "en", currency: "EUR", unit: "km", today: { net: 120, hours: 6 } }).text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
   try { var ss = getss(); savePhoto(ss, "ph_test", Utilities.base64Encode("test"), "text/plain"); Logger.log("Photo save OK"); deletePhoto(ss, "ph_test"); } catch (x) { Logger.log("Photos FAILED: " + x); }
+  try { var t0 = Date.now(), b = brief({ lang: "en", currency: "USD", unit: "mi", today: { net: 120, hours: 6 } }); Logger.log("Gemini (" + b.model + ", " + Math.round((Date.now() - t0) / 1000) + " s): " + b.text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
 }
 
 // ── nightly backup of the Sheet (PIN version) ──
