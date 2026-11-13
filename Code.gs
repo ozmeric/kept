@@ -6,7 +6,7 @@
  *
  * Optional Script Properties (Project Settings → Script properties):
  *   GEMINI_API_KEY   — enables the AI "Today's Brief" (free key at aistudio.google.com)
- *   GEMINI_MODEL     — defaults to gemini-2.5-flash
+ *   GEMINI_MODEL     — optional; by default Kept uses Google's newest "gemini-X.Y-flash" model
  *   EIA_API_KEY      — enables live US fuel prices (free key at eia.gov/opendata)
  *   PIN              — set automatically when the user changes their PIN in the app (PIN version only)
  *   PIN_ACCESS       — set to "off" once every driver has moved their data into a Kept account (closes the PIN door)
@@ -248,7 +248,7 @@ function deleteAll(ss) {
 function brief(stats) {
   var key = prop("GEMINI_API_KEY");
   if (!key) throw new Error("NO_AI_KEY");
-  var model = prop("GEMINI_MODEL") || "gemini-2.5-flash";
+  var model = prop("GEMINI_MODEL") || geminiModel(key, false);
   var langName = { en: "English", nl: "Dutch", tr: "Turkish" }[stats.lang] || "English";
   var prompt =
     "You are Kept, a coach for gig drivers and couriers. Write today's brief in " + langName + ".\n" +
@@ -261,6 +261,16 @@ function brief(stats) {
     payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 300 } })
   });
   var j = JSON.parse(res.getContentText());
+  // a retired or unknown model: look up the newest Flash model once and retry (unless the owner pinned GEMINI_MODEL)
+  if (j.error && !prop("GEMINI_MODEL") && /no longer available|not found|not supported/i.test(j.error.message || "")) {
+    var fresh = geminiModel(key, true);
+    if (fresh && fresh !== model) {
+      res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + fresh + ":generateContent?key=" + encodeURIComponent(key), {
+        method: "post", contentType: "application/json", muteHttpExceptions: true,
+        payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 300 } }) });
+      j = JSON.parse(res.getContentText());
+    }
+  }
   if (j.error) throw new Error("Gemini: " + j.error.message);
   var text = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
     ? j.candidates[0].content.parts.map(function (p) { return p.text || ""; }).join("").trim() : "";
@@ -268,9 +278,28 @@ function brief(stats) {
   return { text: text };
 }
 
+// newest stable "gemini-X.Y-flash" model this key can use (Google's model list), cached for a day
+function geminiModel(key, refresh) {
+  var cache = CacheService.getScriptCache();
+  if (!refresh) { var hit = cache.get("gemini_model"); if (hit) return hit; }
+  var j = JSON.parse(UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + encodeURIComponent(key), { muteHttpExceptions: true }).getContentText());
+  var best = null, bestV = -1;
+  (j.models || []).forEach(function (m) {
+    var name = String(m.name || "").replace(/^models\//, ""), mm = name.match(/^gemini-(\d+(?:\.\d+)?)-flash$/);
+    if (!mm || (m.supportedGenerationMethods || []).indexOf("generateContent") < 0) return;
+    var v = parseFloat(mm[1]); if (v > bestV) { bestV = v; best = name; }
+  });
+  if (!best) throw new Error("Gemini: no Flash model is available for this key");
+  cache.put("gemini_model", best, 86400);
+  return best;
+}
+
 // ── live fuel prices (cached 6 h) ──
 var PADD = { "1": "R10", "2": "R20", "3": "R30", "4": "R40", "5": "R50" };
 var EIA_STATES = { CA: "SCA", CO: "SCO", FL: "SFL", MA: "SMA", MN: "SMN", NY: "SNY", OH: "SOH", TX: "STX", WA: "SWA" };
+var EIA_NAMES = { R1X: "New England", R1Y: "Central Atlantic", R1Z: "Lower Atlantic", R10: "East Coast", R20: "Midwest", R30: "Gulf Coast", R40: "Rocky Mountain",
+  R50: "West Coast", R5XCA: "West Coast without California", NUS: "U.S. average", SCA: "California", SCO: "Colorado", SFL: "Florida", SMA: "Massachusetts",
+  SMN: "Minnesota", SNY: "New York", SOH: "Ohio", STX: "Texas", SWA: "Washington" };
 var EIA_SUB = { CT:"R1X", ME:"R1X", MA:"R1X", NH:"R1X", RI:"R1X", VT:"R1X", DE:"R1Y", DC:"R1Y", MD:"R1Y", NJ:"R1Y", NY:"R1Y", PA:"R1Y",
   FL:"R1Z", GA:"R1Z", NC:"R1Z", SC:"R1Z", VA:"R1Z", WV:"R1Z", AK:"R5XCA", AZ:"R5XCA", HI:"R5XCA", NV:"R5XCA", OR:"R5XCA", WA:"R5XCA" };
 var STATE_PADD = { AL:3,AK:5,AZ:5,AR:3,CA:5,CO:4,CT:1,DE:1,DC:1,FL:1,GA:1,HI:5,ID:4,IL:2,IN:2,IA:2,KS:2,KY:2,LA:3,ME:1,MD:1,MA:1,MI:2,MN:2,MS:3,MO:2,MT:4,NE:2,NV:5,NH:1,NJ:1,NM:3,NY:1,NC:1,ND:2,OH:2,OK:2,OR:5,PA:1,RI:1,SC:1,SD:2,TN:2,TX:3,UT:4,VT:1,VA:1,WA:5,WV:1,WI:2,WY:4 };
@@ -284,9 +313,13 @@ function fuelPrice(country, state) {
 }
 function fuelNL() {
   // CBS StatLine open data, table 80416NED "Pompprijzen motorbrandstoffen; brandstofsoort, per dag" (no key needed)
-  var url = "https://opendata.cbs.nl/ODataApi/odata/80416NED/TypedDataSet?$orderby=Perioden%20desc&$top=1";
+  // CBS ignores $orderby, so ask for the last 30 days and take the newest row
+  var since = Utilities.formatDate(new Date(Date.now() - 30 * 864e5), "Europe/Amsterdam", "yyyyMMdd");
+  var url = "https://opendata.cbs.nl/ODataApi/odata/80416NED/TypedDataSet?$filter=" + encodeURIComponent("Perioden ge '" + since + "'");
   var j = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
-  var row = j.value && j.value[0]; if (!row) throw new Error("CBS: no data");
+  var rows = (j.value || []).filter(function (r) { return /^\d{8}$/.test(String(r.Perioden)); })
+    .sort(function (a, b) { return String(a.Perioden) < String(b.Perioden) ? -1 : 1; });
+  var row = rows[rows.length - 1]; if (!row) throw new Error("CBS: no prices in the last 30 days");
   var pick = function (re) { for (var k in row) if (re.test(k) && typeof row[k] === "number") return row[k]; return null; };
   var p = String(row.Perioden || "");
   var date = /^\d{8}$/.test(p) ? p.slice(0, 4) + "-" + p.slice(4, 6) + "-" + p.slice(6, 8) : p;
@@ -308,7 +341,7 @@ function fuelUS(state) {
   var g = null, d = null, area = "NUS";
   for (var i = 0; i < chain.length && !g && !d; i++) { area = chain[i]; g = get("EPMR"); d = get("EPD2D"); }
   if (!g && !d) throw new Error("EIA: no data for " + state);
-  return { petrol: g ? g.v : null, diesel: d ? d.v : null, unit: "gal", currency: "USD", date: (g || d).period, area: (g || d).name || area, source: "EIA weekly retail" };
+  return { petrol: g ? g.v : null, diesel: d ? d.v : null, unit: "gal", currency: "USD", date: (g || d).period, area: EIA_NAMES[area] || (g || d).name || area, source: "EIA weekly retail" };
 }
 
 // ── vehicle MPG lookup (fueleconomy.gov, no key) ──
@@ -385,7 +418,7 @@ function mpg(b) {
 function testIntegrations() {
   try { Logger.log("NL fuel: " + JSON.stringify(fuelNL())); } catch (x) { Logger.log("NL fuel FAILED: " + x); }
   try { Logger.log("US fuel (VA): " + JSON.stringify(fuelUS("VA"))); } catch (x) { Logger.log("US fuel FAILED: " + x); }
-  try { Logger.log("VIN test: " + JSON.stringify(vin({ vin: "4T1B11HK5KU236014" }))); } catch (x) { Logger.log("VIN FAILED: " + x); }
+  try { Logger.log("VIN test: " + JSON.stringify(vin({ vin: "4T1B11HK4KU236014" }))); } catch (x) { Logger.log("VIN FAILED: " + x); }
   try { Logger.log("MPG makes 2022: " + mpg({ step: "make", year: 2022 }).items.length); } catch (x) { Logger.log("MPG FAILED: " + x); }
   try { Logger.log("MPG Toyota Prius 2022: " + JSON.stringify(mpg({ step: "options", year: 2022, make: "Toyota", model: "Prius" }))); } catch (x) { Logger.log("MPG options FAILED: " + x); }
   try { Logger.log("Gemini: " + brief({ lang: "en", currency: "EUR", unit: "km", today: { net: 120, hours: 6 } }).text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
