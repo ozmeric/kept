@@ -2021,7 +2021,7 @@ function App() {
     return { date: today, weekday: WEEKDAYS_EN[new Date().getDay()], lang: d.settings.lang, currency: d.settings.currency, unit,
       today: P("today"), week: P("week"), month: P("month"), last28PerHour: +last28.perHour.toFixed(2),
       bestWeekday: best && best.ph ? WEEKDAYS_EN[best.i] : null, burnout: { score: b.score, level: b.level, hours7d: +b.h7.toFixed(1), streak: b.streak },
-      target: tg ? { dailyNet: Math.round(tg.dailyNet), dailyGross: Math.round(tg.dailyGross) } : null,
+      target: tg ? { dailyNet: Math.round(tg.dailyNet), dailyGross: Math.round(tg.dailyGross), remainingToday: Math.max(0, Math.round(tg.dailyNet - computePeriod(d, today, today).net)) } : null,
       vehicleCostShare: last28.gross ? Math.round(last28.vehicleCosts / last28.gross * 100) : null };
   };
   const localBrief = s => {

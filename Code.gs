@@ -252,9 +252,10 @@ function brief(stats) {
   var langName = { en: "English", nl: "Dutch", tr: "Turkish" }[stats.lang] || "English";
   var prompt =
     "You are Kept, a coach for gig drivers and couriers. Write today's brief in " + langName + ".\n" +
-    "Rules: 3 to 4 short sentences, plain text, no headings, no bullet points, no emojis. Use the numbers given; never invent figures. " +
-    "Money is in " + stats.currency + ", distance in " + stats.unit + ". Mention one concrete thing to do today (e.g. which day/time pays best, " +
-    "whether to take it easier if burnout is 'watch' or 'high', how far from the daily target they are). No tax or legal advice.\n" +
+    "Rules: 2 to 4 short sentences, plain text, no headings, no bullet points, no emojis. " +
+    "Only state facts that appear in the data below. Copy numbers exactly as given; do not calculate, round differently or estimate new numbers. " +
+    "If a field is missing or null, do not mention that topic. Do not name a weekday unless it is bestWeekday or today's weekday. " +
+    "Money is in " + stats.currency + ", distance in " + stats.unit + ". End with one practical suggestion that follows from the data. No tax or legal advice.\n" +
     "Data (JSON): " + JSON.stringify(stats);
   // several models, tried in order until one gives a usable brief (see geminiCandidates)
   var cache = CacheService.getScriptCache(), list = geminiCandidates(key), t0 = Date.now(), tried = [];
@@ -271,6 +272,7 @@ function brief(stats) {
         ? j.candidates[0].content.parts.map(function (p) { return p.text || ""; }).join("").trim() : "";
       // a usable brief is plain sentences: no code marks or JSON, ends like a sentence, at least ~60 characters
       if (!why && (!text || /[`{}]/.test(text) || text.length < 60 || !/[.!?…]["”')]?$/.test(text))) why = "unclear answer";
+      if (!why) { var bad = ungrounded(text, stats); if (bad) why = "made up " + bad; }
       var secs = Math.round((Date.now() - t1) / 1000);
       if (!why) {
         if (secs > 30) cache.put("gemini_slow_" + model, "1", 86400);  // works but slow: try it later next time
@@ -282,6 +284,27 @@ function brief(stats) {
     } catch (x) { tried.push(model + ": " + String(x).slice(0, 80)); }
   }
   throw new Error("Gemini: no model gave a usable brief (" + tried.join("; ") + ")");
+}
+
+// The brief may only use numbers and weekdays that are in the driver's data (the AI must not invent facts).
+// Returns what was made up, or "" when every number and weekday is backed by the data.
+function ungrounded(text, stats) {
+  var vals = [];
+  (function walk(v) { if (v == null) return; if (typeof v === "number") vals.push(v); else if (typeof v === "string") { if (/^-?\d+(\.\d+)?$/.test(v)) vals.push(parseFloat(v)); }
+    else if (typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k]); }); })(stats);
+  var nums = String(text).replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || [];
+  for (var i = 0; i < nums.length; i++) {
+    var n = parseFloat(nums[i]);
+    var ok = vals.some(function (v) { return Math.abs(v - n) < 0.005 || Math.round(v) === n || Math.abs(Math.round(v * 10) / 10 - n) < 0.001 || Math.abs(Math.round(v * 100) / 100 - n) < 0.001; });
+    if (!ok) return "the number " + nums[i];
+  }
+  var days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag",
+    "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+  var map = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 }, best = map[stats.bestWeekday], now = map[stats.weekday];
+  for (var d = 0; d < days.length; d++) {
+    if (new RegExp("(^|[^\\wçğıöşü])" + days[d] + "(lar|s)?([^\\wçğıöşü]|$)", "i").test(text) && d % 7 !== best && d % 7 !== now) return "the day " + days[d];
+  }
+  return "";
 }
 
 // The models to try, in order:
@@ -446,7 +469,7 @@ function testIntegrations() {
   try { Logger.log("MPG Toyota Prius 2022: " + JSON.stringify(mpg({ step: "options", year: 2022, make: "Toyota", model: "Prius" }))); } catch (x) { Logger.log("MPG options FAILED: " + x); }
   try { var ss = getss(); savePhoto(ss, "ph_test", Utilities.base64Encode("test"), "text/plain"); Logger.log("Photo save OK"); deletePhoto(ss, "ph_test"); } catch (x) { Logger.log("Photos FAILED: " + x); }
   try { Logger.log("Gemini models to try: " + geminiCandidates(prop("GEMINI_API_KEY") || "").join(", ")); } catch (x) { Logger.log("Gemini model list FAILED: " + x); }
-  try { var t0 = Date.now(), b = brief({ lang: "en", currency: "USD", unit: "mi", today: { net: 120, hours: 6 } }); Logger.log("Gemini (" + b.model + ", " + b.seconds + " s" + (b.tried.length ? "; skipped " + b.tried.join("; ") : "") + "): " + b.text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
+  try { var t0 = Date.now(), b = brief({ lang: "en", currency: "USD", unit: "mi", today: { shifts: 2, net: 120, hours: 6, perHour: 20 }, week: { shifts: 5, net: 610, hours: 31 }, bestWeekday: "Friday", burnout: { score: 34, level: "fresh", hours7d: 31, streak: 3 }, target: { dailyNet: 150, dailyGross: 205, remainingToday: 30 }, vehicleCostShare: 18 }); Logger.log("Gemini (" + b.model + ", " + b.seconds + " s" + (b.tried.length ? "; skipped " + b.tried.join("; ") : "") + "): " + b.text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
 }
 
 // ── nightly backup of the Sheet (PIN version) ──
