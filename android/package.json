@@ -1,0 +1,18 @@
+{
+  "name": "kept-android",
+  "version": "6.0.0",
+  "private": true,
+  "description": "Kept Android shell: loads kept.usebuildflow.io and adds background mileage tracking + ride detection",
+  "scripts": {
+    "setup": "bash setup-android.sh",
+    "sync": "npx cap sync android",
+    "open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.1.2",
+    "@capacitor/core": "6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "6.1.2"
+  }
+}

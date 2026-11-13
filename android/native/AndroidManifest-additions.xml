@@ -1,0 +1,20 @@
+<!-- Merge these into android/app/src/main/AndroidManifest.xml (setup-android.sh does it for you) -->
+
+<!-- 1) inside <manifest>, next to the INTERNET permission -->
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+<!-- 2) inside <application> -->
+<service android:name=".TrackingService" android:exported="false" android:foregroundServiceType="location" />
+<receiver android:name=".ActionReceiver" android:exported="false" />
+<service android:name=".GigNotificationListener" android:exported="true"
+    android:label="Kept ride detection"
+    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+    <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+    </intent-filter>
+</service>

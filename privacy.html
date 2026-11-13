@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kept — Privacy policy</title>
+<style>
+  :root{--bg:#ffffff;--fg:#0f172a;--sub:#475569;--line:#e2e8f0;--accent:#047857}
+  @media (prefers-color-scheme: dark){:root{--bg:#0b1220;--fg:#e2e8f0;--sub:#94a3b8;--line:#1e293b;--accent:#34d399}}
+  body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{max-width:720px;margin:0 auto;padding:32px max(16px,env(safe-area-inset-left)) 64px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 4px} h2{font-size:20px;margin:32px 0 8px}
+  .sub{color:var(--sub);margin:0 0 24px} .draft{border:2px dashed #b45309;color:#b45309;padding:10px 14px;border-radius:10px;font-weight:700}
+  table{border-collapse:collapse;width:100%;font-size:15px} th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<p class="draft">DRAFT for review — fill in the bracketed parts and have it checked before publishing.</p>
+<h1>Kept privacy policy</h1>
+<p class="sub">Last updated: [date] · Operated by [company name], [address] · Contact: [support email]</p>
+
+<p>Kept helps gig drivers and couriers track miles, income, expenses and vehicle costs. This page explains what Kept stores, where, why, and how to delete it.</p>
+
+<h2>What Kept stores</h2>
+<table>
+<tr><th>Data</th><th>Why</th><th>Where</th></tr>
+<tr><td>Email address and password (password handled only by Google Firebase Authentication)</td><td>Your account</td><td>Google Firebase (USA)</td></tr>
+<tr><td>Trips: date, time, distance, app, kind (personal, online, order), start and end place</td><td>Mileage log, profit per trip, tax estimates</td><td>Your private space in Google Cloud Firestore; a copy on your phone</td></tr>
+<tr><td>Income, tips, expenses, vehicles, goals and settings you enter</td><td>Earnings, costs and tax estimates</td><td>Your private space in Cloud Firestore; a copy on your phone</td></tr>
+<tr><td>Receipt photos</td><td>Proof for expenses</td><td>On your phone; in your private Cloud Storage folder only if cloud photos are turned on</td></tr>
+</table>
+<p>Start and end places are saved only while “Save where trips start and end” is on (on the Profit Map screen), where you can also delete all saved places.</p>
+
+<h2>Location</h2>
+<p>Kept uses your phone's location to measure the miles you drive. In the Android app this works in the background, with an ongoing notification, so miles are counted with the screen off. Locations are used to calculate distance and, if you allow it, to save where each drive started and ended. Kept does not sell or share your location.</p>
+
+<h2>Notification access (Android, optional)</h2>
+<p>If you allow it, Kept reads notifications from the gig apps you choose (for example DoorDash or Uber) to see when you go online and when an order starts or finishes. Only those apps' notifications are read. The text stays on your phone in a short log you can view in Settings → Notification log; it is not uploaded.</p>
+
+<h2>Features that use other services</h2>
+<ul>
+<li><b>Speech:</b> the microphone button uses your browser's or phone's speech recognition, which may send the audio to Google or Apple to turn it into text. Nothing is saved until you tap Save.</li>
+<li><b>Offer and receipt scanning:</b> images are read on your phone. Offer screenshots are not stored.</li>
+<li><b>AI brief:</b> if turned on, summary numbers (for example hours and earnings, no names or places) are sent to Google Gemini to write a short text.</li>
+<li><b>Vehicle lookups:</b> VIN, model year, make and model are sent to the U.S. government's NHTSA and fueleconomy.gov services; your state is sent to the U.S. Energy Information Administration for fuel prices.</li>
+</ul>
+
+<h2>What Kept does not do</h2>
+<ul><li>No advertising and no selling of data.</li><li>No access to your gig-app accounts, and no accepting or declining of orders for you.</li><li>No sharing with other drivers: each account sees only its own data.</li></ul>
+
+<h2>Keeping and deleting your data</h2>
+<p>Your data stays until you delete it. In Kept: Settings → Account → <b>Delete my account</b> permanently deletes your account, records and cloud photos. You can download a copy first with Settings → Download backup or the Reports screen. Backups kept by the operator are deleted within [30] days.</p>
+
+<h2>Security</h2>
+<p>Data is sent over encrypted connections. Database rules allow each signed-in driver to read and write only their own records.</p>
+
+<h2>Children</h2>
+<p>Kept is for adults who drive for work and is not meant for anyone under 18.</p>
+
+<h2>Changes and contact</h2>
+<p>We'll update this page when Kept changes how it uses data, and show the date at the top. Questions: [support email].</p>
+</main>
+</body>
+</html>

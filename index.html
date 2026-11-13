@@ -29,11 +29,15 @@
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
   .tap:active{transform:scale(.98)}
   :focus-visible{outline:3px solid #2EE6A6;outline-offset:2px;border-radius:8px}
-  @media(prefers-reduced-motion:reduce){.pulse,.spin{animation:none}.tap:active{transform:none}}
+  @media(prefers-reduced-motion:reduce){.pulse,.spin,.pop{animation:none}.confetti{display:none}.tap:active{transform:none}}
   .bigtile{min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}
   .pulse{animation:pulse 1.6s infinite}
   .spin{animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes kept-confetti{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(540deg);opacity:0}}
+  @keyframes kept-pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+  .confetti i{position:absolute;left:50%;top:40%;width:8px;height:12px;border-radius:2px;animation:kept-confetti 1.4s ease-out forwards}
+  .pop{animation:kept-pop .45s ease-out both}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,230,166,.5)}70%{box-shadow:0 0 0 10px rgba(46,230,166,0)}100%{box-shadow:0 0 0 0 rgba(46,230,166,0)}}
   @media(max-width:760px){
     .desktop-sidebar{display:none!important}
@@ -68,12 +72,20 @@
 const CONFIG = {
   appName:      "Kept",
   tagline:      "Know what you earn. Know what you keep.",
-  version:      "4.1",
+  version:      "6.0",
   primaryColor: "#0B1220",
   accentColor:  "#2EE6A6",
   logoText:     "K",
   staging:      !!(window.KEPT_CONFIG && window.KEPT_CONFIG.staging),   // preview build: banner + sample data, never a production API
-  apiUrl:       (window.KEPT_CONFIG && window.KEPT_CONFIG.apiUrl) || "",   // empty = local-only mode
+  apiUrl:       (window.KEPT_CONFIG && window.KEPT_CONFIG.apiUrl) || "",   // PIN version (Google Sheet) server; empty = local-only mode
+  // v6 accounts: Firebase Authentication + Cloud Firestore (one private space per driver)
+  firebase:     (window.KEPT_CONFIG && window.KEPT_CONFIG.firebase && window.KEPT_CONFIG.firebase.apiKey) ? window.KEPT_CONFIG.firebase : null,
+  firebaseEmulator: (window.KEPT_CONFIG && window.KEPT_CONFIG.firebaseEmulator) || null,   // tests only
+  firebaseSdk:  "https://www.gstatic.com/firebasejs/10.12.2/",
+  // fuel prices, VIN, MPG lookup, AI brief (Apps Script, verifies the signed-in user); with accounts the PIN server becomes this
+  servicesUrl:  (window.KEPT_CONFIG && (window.KEPT_CONFIG.servicesUrl || window.KEPT_CONFIG.apiUrl)) || "",
+  liveHosts:    ["kept.usebuildflow.io"],   // the production site: refuses to start with staging or local-only settings
+  privacyUrl:   (window.KEPT_CONFIG && window.KEPT_CONFIG.privacyUrl) || "",
 
   defaults: { name:"", lang:"en", country:"US", currency:"USD", unit:"mi", setAsidePct:30,
               dailyGoal:150, costMode:"estimated", defaultVehicleId:"",
@@ -306,6 +318,9 @@ const I18N = {
   interval:["Every","Elke","Her"], lastAt:["Last at","Laatst bij","Son değişim"], partName:["Part","Onderdeel","Parça"], addPart:["+ Add part","+ Onderdeel","+ Parça ekle"],
   privatelyOwned:["Privately owned (not a business asset)","Privé eigendom (geen bedrijfsmiddel)","Özel mülk (işletme varlığı değil)"],
   leased:["Leased / rented (no depreciation)","Lease / huur (geen afschrijving)","Kiralık (değer kaybı yok)"], active:["Active","Actief","Aktif"],
+  tm_toStd:["IRS rule: you can use the standard mileage rate for a car you own only if you chose it in the first year the car was used for business. If you claimed actual expenses that first year, keep Actual expenses.","IRS-regel: standaardtarief alleen als je het in het eerste jaar koos.","IRS kuralı: Sahip olduğunuz araç için standart mil oranını yalnızca aracın işte kullanıldığı ilk yıl seçtiyseniz kullanabilirsiniz. O ilk yıl gerçek giderleri yazdıysanız Gerçek giderler'de kalın."],
+  tm_toActual:["Switching to actual expenses is allowed in later years, but depreciation rules then change. Check with your tax preparer before you file.","Overstappen mag, maar afschrijving verandert. Overleg met je adviseur.","Sonraki yıllarda gerçek giderlere geçebilirsiniz, ancak amortisman kuralları değişir. Beyandan önce vergi uzmanınıza danışın."],
+  tm_lease:["IRS rule: a leased car that uses the standard mileage rate must keep it for the whole lease, and it can't be used if you claimed actual expenses for this lease.","IRS-regel bij lease: houd het standaardtarief de hele looptijd aan.","IRS kuralı: Standart mil oranını kullanan kiralık (leasing) araç, tüm kiralama boyunca bu oranı kullanmalıdır; bu kiralama için gerçek gider yazdıysanız kullanılamaz."],
   taxMethod:["US tax method","Belastingmethode (VS)","ABD vergi yöntemi"], stdMileage:["Standard mileage rate","Standaard kilometertarief","Standart kilometre oranı"], actualExp:["Actual expenses","Werkelijke kosten","Gerçek giderler"],
   lookupMpg:["Look up by year / make / model","Opzoeken op jaar / merk / model","Yıl / marka / modele göre bul"], year4:["Year","Jaar","Yıl"], make:["Make","Merk","Marka"], model:["Model","Model","Model"], option:["Version","Uitvoering","Versiyon"], cloudOnly:["Needs cloud sync (connect Kept to your Sheet)","Vereist cloud-sync","Bulut senkronizasyonu gerekir"],
   liveFuel:["Live fuel price","Actuele brandstofprijs","Güncel yakıt fiyatı"], applyFuel:["Apply to my vehicles","Toepassen op voertuigen","Araçlarıma uygula"], autoFuel:["Update fuel prices automatically","Brandstofprijzen automatisch bijwerken","Yakıt fiyatlarını otomatik güncelle"],
@@ -366,6 +381,22 @@ const I18N = {
   b_h7:["Hours, last 7 days","Uren, laatste 7 dagen","Son 7 gün saat"], b_streak:["Days in a row","Dagen op rij","Üst üste gün"], b_today:["Hours today","Uren vandaag","Bugün saat"], b_night:["Night share (22–05)","Nachtdeel (22–05)","Gece payı (22–05)"],
   heavyDay:["Heavy day","Zware dag","Yoğun gün"], heavyMsg:["You've already worked {h} today. Plan a lighter day tomorrow — more hours on a tired day usually means a lower net per hour.","Je hebt vandaag al {h} gewerkt. Plan morgen een lichtere dag — meer uren op een moeie dag betekent meestal minder netto per uur.","Bugün zaten {h} çalıştınız. Yarın için daha hafif bir gün planlayın — yorgunken fazla saat genelde daha düşük saatlik net demek."],
   stopSignal:["Stop signal — today's target is reached","Stopsignaal — dagdoel gehaald","Dur sinyali — bugünkü hedefe ulaşıldı"],
+  of_actual:["predicted {p} → actual {a}","voorspeld {p} → echt {a}","tahmin {p} → gerçek {a}"],
+  of_errLow:["Across {n} matched orders, real profit was {v} lower per order than predicted on average — be a bit stricter.","Over {n} orders was de echte winst gemiddeld {v} lager.","Eşleşen {n} siparişte gerçek kâr tahminden ortalama {v} düşük çıktı — biraz daha seçici olun."],
+  of_errHigh:["Across {n} matched orders, real profit was {v} higher per order than predicted on average.","Over {n} orders was de echte winst gemiddeld {v} hoger.","Eşleşen {n} siparişte gerçek kâr tahminden ortalama {v} yüksek çıktı."],
+  mp_anyTime:["Any time","Elk moment","Her saat"], mp_morning:["Morning","Ochtend","Sabah"], mp_midday:["Lunch","Lunch","Öğle"], mp_afternoon:["Afternoon","Middag","Öğleden sonra"], mp_evening:["Dinner","Avond","Akşam"], mp_night:["Late night","Nacht","Gece"],
+  mp_anyDay:["Any day","Elke dag","Her gün"], mp_weekday:["Weekdays","Doordeweeks","Hafta içi"], mp_weekend:["Weekends","Weekend","Hafta sonu"], mp_now:["Show what pays best right now","Wat nu het beste betaalt","Şu an en iyi kazandıran yeri göster"],
+  mp_best:["At this time, your best area has been near {a}: {v} after vehicle costs, from {n} of your own records. Past results, not a promise.","Op dit moment: beste gebied bij {a}: {v} ({n} records).","Bu saatte en iyi bölgeniz {a} civarı oldu: araç maliyetleri sonrası {v}, kendi {n} kaydınızdan. Geçmiş sonuçtur, garanti değildir."],
+  hi_morning:["Good morning","Goedemorgen","Günaydın"], hi_afternoon:["Good afternoon","Goedemiddag","İyi günler"], hi_evening:["Good evening","Goedenavond","İyi akşamlar"],
+  hi_streak:["{n}-day streak","{n} dagen op rij","{n} gün üst üste"], hi_streakT:["Days in a row with work logged","Dagen op rij met werk","Üst üste iş kaydedilen gün"],
+  hi_goalHit:["Goal hit for today!","Dagdoel gehaald!","Bugünkü hedef tamam!"], hi_goalTxt:["{a} profit before tax — your goal was {b}. Anything more is extra.","{a} winst — doel was {b}.","Vergi öncesi {a} kâr — hedefiniz {b} idi. Bundan sonrası ekstra."],
+  ct_title:["Check today","Vandaag controleren","Bugünü kontrol et"], ct_sum:["{o} orders · {m} of work driving · {g} earned · {x} expenses","{o} orders · {m} · {g} verdiend · {x} uitgaven","{o} sipariş · {m} iş sürüşü · {g} kazanç · {x} gider"],
+  ct_noPay:["{n} orders have no pay entered — tap Fix to add it.","{n} orders zonder bedrag.","{n} siparişte ücret girilmemiş — eklemek için Düzelt'e dokunun."], ct_noMiles:["{n} orders have no miles (GPS was off).","{n} orders zonder afstand.","{n} siparişte mesafe yok (GPS kapalıydı)."],
+  ct_fix:["Fix","Aanpassen","Düzelt"], ct_ok:["Looks right","Klopt","Doğru"], ct_thanks:["Today is confirmed","Vandaag bevestigd","Bugün onaylandı"],
+  gl_breakdown:["Break it down (rent, food, bills…)","Uitsplitsen (huur, eten, rekeningen…)","Kalemlere ayır (kira, gıda, faturalar…)"], gl_rent:["Rent / mortgage","Huur / hypotheek","Kira / konut kredisi"], gl_food:["Groceries","Boodschappen","Market"], gl_utilities:["Utilities","Energie en water","Faturalar (elektrik, su, gaz)"], gl_phone:["Phone and internet","Telefoon en internet","Telefon ve internet"], gl_transport:["Personal transport","Privévervoer","Kişisel ulaşım"], gl_debt:["Debt payments","Aflossingen","Borç ödemeleri"], gl_other:["Other","Overig","Diğer"],
+  gl_savings:["Savings goal per month","Spaardoel per maand","Aylık birikim hedefi"], gl_buffer:["Safety buffer %","Buffer %","Güvenlik payı %"], gl_hours:["Hours a work day","Uren per werkdag","İş günü başına saat"],
+  gl_perHour:["Needed per hour ({h} h days)","Nodig per uur ({h} u)","Saatte gereken ({h} saatlik gün)"], gl_how:["Living {l} + {b}% buffer + savings {s} = {n} after tax each month.","Leven {l} + {b}% buffer + sparen {s} = {n} na belasting per maand.","Yaşam {l} + %{b} pay + birikim {s} = ayda vergi sonrası {n}."],
+  gl_goalToday:["Today toward your goal (profit before tax)","Vandaag richting je doel","Bugün hedefinize doğru (vergi öncesi kâr)"],
   planner:["Target planner","Doelplanner","Hedef planlayıcı"], livingCosts:["Monthly living costs to cover","Maandelijkse kosten levensonderhoud","Karşılanacak aylık yaşam gideri"], workDaysWeek:["Work days per week","Werkdagen per week","Haftalık iş günü"],
   netTargetMonth:["Net needed / month (before tax)","Netto nodig / maand (vóór belasting)","Aylık gereken net (vergi öncesi)"], dailyNetTarget:["Daily net target","Dagelijks netto doel","Günlük net hedef"], dailyGrossTarget:["Gross to aim for per day","Bruto per dag nodig","Günlük hedef brüt"],
   pace:["Pace","Tempo","Tempo"], onPace:["on pace","op schema","yolunda"], behind:["behind","achter","geride"],
@@ -433,7 +464,7 @@ const I18N = {
   notEnoughData:["Not enough data","Te weinig gegevens","Yeterli veri yok"],
   m_hour:["Per hour","Per uur","Saatlik"], m_mile:["Per order mile","Per ritafstand","Sipariş mili başına"], allApps:["All apps","Alle apps","Tüm uygulamalar"],
   mapHint2:["Built only from your own records. Each circle is an area of about 1.5 mi where your work started (per hour) or where orders started (per {u}); color is your profit there after vehicle costs. Areas with fewer than 5 records show \"Not enough data\" and aren't ranked. This shows your past results — not live demand or guaranteed earnings.","Alleen jouw eigen gegevens. Gebieden met minder dan 5 records worden niet gerangschikt. Geen live vraag.","Yalnızca kendi kayıtlarınızdan oluşturulur. Her daire, çalışmanızın başladığı (saatlik) ya da siparişlerin başladığı ({u} başına) yaklaşık 1,5 millik bir alandır; renk, araç giderleri sonrası oradaki kârınızdır. 5'ten az kaydı olan alanlar \"Yeterli veri yok\" gösterir ve sıralanmaz. Geçmiş sonuçlarınızdır — canlı talep ya da garanti kazanç değildir."],
-  saveLoc:["Save where trips start (for the Profit map)","Startlocatie van ritten opslaan","Yolculukların başladığı yeri kaydet (Kârlılık haritası için)"],
+  saveLoc:["Save where trips start and end (Profit map and mileage log)","Opslaan waar ritten beginnen en eindigen (kaart en rittenlog)","Yolculukların başladığı ve bittiği yeri kaydet (Kâr haritası ve mil kaydı)"],
   delLoc:["Delete my location history","Locatiegeschiedenis wissen","Konum geçmişimi sil"], delLocConfirm:["Remove the saved start location from every trip? Miles and money stay.","Locaties van alle ritten verwijderen?","Tüm yolculuklardaki kayıtlı başlangıç konumu silinsin mi? Mesafe ve para kayıtları kalır."],
   recordsN:["Records","Records","Kayıt"],
   noProfitYet:["no profit yet this year","nog geen winst dit jaar","bu yıl henüz kâr yok"],
@@ -448,7 +479,7 @@ const I18N = {
   m_econ:["Economic profit","Economische winst","Ekonomik kâr"], m_tax:["Tax reserve","Belastingreserve","Vergi rezervi"], m_after:["Estimated after-tax profit","Geschatte winst na belasting","Tahmini vergi sonrası kâr"],
   takeHomeToday:["Today's estimated take-home","Geschat over vandaag","Bugünkü tahmini net kazanç"], h_exp:["Expenses","Uitgaven","Giderler"], h_veh:["Vehicle costs","Autokosten","Araç maliyeti"],
   insMissingHome:["Your insurance isn't entered, so costs may look too low. Tap to add it.","Verzekering ontbreekt — tik om toe te voegen.","Sigortanız girilmedi, giderler düşük görünebilir. Eklemek için dokunun."],
-  myEarnings:["My earnings","Mijn inkomsten","Kazançlarım"], language:["Language","Taal","Dil"],
+  myEarnings:["My earnings","Mijn inkomsten","Kazançlarım"],
   g_denied_ios:["Location is blocked for Kept, so miles can't be counted. Fix on iPhone: Settings → Privacy & Security → Location Services → On. Then in Safari tap aA next to the address → Website Settings → Location → Allow. Then tap Try again.","Locatie geblokkeerd. iPhone: Instellingen → Privacy → Locatievoorzieningen → Aan; Safari aA → Website-instellingen → Locatie → Sta toe.","Kept için konum engelli, bu yüzden mil sayılamıyor. iPhone'da: Ayarlar → Gizlilik ve Güvenlik → Konum Servisleri → Açık. Sonra Safari'de adresin yanındaki aA → Web Sitesi Ayarları → Konum → İzin Ver. Sonra Tekrar dene'ye dokunun."],
   offlineMsg:["You're offline. Everything you enter is saved on this phone and will sync when you're back online.","Je bent offline. Alles wordt op deze telefoon bewaard en later gesynchroniseerd.","Çevrimdışısınız. Girdiğiniz her şey bu telefonda saklanır ve tekrar bağlanınca eşitlenir."],
   fk_gasoline:["Gasoline","Benzine","Benzin"], fk_diesel:["Diesel","Diesel","Dizel"], fk_hybrid:["Hybrid","Hybride","Hibrit"], fk_electric:["Electric","Elektrisch","Elektrikli"],
@@ -456,7 +487,7 @@ const I18N = {
   vd_review:["Review and correct the numbers","Getallen controleren en aanpassen","Rakamları gözden geçir ve düzelt"],
   vd_insWarn:["Insurance is missing, so the real cost above is too low.","Verzekering ontbreekt; kosten zijn te laag.","Sigorta eksik, bu yüzden yukarıdaki gerçek maliyet olduğundan düşük."],
   src_epa:["mpg verified (fueleconomy.gov)","verbruik geverifieerd","tüketim doğrulandı (fueleconomy.gov)"], src_userCons:["mpg you entered","jouw verbruik","girdiğiniz tüketim"], src_typical:["typical mpg for this type — fill-up receipts will make it yours","typisch verbruik","bu tip için tipik tüketim — yakıt fişleri bunu size göre ayarlar"],
-  src_live:["live regional price {d}","live prijs {d}","güncel bölgesel fiyat {d}"], src_receipt:["price from your receipt {d}","prijs van je bon {d}","fişinizdeki fiyat {d}"], src_userPrice:["price you entered","jouw prijs","girdiğiniz fiyat"], src_defPrice:["default price — add a gas receipt with gallons","standaardprijs","varsayılan fiyat — galon bilgili bir yakıt fişi ekleyin"],
+  src_live:["weekly average price, {a}, {d}","weekgemiddelde, {a}, {d}","haftalık ortalama fiyat, {a}, {d}"], src_stale:["more than 2 weeks old — add a receipt or check your connection","ouder dan 2 weken","2 haftadan eski — bir fiş ekleyin ya da bağlantınızı kontrol edin"], src_receipt:["price from your receipt {d}","prijs van je bon {d}","fişinizdeki fiyat {d}"], src_userPrice:["price you entered","jouw prijs","girdiğiniz fiyat"], src_defPrice:["default price — add a gas receipt with gallons","standaardprijs","varsayılan fiyat — galon bilgili bir yakıt fişi ekleyin"],
   vd_maintSrc:["Typical tires, brakes and service costs spread per mile. Your receipts reset the reminders; adjust amounts in Review.","Typische onderhoudskosten per km.","Tipik lastik, fren ve servis maliyetleri mile dağıtılır. Fişleriniz hatırlatıcıları sıfırlar; tutarları Gözden geçir'de değiştirin."],
   vd_depSrc:["Model estimate from year, make, body, fuel type and your mileage. Value now ≈ {v}.","Schatting op basis van bouwjaar en kilometers. Waarde nu ≈ {v}.","Yıl, marka, gövde, yakıt tipi ve kullanımınıza göre model tahmini. Şimdiki değer ≈ {v}."],
   vd_depUser:["From the purchase and resale numbers you entered.","Van jouw aankoop- en restwaarde.","Girdiğiniz alış ve satış rakamlarından."], vd_leased:["Leased — no value loss counted.","Lease — geen waardeverlies.","Kiralık — değer kaybı sayılmaz."],
@@ -492,13 +523,39 @@ const I18N = {
   vd_setDates:["Set dates","Datums instellen","Tarihleri ayarla"], rm_reg:["Registration renewal","Kentekenregistratie","Ruhsat yenileme"], rm_insp:["Inspection (APK / state)","Keuring (APK)","Muayene"], rm_insRenew:["Insurance renewal","Verlenging verzekering","Sigorta yenileme"],
   rm_batt12:["12-volt battery (about 4 years)","Accu 12 V (±4 jaar)","12 V akü (yaklaşık 4 yıl)"], rm_battInst:["12-volt battery installed on","Accu geplaatst op","12 V akü takılma tarihi"],
   rm_in:["in {n} days","over {n} dagen","{n} gün sonra"], rm_over:["{n} days overdue","{n} dagen te laat","{n} gün gecikti"],
+  rp2_title:["Keep or replace?","Houden of vervangen?","Tut mu, değiştir mi?"], rp2_sub:["Compare your vehicle with another one at your own monthly distance","Vergelijk met een ander voertuig","Aracınızı kendi aylık mesafenizle başka bir araçla karşılaştırın"],
+  rp2_intro:["Compares the monthly cost of your {v} with a vehicle you're considering. Insurance must be a real quote; nothing is assumed.","Vergelijkt de maandkosten van je {v} met een ander voertuig.","{v} aracınızın aylık maliyetini düşündüğünüz bir araçla karşılaştırır. Sigorta gerçek bir teklif olmalı; hiçbir şey varsayılmaz."],
+  rp2_type:["Vehicle you're considering","Voertuig dat je overweegt","Düşündüğünüz araç"], rp2_fuel:["Fuel","Brandstof","Yakıt"],
+  rp2_price:["Price","Prijs","Fiyat"], rp2_resale:["Value after {n} years","Waarde na {n} jaar","{n} yıl sonraki değeri"], rp2_years:["Compare over (years)","Vergelijken over (jaar)","Karşılaştırma süresi (yıl)"],
+  rp2_ins:["Insurance quote / month","Verzekering / maand (offerte)","Sigorta teklifi / ay"], rp2_quote:["from a real quote","echte offerte","gerçek tekliften"], rp2_curIns:["Insurance now for {v} / month","Huidige verzekering {v} / maand","{v} için şu anki sigorta / ay"],
+  rp2_dist:["Your distance per month ({u})","Afstand per maand ({u})","Aylık mesafeniz ({u})"], rp2_down:["Cash paid now","Nu betaald","Peşin ödenen"], rp2_cash:["all cash","alles contant","tamamı peşin"], rp2_apr:["Loan APR %","Rente %","Kredi faizi %"], rp2_loan:["Loan months","Looptijd (mnd)","Kredi vadesi (ay)"],
+  rp2_needPrice:["Enter a price to see the comparison.","Vul een prijs in.","Karşılaştırmayı görmek için bir fiyat girin."], rp2_insMissing:["Add both insurance amounts (a real quote for the new one). Kept doesn't guess insurance, because a guess could make the wrong choice look right.","Vul beide verzekeringen in.","Her iki sigorta tutarını da girin (yenisi için gerçek bir teklif). Kept sigortayı tahmin etmez, çünkü bir tahmin yanlış seçimi doğru gösterebilir."],
+  rp2_result:["Comparison","Vergelijking","Karşılaştırma"], rp2_saves:["Switching saves about {m} a month ({p} over {n} months)","Overstappen bespaart ±{m} per maand","Değiştirmek ayda yaklaşık {m} kazandırır ({n} ayda {p})"], rp2_costs:["Switching costs about {m} more a month ({p} over {n} months)","Overstappen kost ±{m} meer per maand","Değiştirmek ayda yaklaşık {m} daha pahalı ({n} ayda {p})"],
+  rp2_basis:["At {d} a month. Value loss uses the price and value you entered (or a typical drop).","Bij {d} per maand.","Ayda {d} ile. Değer kaybı girdiğiniz fiyat ve değerden (ya da tipik düşüşten) hesaplanır."],
+  rp2_perMonth:["Per month","Per maand","Aylık"], rp2_now:["Now","Nu","Şimdi"], rp2_new:["New","Nieuw","Yeni"], rp2_energy:["Fuel / charging","Brandstof / laden","Yakıt / şarj"], rp2_maint:["Maintenance and wear","Onderhoud en slijtage","Bakım ve aşınma"],
+  rp2_interest:["Loan interest","Rente","Kredi faizi"], rp2_other:["Other fixed costs","Overige vaste kosten","Diğer sabit giderler"], rp2_total:["Total","Totaal","Toplam"],
+  rp2_upfront:["Cash needed now: {a}","Nu nodig: {a}","Şimdi gereken nakit: {a}"], rp2_payment:["loan payment {a}/month","aflossing {a}/maand","kredi taksiti {a}/ay"],
+  rp2_bikeNote:["Costs only: a bike or scooter usually covers fewer miles per hour and can't take every order, so your earnings may change too. Use Compare to test different earnings.","Alleen kosten: met een fiets of scooter rijd je minder per uur, dus je inkomsten kunnen ook veranderen.","Yalnızca maliyetler: bisiklet veya scooter saatte daha az mesafe kat eder ve her siparişi alamaz, bu yüzden kazancınız da değişebilir. Farklı kazançları denemek için Karşılaştır'ı kullanın."],
+  rp2_taxCar:["Tax: with the IRS standard mileage rate your deduction per business mile stays the same with either car. Ask your tax preparer before choosing actual expenses.","Belasting: zelfde aftrek per zakelijke mijl.","Vergi: IRS standart mil oranıyla iş mili başına indiriminiz her iki araçta da aynı kalır. Gerçek giderleri seçmeden önce vergi uzmanınıza danışın."],
+  rp2_taxEbike:["Tax: e-bikes, scooters and bikes can't use the IRS standard mileage rate; only actual business costs count.","Belasting: geen standaardtarief voor e-bikes.","Vergi: e-bisiklet, scooter ve bisikletler IRS standart mil oranını kullanamaz; yalnızca gerçek iş giderleri sayılır."],
+  rc_title:["Safety recalls","Terugroepacties","Güvenlik geri çağırmaları"], rc_check:["Check now","Nu controleren","Şimdi kontrol et"],
+  rc_hint:["Check open safety recalls for a {v} in the free NHTSA database.","Controleer terugroepacties voor {v}.","{v} için açık güvenlik geri çağırmalarını ücretsiz NHTSA veritabanında kontrol edin."],
+  rc_none:["No recalls listed for this model (checked {d}).","Geen terugroepacties ({d}).","Bu model için geri çağırma yok ({d} tarihinde kontrol edildi)."], rc_found:["{n} recalls listed for this model","{n} terugroepacties","Bu model için {n} geri çağırma var"],
+  rc_vinNote:["Recalls are listed by model. Whether yours was already repaired depends on its VIN — check at nhtsa.gov/recalls or with a dealer.","Of jouw auto al gerepareerd is, hangt af van het VIN.","Geri çağırmalar modele göre listelenir. Sizinkinin onarılıp onarılmadığı VIN'e bağlıdır — nhtsa.gov/recalls adresinden ya da bayiden kontrol edin."],
+  rc_fail:["Couldn't reach the recall database. Try again later.","Database niet bereikbaar.","Geri çağırma veritabanına ulaşılamadı. Daha sonra tekrar deneyin."], rc_offline:["Recall check works when you're signed in to your Kept account.","Werkt met een account.","Geri çağırma kontrolü Kept hesabınıza giriş yaptığınızda çalışır."],
+  rc_link:["Check by VIN at nhtsa.gov ↗","Controleer op VIN ↗","nhtsa.gov'da VIN ile kontrol et ↗"],
+  od_missing:["Your odometer shows {g} more than Kept tracked (since {d}). Those miles are missing from your records.","De teller toont {g} meer dan Kept bijhield (sinds {d}).","Kilometre sayacınız Kept'in kaydettiğinden {g} fazla gösteriyor ({d} tarihinden beri). Bu mesafe kayıtlarınızda eksik."],
+  od_ask:["Were they work or personal? Kept adds them as one trip dated today; you can edit it in Trips.","Werk of privé? Kept voegt één rit toe.","İş mi kişisel mi? Kept bunları bugünün tarihiyle tek bir yolculuk olarak ekler; Yolculuklar'dan düzenleyebilirsiniz."],
+  od_work:["Work driving (online for {a})","Werk (online voor {a})","İş sürüşü ({a} için çevrimiçi)"], od_personal:["Personal driving","Privé","Kişisel sürüş"], od_skip:["Don't add them","Niet toevoegen","Ekleme"],
+  od_purpose:["Miles found by odometer check","Gevonden via kilometerstand","Kilometre sayacı kontrolüyle bulunan mesafe"],
   odoNow:["Odometer now","Kilometerstand nu","Şu anki kilometre"], odoHint:["Read it from your dashboard. Kept adds the miles it tracks from here on.","Lees af van je dashboard.","Gösterge panelinden okuyun. Kept bundan sonra takip ettiği milleri ekler."],
+  vo_yesterday:["yesterday","gisteren","dün"], vo_many:["Add these {n} entries for {d}?","Deze {n} regels voor {d} toevoegen?","Bu {n} kayıt {d} için eklensin mi?"],
   vo_title:["Speak to Kept","Spreek tegen Kept","Kept'e söyleyin"], vo_tap:["Tap and speak","Tik en spreek","Dokunun ve konuşun"], vo_listening:["Listening…","Luisteren…","Dinleniyor…"],
   vo_examples:["Try: “I spent 35 dollars on gas” · “Add a 12 dollar parking expense” · “I made 48 on DoorDash” · “How much did I earn this week?”","Bijv.: “35 euro getankt”","Örnek: “Bugün 35 dolar benzin aldım” · “12 dolarlık otopark gideri ekle” · “DoorDash'ten 48 kazandım” · “Bu hafta ne kadar kazandım?”"],
   vo_type:["Or type it","Of typ het","Ya da yazın"], vo_ph:["I spent 35 dollars on gas","35 euro getankt","Bugün 35 dolar benzin aldım"], vo_go:["Understand","Begrijpen","Anla"],
   vo_unknown:["Kept didn't understand that. Say an amount and what it was for, or ask how much you earned.","Niet begrepen.","Kept bunu anlayamadı. Bir tutar ve ne için olduğunu söyleyin ya da ne kadar kazandığınızı sorun."],
   vo_noMic:["Speech isn't available in this browser — type the sentence instead.","Spraak niet beschikbaar — typ het.","Bu tarayıcıda konuşma yok — cümleyi yazın."], vo_blocked:["Microphone is blocked for Kept. Allow it in the browser settings, or type instead.","Microfoon geblokkeerd.","Kept için mikrofon engelli. Tarayıcı ayarlarından izin verin ya da yazın."],
-  vo_exp:["Add expense: {c}, {a}, today?","Uitgave: {c}, {a}, vandaag?","Gider eklensin mi: {c}, {a}, bugün?"], vo_inc:["Add income: {c}, {a}, today?","Inkomsten: {c}, {a}?","Gelir eklensin mi: {c}, {a}, bugün?"],
+  vo_exp:["Add expense: {c}, {a}, {d}?","Uitgave: {c}, {a}, {d}?","Gider eklensin mi: {c}, {a}, {d}?"], vo_inc:["Add income: {c}, {a}, {d}?","Inkomsten: {c}, {a}, {d}?","Gelir eklensin mi: {c}, {a}, {d}?"],
   vo_check:["Check it, then tap Save. Nothing is saved until you do.","Controleer en tik op Opslaan.","Kontrol edin, sonra Kaydet'e dokunun. Siz dokunmadan hiçbir şey kaydedilmez."], vo_change:["Change","Wijzigen","Değiştir"], vo_read:["Read aloud","Voorlezen","Sesli oku"], vo_byVoice:["added by voice","via spraak","sesle eklendi"],
   vo_answer:["{p}: you earned {g} and kept about {k} after costs and tax, over {m} of work driving.","{p}: {g} verdiend, {k} over.","{p}: {g} kazandınız; giderler ve vergi sonrası yaklaşık {k} kaldı, {m} iş sürüşüyle."],
   os_btn:["Scan an offer screenshot","Scan een screenshot","Teklif ekran görüntüsünü tara"], os_found:["Read from the screenshot: {f}. Check each number against the offer before you rely on the result.","Gelezen: {f}. Controleer de getallen.","Ekran görüntüsünden okunan: {f}. Sonuca güvenmeden önce her rakamı teklifle karşılaştırın."],
@@ -509,6 +566,41 @@ const I18N = {
   rp_note:["For your tax preparer. Estimates are labelled; actual records come from what you entered. Not tax advice. In the PDF dialog choose “Save as PDF”.","Voor je boekhouder. Geen belastingadvies.","Vergi uzmanınız için. Tahminler etiketlidir; gerçek kayıtlar girdiklerinizden gelir. Vergi danışmanlığı değildir. Yazdırma ekranında “PDF olarak kaydet”i seçin."],
   vin:["VIN","Chassisnummer (VIN)","Şasi no (VIN)"], vinLookup:["Look up","Opzoeken","Sorgula"], vinCloud:["VIN lookup works when Kept is connected to its server.","Werkt alleen met server.","VIN sorgusu Kept sunucuya bağlıyken çalışır."],
   vinFail:["That VIN couldn't be decoded. Check the 17 characters, or fill in year and make instead.","VIN niet gevonden.","Bu VIN çözülemedi. 17 karakteri kontrol edin ya da yıl ve markayı girin."], vinOk:["Found: {v} (NHTSA vehicle database). Check it matches your car.","Gevonden: {v}.","Bulundu: {v} (NHTSA araç veritabanı). Aracınızla eşleştiğini kontrol edin."],
+  done:["Done","Klaar","Tamam"],
+  au_signIn:["Sign in","Inloggen","Giriş yap"], au_create:["Create account","Account maken","Hesap oluştur"], au_email:["Email","E-mail","E-posta"], au_password:["Password","Wachtwoord","Şifre"],
+  au_show:["Show","Toon","Göster"], au_hide:["Hide","Verberg","Gizle"], au_pwRule:["At least 8 characters.","Minstens 8 tekens.","En az 8 karakter."],
+  au_forgot:["Forgot your password?","Wachtwoord vergeten?","Şifrenizi mi unuttunuz?"], au_resetT:["Reset your password","Wachtwoord herstellen","Şifrenizi sıfırlayın"],
+  au_resetHint:["Enter the email you signed up with. We'll send a link to choose a new password.","Vul je e-mail in; je krijgt een link.","Kayıt olduğunuz e-postayı girin. Yeni şifre için bir bağlantı göndereceğiz."],
+  au_sendReset:["Send reset link","Link versturen","Bağlantı gönder"], au_resetSent:["If an account exists for that email, a reset link is on its way. Check your inbox and spam folder.","Als er een account is, is de link onderweg.","Bu e-postaya ait bir hesap varsa sıfırlama bağlantısı gönderildi. Gelen kutunuzu ve spam klasörünü kontrol edin."],
+  au_or:["or","of","veya"], au_google:["Continue with Google","Doorgaan met Google","Google ile devam et"],
+  au_private:["Your trips, income and expenses are private to your account.","Je gegevens zijn privé.","Yolculuklarınız, geliriniz ve giderleriniz yalnızca sizin hesabınızda görünür."], au_privacy:["Privacy policy","Privacybeleid","Gizlilik politikası"],
+  au_eEmail:["Enter a valid email address.","Vul een geldig e-mailadres in.","Geçerli bir e-posta adresi girin."], au_ePw:["Enter your password.","Vul je wachtwoord in.","Şifrenizi girin."],
+  au_eWrong:["Email or password is not right. Try again or reset your password.","E-mail of wachtwoord klopt niet.","E-posta veya şifre hatalı. Tekrar deneyin ya da şifrenizi sıfırlayın."],
+  au_eExists:["There is already an account with this email. Sign in instead.","Er is al een account met dit e-mailadres.","Bu e-postayla zaten bir hesap var. Giriş yapın."],
+  au_eWeak:["Choose a password with at least 8 characters.","Kies minstens 8 tekens.","En az 8 karakterli bir şifre seçin."],
+  au_eMany:["Too many attempts. For your safety sign-in is paused for a few minutes; you can also reset your password.","Te veel pogingen, probeer het later.","Çok fazla deneme. Güvenliğiniz için giriş birkaç dakika durduruldu; şifrenizi de sıfırlayabilirsiniz."],
+  au_eRecent:["For your safety, please enter your password again.","Voer je wachtwoord opnieuw in.","Güvenliğiniz için şifrenizi tekrar girin."], au_eOther:["Something went wrong. Please try again.","Er ging iets mis.","Bir sorun oluştu. Lütfen tekrar deneyin."],
+  au_noConn:["Can't reach Kept. Check your internet connection and try again.","Geen verbinding.","Kept'e ulaşılamıyor. İnternet bağlantınızı kontrol edip tekrar deneyin."],
+  au_denied:["This account can't save that record. Sign out and in again.","Opslaan geweigerd.","Bu hesap bu kaydı kaydedemiyor. Çıkış yapıp tekrar girin."],
+  au_loading:["Opening your account…","Account openen…","Hesabınız açılıyor…"],
+  au_account:["Your account","Je account","Hesabınız"], au_verified:["Email confirmed","E-mail bevestigd","E-posta doğrulandı"], au_notVerified:["Email not confirmed yet — needed to reset your password.","E-mail nog niet bevestigd.","E-posta henüz doğrulanmadı — şifre sıfırlamak için gerekli."],
+  au_verifyBtn:["Send confirmation email","Bevestigingsmail sturen","Doğrulama e-postası gönder"], au_verifySent:["Confirmation email sent","Bevestigingsmail verstuurd","Doğrulama e-postası gönderildi"],
+  au_changePw:["Change password","Wachtwoord wijzigen","Şifre değiştir"], au_signOut:["Sign out","Uitloggen","Çıkış yap"], au_signOutQ:["Sign out of Kept on this device? Your data stays safe in your account.","Uitloggen op dit toestel?","Bu cihazda çıkış yapılsın mı? Verileriniz hesabınızda güvende kalır."],
+  au_delete:["Delete my account","Account verwijderen","Hesabımı sil"],
+  au_deleteHint:["This permanently deletes your account, trips, income, expenses, vehicles and receipt photos. It can't be undone. Download a backup first if you want to keep a copy.","Dit verwijdert alles definitief.","Bu işlem hesabınızı, yolculuklarınızı, gelir ve giderlerinizi, araçlarınızı ve fiş fotoğraflarınızı kalıcı olarak siler. Geri alınamaz. Kopya istiyorsanız önce yedek indirin."],
+  au_typeDel:["Type {w} to confirm","Typ {w} ter bevestiging","Onaylamak için {w} yazın"], au_deleteGo:["Delete account and all data","Account en gegevens verwijderen","Hesabı ve tüm verileri sil"],
+  au_photosLocal:["Receipt photos are kept on this phone only.","Bonfoto's alleen op deze telefoon.","Fiş fotoğrafları yalnızca bu telefonda saklanır."],
+  im_pinBtn:["Bring over data from the PIN version","Gegevens uit de PIN-versie overzetten","PIN sürümündeki verileri aktar"], im_pinT:["Bring over your data","Gegevens overzetten","Verilerinizi aktarın"],
+  im_pinHint:["Enter the PIN you used before. Kept copies your trips, income, expenses, vehicles and settings into this account. Nothing is deleted from the old Sheet.","Vul je oude PIN in.","Daha önce kullandığınız PIN'i girin. Kept yolculuklarınızı, gelir ve giderlerinizi, araçlarınızı ve ayarlarınızı bu hesaba kopyalar. Eski tablodan hiçbir şey silinmez."],
+  im_devBtn:["Move {n} records saved on this phone into your account","{n} records van deze telefoon overzetten","Bu telefondaki {n} kaydı hesabınıza taşı"], im_devT:["Move data from this phone","Gegevens van deze telefoon","Bu telefondaki veriler"],
+  im_devHint:["This phone has {n} records from before you had an account. Move them into your account so they're backed up and on your other devices.","{n} records gevonden.","Bu telefonda hesap açmadan önceki {n} kayıt var. Yedeklenmeleri ve diğer cihazlarınızda görünmeleri için hesabınıza taşıyın."],
+  im_go:["Copy into my account","Naar mijn account","Hesabıma kopyala"], im_done:["Done — {n} records are now in your account.","Klaar — {n} records overgezet.","Tamam — {n} kayıt artık hesabınızda."], im_none:["No data found","Geen gegevens","Veri bulunamadı"],
+  mc_title:["Kept isn't set up correctly","Kept is niet goed ingesteld","Kept doğru kurulmamış"],
+  mc_staging:["This is the live Kept site, but the test (staging) settings file is installed, so nothing would be saved to your account. Nothing has been changed. The site owner needs to restore the live config.js.","Testinstellingen op de live site.","Bu canlı Kept sitesi ama test (staging) ayar dosyası yüklü; bu yüzden hiçbir şey hesabınıza kaydedilmezdi. Hiçbir şey değiştirilmedi. Site sahibinin canlı config.js dosyasını geri yüklemesi gerekiyor."],
+  mc_local:["This is the live Kept site, but it isn't connected to the account server, so nothing would be saved. Nothing has been changed. The site owner needs to restore the live config.js.","Niet verbonden met de server.","Bu canlı Kept sitesi ama hesap sunucusuna bağlı değil; bu yüzden hiçbir şey kaydedilmezdi. Hiçbir şey değiştirilmedi. Site sahibinin canlı config.js dosyasını geri yüklemesi gerekiyor."],
+  lm_banner:["Saved on this phone only — not connected to an account","Alleen op deze telefoon opgeslagen","Yalnızca bu telefonda kaydediliyor — bir hesaba bağlı değil"],
+  fixDouble:["Fixed: removed {n} duplicate work sessions that were counted twice","{n} dubbele sessies verwijderd","Düzeltildi: iki kez sayılan {n} çalışma oturumu kaldırıldı"],
+  w_label:["Today's take-home","Vandaag over","Bugünkü net kazanç"], w_open:["Open Kept","Open Kept","Kept'i aç"],
   homeTab:["Home","Start","Ana sayfa"],
   money:["My money","Mijn geld","Param"], startWorking:["START WORKING","BEGIN MET WERKEN","ÇALIŞMAYA BAŞLA"], stopWorking:["Stop working","Stop met werken","Çalışmayı bitir"],
   working:["Working","Aan het werk","Çalışıyor"], whichApp:["Which app are you working for?","Voor welke app werk je?","Hangi uygulama için çalışıyorsunuz?"], switchApp:["Switch app","Andere app","Uygulama değiştir"],
@@ -546,7 +638,7 @@ const I18N = {
   x_gasHow:["{c} per 100 {u2} × {p}","{c} per 100 {u2} × {p}","100 {u2} başına {c} × {p}"],
   // ── v4 dashboard / trips / onboarding ──
   addOtherCar:["Add a different car","Ander voertuig toevoegen","Başka araç ekle"], useMyCar:["Use a car I already added","Bestaand voertuig gebruiken","Eklediğim aracı kullan"],
-  log:["Trips","Ritten","Yolculuklar"], optional:["optional","optioneel","isteğe bağlı"], personal:["Personal","Privé","Kişisel"], onlineFor:["Online","Online","Çevrimiçi"], onRide:["On a ride","Onderweg met rit","Siparişte"],
+  log:["Trips","Ritten","Yolculuklar"], purpose:["Business purpose","Zakelijk doel","İş amacı"], optional:["optional","optioneel","isteğe bağlı"], personal:["Personal","Privé","Kişisel"], onlineFor:["Online","Online","Çevrimiçi"], onRide:["On a ride","Onderweg met rit","Siparişte"],
   k_order:["Order","Rit","Sipariş"], k_online:["Between orders","Tussen ritten","Siparişler arası"], k_personal:["Personal","Privé","Kişisel"], k_earning:["Earnings","Inkomsten","Kazanç"],
   trackingOn:["Tracking every mile","Elke kilometer wordt bijgehouden","Her mil kaydediliyor"], trackingPaused:["Tracking paused","Bijhouden gepauzeerd","Takip duraklatıldı"],
   resume:["Resume","Hervatten","Devam et"], pause:["Pause","Pauzeren","Duraklat"], startRide:["Start ride","Rit starten","Siparişi başlat"], completeRide:["Complete ride","Rit afronden","Siparişi tamamla"],
@@ -584,7 +676,14 @@ const I18N = {
 //  Helpers
 // ════════════════════════════════════════════════════════════════
 const { useState, useEffect, useRef, useMemo } = React;
-const e = React.createElement;
+// every clickable div/span also works from a keyboard and is announced as a button (backdrops and dialogs excepted)
+const e = (type, props, ...kids) => {
+  if ((type === "div" || type === "span") && props && props.onClick && !props.role && !props["aria-hidden"] && !(props.style && props.style.position === "fixed")) {
+    const click = props.onClick;
+    props = Object.assign({ role: "button", tabIndex: 0 }, props, { onKeyDown: ev => { if (props.onKeyDown) props.onKeyDown(ev); if (!ev.defaultPrevented && (ev.key === "Enter" || ev.key === " ") && ev.target === ev.currentTarget) { ev.preventDefault(); click(ev); } } });
+  }
+  return React.createElement(type, props, ...kids);
+};
 const KM_PER_MI = 1.609344, L_PER_GAL = 3.785411784;
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (x) { return d; } },
@@ -636,6 +735,31 @@ function presetVehicle(type, country) {
     insurance: "", rent: 0, otherFixed: 0, insSrc: "missing",
     parts: p.parts.map(x => ({ id: genId(), name: x[0], cost: x[1], interval: x[2], lastAt: 0 })),
   };
+}
+
+// ── keep or replace: monthly cost of the current vehicle vs a candidate, at the driver's own monthly distance ──
+// cur: the current vehicle record; curIns: its real monthly insurance (null/"" = unknown → result blocked, never guessed)
+// cand: { type, price, resale, months, cons (per 100 km, internal units), priceUnit (fuel or kWh price), insurance, down, apr, loanMonths }
+const loanPayment = (P, aprPct, n) => { const r = aprPct / 1200; return n > 0 ? (r > 0 ? P * r / (1 - Math.pow(1 + r, -n)) : P / n) : 0; };
+function replaceCompare(cur, curIns, cand, kmMonth) {
+  const missing = [];
+  if (curIns == null || curIns === "") missing.push("current");
+  if (cand.insurance === "" || cand.insurance == null) missing.push("candidate");
+  const cc = vehicleCost(cur);
+  const curM = { energy: cc.energy * kmMonth, dep: cc.dep * kmMonth, maint: (cc.parts + cc.battery) * kmMonth,
+    ins: num(curIns), other: num(cur.rent) + num(cur.otherFixed), interest: 0 };
+  const p = CONFIG.vehicleTypes[cand.type] || CONFIG.vehicleTypes.car, months = Math.max(1, num(cand.months) || 24);
+  const partsKm = sum(p.parts, x => x[2] > 0 ? x[1] / x[2] : 0) + (p.battKm > 0 ? p.battPrice / p.battKm : 0);
+  const loanP = Math.max(0, num(cand.price) - num(cand.down)), n = Math.max(0, num(cand.loanMonths));
+  const pay = loanPayment(loanP, num(cand.apr), n);
+  let bal = loanP, interest = 0;                                  // interest paid during the comparison period
+  for (let i = 0; i < Math.min(n, months); i++) { const it = bal * num(cand.apr) / 1200; interest += it; bal -= pay - it; }
+  const candM = { energy: num(cand.cons) * num(cand.priceUnit) / 100 * kmMonth, dep: Math.max(0, num(cand.price) - num(cand.resale)) / months,
+    maint: partsKm * kmMonth, ins: num(cand.insurance), other: 0, interest: interest / months };
+  const tot = m => m.energy + m.dep + m.maint + m.ins + m.other + m.interest;
+  const curT = tot(curM), candT = tot(candM);
+  return { missing, cur: Object.assign(curM, { total: curT }), cand: Object.assign(candM, { total: candT }), diffMonth: candT - curT,
+    diffPeriod: (candT - curT) * months, months, upfront: num(cand.down), payment: pay, kmMonth };
 }
 
 // typical consumption for a body type + fuel (used until the user or the MPG lookup sets a real figure); internal units per 100 km
@@ -719,6 +843,14 @@ const PERSONAL = "personal";
 const tripMins = t => Math.max(0, (new Date(t.end) - new Date(t.start)) / 60000);
 // income on a trip/earnings record: base pay + tips + bonus/incentive + cancellation pay + adjustment (can be negative)
 const tripEarn = t => num(t.pay) + num(t.tips) + num(t.bonus) + num(t.cancel) + num(t.adjust);
+// what the IRS calls the business purpose of a drive; the driver can type their own
+function tripPurpose(t) {
+  if (t.purpose) return t.purpose;
+  if (t.app === PERSONAL || t.kind === "personal") return "Personal";
+  if (t.kind === "online") return "Driving between orders, online for " + t.app;
+  return (/^(uber|lyft)$|rideshare/i.test(t.app) ? "Passenger ride for " : "Delivery for ") + t.app;
+}
+const placeText = l => l && isFinite(l.lat) && isFinite(l.lon) ? (+l.lat).toFixed(5) + ", " + (+l.lon).toFixed(5) : "";
 function tripsToShifts(trips) {
   const byKey = {};
   (trips || []).filter(t => t.app && t.app !== PERSONAL).forEach(t => { const k = t.date + "|" + (t.vehicleId || ""); (byKey[k] = byKey[k] || []).push(t); });
@@ -993,6 +1125,18 @@ function parseVoice(text, apps) {
   return { kind: "expense", amount, category: c ? c[1] : "other", note: c && c[2] ? c[2] : "" };
 }
 
+// v2: several items in one sentence ("gas 35 and parking 12") and "yesterday"; income without an app takes the previous item's app
+function parseVoiceAll(text, apps) {
+  const raw = String(text || ""), t = raw.toLowerCase();
+  const q = parseVoice(raw, apps);
+  if (q.kind === "question") return q;
+  const dayOff = /\byesterday\b|\bdün\b|\bdun\b|gisteren/.test(t) ? -1 : 0;
+  const parts = raw.split(/\s*(?:\band\b|\bve\b|\ben\b|\bplus\b|;|,\s+)\s*/i).filter(p => /\d/.test(p));
+  const items = (parts.length > 1 ? parts : [raw]).map(p => parseVoice(p, apps)).filter(r => r.kind === "income" || r.kind === "expense");
+  items.forEach((r, i) => { if (r.kind === "income" && !r.app && i > 0 && items[i - 1].app) r.app = items[i - 1].app; });
+  return items.length ? { kind: "entries", items, dayOff } : { kind: "unknown" };
+}
+
 // ── VIN decode (NHTSA vPIC, free US government service, called by the backend) → vehicle fields ──
 function mapVin(r) {
   if (!r) return null;
@@ -1132,15 +1276,23 @@ function burnoutScore(data) {
   const score = Math.round(parts.h7 + parts.streak + parts.today + parts.night);
   return { score, h7, hToday, streak, night, parts, level: score >= 65 ? "high" : score >= 35 ? "watch" : "fresh" };
 }
+const LIVING_ITEMS = ["rent", "food", "utilities", "phone", "transport", "debt", "other"];
+// monthly living costs: the itemised list when the driver filled it in, otherwise the single total (unchanged formula)
+function livingTotal(st) {
+  const it = st.livingItems || {}, items = LIVING_ITEMS.reduce((a, k) => a + Math.max(0, num(it[k])), 0);
+  return items > 0 ? items : num(st.livingCosts);
+}
 function plannerTargets(data) {
-  const st = data.settings, living = num(st.livingCosts), wd = clamp(num(st.workDays) || 5, 1, 7);
+  const st = data.settings, living = livingTotal(st), wd = clamp(num(st.workDays) || 5, 1, 7);
   if (!(living > 0)) return null;
-  const rate = setAsideRate(data);
-  const monthNet = living / Math.max(0.2, 1 - rate);            // economic net needed before tax
+  const rate = setAsideRate(data), buffer = clamp(num(st.goalBufferPct), 0, 50) / 100, savings = Math.max(0, num(st.savingsTarget));
+  const need = living * (1 + buffer) + savings;                   // after-tax money needed each month
+  const monthNet = need / Math.max(0.2, 1 - rate);               // economic net needed before tax
   const dailyNet = monthNet / (wd * 4.345);
   const P30 = computePeriod(data, addDays(dISO(new Date()), -29), dISO(new Date()));
   const ratio = P30.net > 0 && P30.gross > P30.net ? P30.gross / P30.net : 1.35;
-  return { monthNet, dailyNet, dailyGross: dailyNet * ratio, weekNet: dailyNet * wd, rate, ratio, living, wd };
+  const hd = num(st.hoursDay) > 0 ? clamp(num(st.hoursDay), 1, 16) : 0;
+  return { monthNet, dailyNet, dailyGross: dailyNet * ratio, weekNet: dailyNet * wd, rate, ratio, living, wd, buffer, savings, need, hd, hourlyNet: hd ? dailyNet / hd : 0 };
 }
 
 function downloadFile(name, content, type) {
@@ -1148,7 +1300,9 @@ function downloadFile(name, content, type) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
-const csvCell = v => { const s = String(v == null ? "" : v); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+// text that starts with = + - @ would run as a formula in Excel / Google Sheets: prefix it with ' (numbers stay numbers)
+const csvSafe = v => (typeof v === "string" && /^[=+\-@\t\r]/.test(v) && !/^-?\d+(\.\d+)?$/.test(v)) ? "'" + v : v;
+const csvCell = v => { const s = String(v == null ? "" : csvSafe(v)); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 const toCSV = rows => rows.map(r => r.map(csvCell).join(",")).join("\n");
 
 // ── photos: IndexedDB cache + compression + proof stamp ──
@@ -1345,8 +1499,50 @@ const LogoMark = ({ s = 32 }) =>
 // ════════════════════════════════════════════════════════════════
 //  API
 // ════════════════════════════════════════════════════════════════
-async function apiCall(pin, action, extra) {
-  const res = await fetch(CONFIG.apiUrl, { method: "POST", body: JSON.stringify(Object.assign({ pin, action }, extra || {})) });
+// where the driver's records live: "cloud" = their Kept account (Firebase), "sheet" = PIN version, "local" = this browser only
+const MODE = CONFIG.firebase ? "cloud" : CONFIG.apiUrl ? "sheet" : "local";
+const IS_NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+// the live site must never run on staging or local-only settings (Nov 11, 2026: a staging config.js silently stopped saving)
+const LIVE_MISCONFIG = CONFIG.liveHosts.indexOf(location.hostname) >= 0 && (CONFIG.staging || MODE === "local") ? (CONFIG.staging ? "staging" : "local") : "";
+const FB = { p: null, auth: null, db: null, storage: null };
+function initFirebase() {
+  if (FB.p) return FB.p;
+  return FB.p = (async () => {
+    const b = CONFIG.firebaseSdk, cfg = CONFIG.firebase;
+    await loadScript(b + "firebase-app-compat.js");
+    await Promise.all([loadScript(b + "firebase-auth-compat.js"), loadScript(b + "firebase-firestore-compat.js"), cfg.storageBucket ? loadScript(b + "firebase-storage-compat.js") : null]);
+    const app = window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(cfg);
+    FB.auth = app.auth(); FB.db = app.firestore();
+    const em = CONFIG.firebaseEmulator;
+    if (em && em.auth) FB.auth.useEmulator(em.auth);
+    if (em && em.firestore) FB.db.useEmulator(em.firestore.host, em.firestore.port);
+    // offline copy on the phone: writes made without signal are sent automatically later
+    try { await FB.db.enablePersistence({ synchronizeTabs: true }); } catch (x) {}
+    if (cfg.storageBucket && window.firebase.storage) FB.storage = app.storage();
+    return FB;
+  })().catch(err => { FB.p = null; throw err; });
+}
+// Firestore rejects undefined values; records are plain JSON
+const cleanRec = r => JSON.parse(JSON.stringify(r));
+const userDoc = uid => FB.db.collection("users").doc(uid);
+const COLLS = ["vehicles", "expenses", "trips", "shifts"];
+// fuel prices, VIN, MPG and AI brief: the server checks who is asking (account token, or the PIN in the PIN version)
+let SVC_PIN = "";
+async function svc(action, extra) {
+  if (!CONFIG.servicesUrl) throw new Error("Not connected to the Kept server");
+  if (MODE !== "cloud") return apiCall(SVC_PIN, action, extra);
+  const u = FB.auth && FB.auth.currentUser; if (!u) throw new Error("Please sign in again");
+  const res = await fetch(CONFIG.servicesUrl, { method: "POST", body: JSON.stringify(Object.assign({ idToken: await u.getIdToken(), action }, extra || {})) });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+const HAS_SVC = !!CONFIG.servicesUrl;
+// photos: this phone first (IndexedDB), then the account's private storage or the PIN version's Drive folder
+let PHOTO_FETCH = null;
+let PENDING_SHARE = null;       // an offer screenshot shared to the Android app, waiting for the offer screen
+async function apiCall(pin, action, extra, url) {
+  const res = await fetch(url || CONFIG.apiUrl, { method: "POST", body: JSON.stringify(Object.assign({ pin, action }, extra || {})) });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
@@ -1361,9 +1557,9 @@ function PhotoThumb({ id, pin, size, onOpen, onRemove }) {
     (async () => {
       try {
         let blob = await IDB.get(id);
-        if (!blob && CONFIG.apiUrl && pin) {
-          const r = await apiCall(pin, "getPhoto", { id });
-          if (r && r.data) { blob = b64ToBlob(r.data, r.mime); IDB.put(id, blob).catch(() => {}); }
+        if (!blob && PHOTO_FETCH) {
+          blob = await PHOTO_FETCH(id).catch(() => null);
+          if (blob) IDB.put(id, blob).catch(() => {});
         }
         if (!alive) return;
         if (blob) { made = URL.createObjectURL(blob); setUrl(made); setState("ok"); } else setState("missing");
@@ -1385,9 +1581,12 @@ const EMPTY_DATA = { settings: Object.assign({}, CONFIG.defaults), vehicles: [],
 // ════════════════════════════════════════════════════════════════
 function App() {
   // ── state (all hooks first) ──
-  const localMode = !CONFIG.apiUrl;
+  const localMode = MODE === "local", cloud = MODE === "cloud";
   const [pin, setPin] = useState(LS.get("kept_pin", ""));
+  SVC_PIN = pin;
   const [authed, setAuthed] = useState(localMode);
+  const [user, setUser] = useState(undefined);            // cloud: undefined = still checking, null = signed out
+  const [cloudReady, setCloudReady] = useState(false);    // cloud: the account's settings have arrived
   const [loginErr, setLoginErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [raw, setData] = useState(() => {
@@ -1455,12 +1654,19 @@ function App() {
     const q = LS.get("kept_photoQ", []);
     for (const id of q) {
       const blob = await IDB.get(id).catch(() => null);
-      if (blob) await apiCall(pinRef.current, "savePhoto", { id, data: await blobToB64(blob), mime: blob.type || "image/jpeg" });
+      if (blob && cloud) { const u = FB.auth && FB.auth.currentUser; if (!u || !FB.storage) return; await FB.storage.ref("users/" + u.uid + "/photos/" + id + ".jpg").put(blob, { contentType: blob.type || "image/jpeg" }); }
+      else if (blob) await apiCall(pinRef.current, "savePhoto", { id, data: await blobToB64(blob), mime: blob.type || "image/jpeg" });
       LS.set("kept_photoQ", LS.get("kept_photoQ", []).filter(x => x !== id));
     }
   };
   const flush = async () => {
-    if (localMode || flushingRef.current || !pinRef.current) return;
+    if (localMode || flushingRef.current || (!cloud && !pinRef.current)) return;
+    if (cloud) {                     // records sync through Firestore by themselves; only photos are queued here
+      if (!LS.get("kept_photoQ", []).length) return;
+      flushingRef.current = true;
+      try { await flushPhotos(); } catch (x) {} finally { flushingRef.current = false; }
+      return;
+    }
     flushingRef.current = true; setSyncState("syncing");
     try {
       const q = LS.get("kept_queue", []);
@@ -1474,7 +1680,80 @@ function App() {
       setSyncState("offline");
     } finally { flushingRef.current = false; }
   };
-  const enqueue = op => { if (localMode) return; const q = LS.get("kept_queue", []); q.push(op); LS.set("kept_queue", q); setTimeout(flush, 50); };
+  const enqueue = op => { if (localMode) return; if (cloud) return cloudWrite(op); const q = LS.get("kept_queue", []); q.push(op); LS.set("kept_queue", q); setTimeout(flush, 50); };
+  // ── accounts (Firebase): each driver's records live under users/{uid}; Firestore keeps an offline copy and sends changes when online ──
+  const cloudErr = err => { setSyncState("offline"); if (err && /permission/i.test(err.code || err.message || "")) showToast("⚠ " + T("au_denied")); };
+  const cloudWrite = op => {
+    const u = FB.auth && FB.auth.currentUser; if (!u) return;
+    const ud = userDoc(u.uid);
+    if (op.op === "upsert") ud.collection(op.collection).doc(String(op.record.id)).set(cleanRec(op.record)).catch(cloudErr);
+    else if (op.op === "remove") ud.collection(op.collection).doc(String(op.id)).delete().catch(cloudErr);
+    else if (op.op === "settings") ud.set({ settings: cleanRec(op.settings) }, { merge: true }).catch(cloudErr);   // only the changed fields: two phones never undo each other
+    else if (op.op === "replaceAll") cloudReplace(op.data, true).catch(cloudErr);
+  };
+  // write many records in batches (Firestore allows 500 writes per batch); wipe = delete what is not in the new data
+  const cloudReplace = async (nd, wipe) => {
+    const u = FB.auth.currentUser; if (!u) throw new Error("Not signed in");
+    const ud = userDoc(u.uid), ops = [];
+    for (const c of COLLS) {
+      if (wipe) (await ud.collection(c).get()).docs.forEach(x => ops.push(b => b.delete(x.ref)));
+      (nd[c] || []).filter(r => r && r.id && !r.derived).forEach(r => ops.push(b => b.set(ud.collection(c).doc(String(r.id)), cleanRec(r))));
+    }
+    if (nd.settings) ops.push(b => b.set(ud, { settings: cleanRec(nd.settings) }, { merge: !wipe }));
+    for (let i = 0; i < ops.length; i += 400) { const b = FB.db.batch(); ops.slice(i, i + 400).forEach(f => f(b)); await b.commit(); }
+    return ops.length;
+  };
+  const cloudPhotoDelete = ids => { const u = FB.auth && FB.auth.currentUser; if (!u || !FB.storage) return; ids.forEach(p => FB.storage.ref("users/" + u.uid + "/photos/" + p + ".jpg").delete().catch(() => {})); };
+  const subsRef = useRef([]);
+  const stopCloud = () => { subsRef.current.forEach(f => { try { f(); } catch (x) {} }); subsRef.current = []; };
+  const startCloud = u => {
+    stopCloud();
+    if (!u) { setUser(null); setAuthed(false); setCloudReady(false); return; }
+    const prev = LS.get("kept_uid", null);
+    if (prev !== u.uid) {
+      // a different driver on this phone: nothing of the previous one stays visible
+      const old = LS.get("kept_data", null);
+      if (!prev && old && COLLS.some(c => (old[c] || []).length)) LS.set("kept_device_data", old);    // older PIN / phone-only data: offer to move it in
+      ["kept_data", "kept_brief", "kept_queue", "kept_photoQ", "kept_track", "kept_work"].forEach(k => LS.del(k));
+      const keep = dataRef.current.settings;
+      setData(Object.assign({}, EMPTY_DATA, { settings: Object.assign({}, CONFIG.defaults, { lang: keep.lang, country: keep.country, currency: keep.currency, unit: keep.unit }) }));
+      LS.set("kept_uid", u.uid);
+    }
+    setUser(u); setAuthed(true); setCloudReady(false); setSyncState("syncing");
+    const ud = userDoc(u.uid);
+    subsRef.current.push(ud.onSnapshot({ includeMetadataChanges: true }, snap => {
+      if (!snap.exists) {
+        if (snap.metadata.fromCache) return;                 // wait for the server before deciding this is a new account
+        const k = dataRef.current.settings;
+        ud.set({ email: u.email || "", createdAt: new Date().toISOString(), settings: cleanRec(Object.assign({}, CONFIG.defaults, { lang: k.lang, country: k.country, currency: k.currency, unit: k.unit })) }, { merge: true }).catch(cloudErr);
+        return;
+      }
+      const s = (snap.data() || {}).settings || {};
+      setData(d => Object.assign({}, d, { settings: Object.assign({}, CONFIG.defaults, s) }));
+      setCloudReady(true);
+      setSyncState(snap.metadata.hasPendingWrites ? "syncing" : snap.metadata.fromCache ? "offline" : "synced");
+    }, err => { setSyncState("offline"); setCloudReady(true); }));
+    COLLS.forEach(c => subsRef.current.push(ud.collection(c).onSnapshot(snap => {
+      setData(d => Object.assign({}, d, { [c]: snap.docs.map(x => x.data()) }));
+    }, cloudErr)));
+  };
+  useEffect(() => {
+    if (!cloud) return;
+    let off = null;
+    initFirebase().then(() => {
+      PHOTO_FETCH = id => { const u = FB.auth.currentUser; return u && FB.storage ? FB.storage.ref("users/" + u.uid + "/photos/" + id + ".jpg").getDownloadURL() : Promise.resolve(null); };
+      off = FB.auth.onAuthStateChanged(u => startCloud(u));
+    }).catch(() => { setUser(null); setLoginErr(T("au_noConn")); });
+    return () => { stopCloud(); if (off) off(); };
+  }, []);
+  const signOut = async () => {
+    stopCloud(); stopWatch(); trackRef.current = null;
+    ["kept_data", "kept_brief", "kept_queue", "kept_photoQ", "kept_track", "kept_work", "kept_fuel", "kept_device_data"].forEach(k => LS.del(k));
+    await IDB.clear().catch(() => {});
+    try { await FB.auth.signOut(); await FB.db.terminate(); await FB.db.clearPersistence(); } catch (x) {}
+    location.reload();
+  };
+  if (MODE === "sheet") PHOTO_FETCH = id => pin ? apiCall(pin, "getPhoto", { id }).then(r => r && r.data ? b64ToBlob(r.data, r.mime) : null) : Promise.resolve(null);
   useEffect(() => {
     if (localMode || !authed) return;
     const on = () => flush();
@@ -1488,26 +1767,36 @@ function App() {
     enqueue({ op: "upsert", collection: coll, record: rec });
   };
   // deletes can be undone for a few seconds (photos are only removed once the undo window has passed)
+  // repair: sessions built from trips must never be stored (old backups restored them as real records and doubled income)
+  const derivedN = (raw.shifts || []).filter(x => x.derived).length;
+  useEffect(() => {
+    if (!authed || !derivedN) return;
+    const bad = (raw.shifts || []).filter(x => x.derived);
+    setData(d => Object.assign({}, d, { shifts: (d.shifts || []).filter(x => !x.derived) }));
+    bad.forEach(x => enqueue({ op: "remove", collection: "shifts", id: x.id }));
+    showToast(fill(T("fixDouble"), { n: bad.length }));
+  }, [authed, derivedN]);
   const remove = (coll, id) => {
     const rec = (raw[coll] || []).find(x => x.id === id) || dataRef.current[coll].find(x => x.id === id);
     const photos = (rec && rec.photos) || [];
     setData(d => Object.assign({}, d, { [coll]: d[coll].filter(x => x.id !== id) }));
     enqueue({ op: "remove", collection: coll, id });
     if (!rec) return;
-    const tm = setTimeout(() => photos.forEach(p => IDB.del(p).catch(() => {})), 8000);
+    const tm = setTimeout(() => { photos.forEach(p => IDB.del(p).catch(() => {})); if (cloud) cloudPhotoDelete(photos); }, 8000);
     setTimeout(() => showToast(T("deleted"), { label: T("undo"), fn: () => { clearTimeout(tm); upsert(coll, rec); showToast(T("restored")); } }), 0);
   };
   const saveSettings = patch => {
-    const ns = Object.assign({}, dataRef.current.settings, patch);
-    setData(d => Object.assign({}, d, { settings: ns }));
-    enqueue({ op: "settings", settings: ns });
+    const cur = dataRef.current.settings, ns = Object.assign({}, cur, patch), changed = {};
+    Object.keys(patch).forEach(k => { if (JSON.stringify(patch[k]) !== JSON.stringify(cur[k])) changed[k] = patch[k]; });
+    setData(d => Object.assign({}, d, { settings: Object.assign({}, d.settings, patch) }));
+    if (Object.keys(changed).length) enqueue({ op: "settings", settings: cloud ? changed : ns });
   };
   // store a photo locally now, upload to Drive in the background
   const storePhoto = async (file, stamp) => {
     const blob = await compressImage(file, stamp);
     const id = "ph_" + genId();
     await IDB.put(id, blob);
-    if (!localMode) { const q = LS.get("kept_photoQ", []); q.push(id); LS.set("kept_photoQ", q); setTimeout(flush, 100); }
+    if (MODE === "sheet" || (cloud && FB.storage)) { const q = LS.get("kept_photoQ", []); q.push(id); LS.set("kept_photoQ", q); setTimeout(flush, 100); }
     return { id, blob };
   };
 
@@ -1526,11 +1815,11 @@ function App() {
       else setLoginErr(err.message);
     } finally { setLoading(false); }
   };
-  useEffect(() => { if (!localMode && pin && !authed) doLogin(pin); }, []);
+  useEffect(() => { if (MODE === "sheet" && pin && !authed) doLogin(pin); }, []);
 
   // ── live fuel prices (cloud only, every 3 days) ──
   const fetchFuel = async () => {
-    const r = await apiCall(pinRef.current, "fuelPrice", { country: dataRef.current.settings.country, state: dataRef.current.settings.state });
+    const r = await svc("fuelPrice", { country: dataRef.current.settings.country, state: dataRef.current.settings.state });
     LS.set("kept_fuel", Object.assign({ fetched: Date.now() }, r));
     return r;
   };
@@ -1542,12 +1831,12 @@ function App() {
       if (!(per > 0)) return;
       const perL = r.unit === "gal" ? per / L_PER_GAL : per;
       if (v.priceSrc === "user" || v.priceSrc === "receipt") return;     // never overwrite the user's own price
-      if (Math.abs(perL - num(v.price)) > 0.001 || v.priceSrc !== "live") { upsert("vehicles", Object.assign({}, v, { price: +perL.toFixed(4), priceSrc: "live", priceDate: r.date || dISO(new Date()) })); n++; }
+      if (Math.abs(perL - num(v.price)) > 0.001 || v.priceSrc !== "live" || v.priceDate !== r.date) { upsert("vehicles", Object.assign({}, v, { price: +perL.toFixed(4), priceSrc: "live", priceDate: r.date || dISO(new Date()), priceArea: r.area || "" })); n++; }
     });
     return n;
   };
   useEffect(() => {
-    if (localMode || !authed || !st.autoFuel || st.country === "OTHER") return;
+    if (!HAS_SVC || !authed || !st.autoFuel || st.country === "OTHER") return;
     if (!dataRef.current.vehicles.some(v => v.energy === "fuel")) return;
     const last = LS.get("kept_fuel", null);
     if (last && Date.now() - last.fetched < 3 * 86400000) return;
@@ -1573,7 +1862,8 @@ function App() {
     if (!(t.segKm >= 0.1) && kind !== "order") return null;            // ignore anything under 100 m
     const s = new Date(t.order && t.orderStart ? Math.min(t.segStart, t.orderStart) : t.segStart);
     const rec = Object.assign({ id: genId(), date: dISO(s), start: s.toISOString(), end: new Date(Math.max(endTs, s.getTime())).toISOString(), km: +(t.segKm || 0).toFixed(3),
-      app: t.mode, kind, pay: "", tips: "", vehicleId: defaultVid(), loc: dataRef.current.settings.saveLoc === false ? null : (t.startPos || null), source: "gps" }, extra || {});
+      app: t.mode, kind, pay: "", tips: "", vehicleId: defaultVid(), loc: dataRef.current.settings.saveLoc === false ? null : (t.startPos || null),
+      endLoc: dataRef.current.settings.saveLoc === false || !t.pos ? null : { lat: +t.pos.lat.toFixed(5), lon: +t.pos.lon.toFixed(5) }, source: "gps" }, extra || {});
     upsert("trips", rec);
     return rec;
   };
@@ -1671,7 +1961,7 @@ function App() {
     nativeRef.current = n; stopWatch();
     const drain = async () => {
       try { const r = await n.drainTrips(); const list = (r && r.trips) || [];
-        list.forEach(t => upsert("trips", Object.assign({ pay: "", tips: "", source: "native" }, t, { vehicleId: t.vehicleId || defaultVid() }, dataRef.current.settings.saveLoc === false ? { loc: null } : {})));
+        list.forEach(t => upsert("trips", Object.assign({ pay: "", tips: "", source: "native" }, t, { vehicleId: t.vehicleId || defaultVid() }, dataRef.current.settings.saveLoc === false ? { loc: null, endLoc: null } : {})));
         if (list.length) n.ackTrips({ ids: list.map(t => t.id) }).catch(() => {});
         return list; } catch (x) { return []; }
     };
@@ -1685,6 +1975,22 @@ function App() {
     document.addEventListener("visibilitychange", vis);
     return () => { subs.forEach(p => Promise.resolve(p).then(h => h && h.remove && h.remove()).catch(() => {})); document.removeEventListener("visibilitychange", vis); };
   }, [authed, (st.apps || []).join("|"), JSON.stringify(st.notifRules || {})]);
+  // Android home-screen widget: today's take-home in the driver's own language and currency
+  const todayKept = useMemo(() => { try { const t = dISO(new Date()); return appBreakdown(data, t, t, setAsideRate(data)).kept; } catch (x) { return 0; } }, [data]);
+  useEffect(() => {
+    const n = KN(); if (!n || !authed) return;
+    Promise.resolve().then(() => n.setWidget({ amount: money(todayKept), label: T("w_label"), start: T("startRide"), done: T("completeRide"), open: T("w_open") })).catch(() => {});
+  }, [authed, Math.round(todayKept * 100), st.lang, st.currency]);
+  // Android "Share → Kept" from a gig app's offer screenshot: open Check an offer and read it
+  useEffect(() => {
+    const n = KN(); if (!n || !authed) return;
+    const pull = () => Promise.resolve().then(() => n.getSharedImage()).then(r => { if (r && r.data) { PENDING_SHARE = b64ToBlob(r.data, r.mime || "image/jpeg"); setView("offer"); setTick(x => x + 1); } }).catch(() => {});
+    pull();
+    const h = Promise.resolve().then(() => n.addListener("sharedImage", pull)).catch(() => null);
+    const vis = () => { if (document.visibilityState === "visible") pull(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { h.then(x => x && x.remove && x.remove()).catch(() => {}); document.removeEventListener("visibilitychange", vis); };
+  }, [authed]);
 
   // ── per-shift net (vehicle cost from profile) ──
   const shiftNet = s => { const v = dataRef.current.vehicles.find(x => x.id === s.vehicleId); return shiftGross(s) - shiftFees(s) - num(s.km) * vehicleCost(v).total; };
@@ -1734,9 +2040,9 @@ function App() {
     if (!force && brief && brief.date === today && brief.n === dataRef.current.shifts.length) return;
     const s = briefStats();
     let b = { date: today, text: localBrief(s), ai: false, n: dataRef.current.shifts.length };
-    if (!localMode && (force || LS.get("kept_ai_off", "") !== today)) {
+    if (HAS_SVC && (force || LS.get("kept_ai_off", "") !== today)) {
       setBriefBusy(true);
-      try { const r = await apiCall(pinRef.current, "brief", { stats: s }); if (r && r.text) b = Object.assign(b, { text: r.text, ai: true }); }
+      try { const r = await svc("brief", { stats: s }); if (r && r.text) b = Object.assign(b, { text: r.text, ai: true }); }
       catch (x) { LS.set("kept_ai_off", today); }
       finally { setBriefBusy(false); }
     }
@@ -1921,10 +2227,18 @@ function App() {
       e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6 } },
         e("span", { style: { fontSize: 14, color: C.sub, fontWeight: 600 } }, label), Tag(kind)),
       e("div", { style: { fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: color || C.text } }, val));
-    const tile = (label, icon, onClick) => e("button", { className: "tap bigtile", onClick, "aria-label": label,
+    const tile = (label, icon, onClick, col) => e("button", { className: "tap bigtile", onClick, "aria-label": label,
       style: { background: C.card, border: "1px solid " + C.border, borderRadius: 18, color: C.text, fontSize: 17, fontWeight: 800, cursor: "pointer", padding: 12, boxShadow: C.shadow } },
-      e("span", { "aria-hidden": true, style: { width: 48, height: 48, borderRadius: 14, background: C.accentDim, color: C.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, e(Icon, { n: icon, s: 26 })), label);
+      e("span", { "aria-hidden": true, style: { width: 48, height: 48, borderRadius: 14, background: (col || C.accent) + "1F", color: col || C.accent, display: "flex", alignItems: "center", justifyContent: "center" } }, e(Icon, { n: icon, s: 26 })), label);
+    // friendly header: greeting by time of day + days-in-a-row streak (any work trip or income that day)
+    const hr = new Date().getHours(), greet = T(hr < 12 ? "hi_morning" : hr < 18 ? "hi_afternoon" : "hi_evening");
+    const workDays = new Set(data.trips.filter(x => x.app !== PERSONAL).map(x => x.date));
+    let streak = 0; for (let d = workDays.has(today) ? today : addDays(today, -1); workDays.has(d); d = addDays(d, -1)) streak++;
     return e("div", { style: { maxWidth: 560, margin: "0 auto" } },
+      e("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, margin: "2px 4px 12px" } },
+        e("div", { style: { fontSize: 22, fontWeight: 900, letterSpacing: "-.3px" } }, greet + (st.name ? ", " + String(st.name).split(" ")[0] : "") + " 👋"),
+        streak >= 2 ? e("div", { className: "pop", title: T("hi_streakT"), style: { flexShrink: 0, padding: "6px 12px", borderRadius: 999, background: C.amber + "24", border: "1px solid " + C.amber + "66", color: C.text, fontWeight: 800, fontSize: 15 } },
+          "🔥 " + fill(T("hi_streak"), { n: streak })) : null),
       !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accentBorder }) },
         e("div", { style: { fontWeight: 800, fontSize: 16, marginBottom: 10 } }, T("setupHint").replace(/\bkm\b/, unit)),
         BigBtn(T("addVehicle"), () => setModal({ type: "vehicle" }))) : null,
@@ -1943,8 +2257,38 @@ function App() {
         insMissing() ? e("button", { className: "tap", onClick: () => setView("vehicles"),
           style: { display: "block", width: "100%", textAlign: "left", marginTop: 12, padding: "10px 12px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 48 } },
           "⚠ " + T("insMissingHome")) : null,
+        (() => { const tg = plannerTargets(data); if (!tg) return null; const ok = P.net >= tg.dailyNet;
+          if (ok && P.net > 0) return e("button", { className: "tap", onClick: () => setView("coach"), "aria-label": T("hi_goalHit"),
+            style: { position: "relative", overflow: "hidden", display: "block", width: "100%", textAlign: "left", marginTop: 12, padding: "14px 14px", borderRadius: 14, background: C.accent + "1A", border: "1px solid " + C.accentBorder, color: C.text, cursor: "pointer" } },
+            e("span", { className: "confetti", "aria-hidden": true }, [C.accent, C.amber, C.blue, C.purple, C.red, C.accent, C.amber, C.blue, C.purple, C.red, C.accent, C.amber].map((c, i) =>
+              e("i", { key: i, style: { background: c, "--dx": Math.round(Math.cos(i / 12 * 6.283) * (90 + (i % 3) * 30)) + "px", "--dy": Math.round(Math.sin(i / 12 * 6.283) * 60 - 20) + "px", animationDelay: (i % 4) * 40 + "ms" } }))),
+            e("div", { className: "pop", style: { fontSize: 18, fontWeight: 900, color: C.accent } }, "🎉 " + T("hi_goalHit")),
+            e("div", { style: { fontSize: 15, color: C.sub, marginTop: 2 } }, fill(T("hi_goalTxt"), { a: money(P.net, 0), b: money(tg.dailyNet, 0) })));
+          return e("button", { className: "tap", onClick: () => setView("coach"), "aria-label": T("gl_goalToday"),
+            style: { display: "block", width: "100%", textAlign: "left", marginTop: 12, padding: "10px 12px", borderRadius: 12, background: C.card2, border: "1px solid " + C.border, color: C.text, cursor: "pointer" } },
+            e("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700, marginBottom: 6 } },
+              e("span", null, T("gl_goalToday")), e("span", null, money(Math.max(0, P.net), 0) + " / " + money(tg.dailyNet, 0) + " · " + (ok ? T("onPace") : T("behind")))),
+            Progress(tg.dailyNet > 0 ? Math.max(0, P.net) / tg.dailyNet * 100 : 0, ok ? C.accent : C.amber)); })(),
         e("button", { className: "tap", style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "12px 0 0", cursor: "pointer", minHeight: 44 },
           onClick: () => setModal({ type: "explain", period: "today" }) }, "ⓘ " + T("howCalc"))),
+      // 1b. end of the work day: one card to check today's records (Premium Simple: confirm instead of type)
+      (() => {
+        const tt = data.trips.filter(x => x.date === today && x.app !== PERSONAL);
+        const done = (st.confirmedDays || []).indexOf(today) >= 0;
+        if (done || working || !tt.length || new Date().getHours() < 15) return null;
+        const orders = tt.filter(x => x.kind === "order"), noPay = orders.filter(x => tripEarn(x) === 0 && !tt.some(y => y.kind === "earning" && y.app === x.app));
+        const noMiles = orders.filter(x => x.gpsMissing).length, ex = data.expenses.filter(x => x.date === today).length;
+        const confirm = () => saveSettings({ confirmedDays: [today].concat((st.confirmedDays || []).filter(d => d >= addDays(today, -13))) });
+        return e("section", { "aria-label": T("ct_title"), style: Object.assign({}, S.card, { padding: 18, borderColor: noPay.length || noMiles ? C.warnBorder : C.accentBorder }) },
+          e("div", { style: { fontSize: 18, fontWeight: 800, marginBottom: 8 } }, T("ct_title")),
+          e("div", { style: { fontSize: 16, lineHeight: 1.6, color: C.sub } },
+            fill(T("ct_sum"), { o: orders.length, m: fmtDist(sum(tt, x => num(x.km)), 1), g: money(P.gross), x: ex })),
+          noPay.length ? e("div", { role: "note", style: { fontSize: 15, fontWeight: 700, color: C.amber, marginTop: 8 } }, "⚠ " + fill(T("ct_noPay"), { n: noPay.length })) : null,
+          noMiles ? e("div", { role: "note", style: { fontSize: 15, fontWeight: 700, color: C.amber, marginTop: 4 } }, "⚠ " + fill(T("ct_noMiles"), { n: noMiles })) : null,
+          e("div", { style: { display: "flex", gap: 8, marginTop: 14 } },
+            e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => setView("log") }, T("ct_fix")),
+            e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => { confirm(); showToast(T("ct_thanks")); } }, T("ct_ok"))));
+      })(),
       // 2. work + tracking state
       e("section", { "aria-label": T("working"), style: Object.assign({}, S.card, { padding: 18, borderColor: working ? col : C.border }) },
         StateRow(t),
@@ -1968,10 +2312,10 @@ function App() {
         GpsNote(t, true)),
       // 3. four everyday actions
       e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 } },
-        tile(T("addIncome"), "offer", () => setModal({ type: "earn", app: working ? t.mode : undefined })),
-        tile(T("addExpense"), "receipt", () => setModal({ type: "pickExpense" })),
-        tile(T("checkOfferT"), "check", () => setView("offer")),
-        tile(T("myEarnings"), "chart", () => setView("money"))));
+        tile(T("addIncome"), "offer", () => setModal({ type: "earn", app: working ? t.mode : undefined }), C.accent),
+        tile(T("addExpense"), "receipt", () => setModal({ type: "pickExpense" }), C.amber),
+        tile(T("checkOfferT"), "check", () => setView("offer"), C.blue),
+        tile(T("myEarnings"), "chart", () => setView("money"), C.purple)));
   };
 
   function PickAppModal({ switching }) {
@@ -2085,7 +2429,7 @@ function App() {
           e("div", null,
             e("div", { style: S.statLabel }, T("youKept")),
             e("div", { style: { fontSize: 40, fontWeight: 900, letterSpacing: "-1px", color: B.kept < 0 ? C.red : C.accent, lineHeight: 1.1 } }, money(B.kept))),
-          P.S.length ? e("span", { className: "tap", style: { color: C.muted, cursor: "pointer", padding: 4 }, onClick: () => setModal({ type: "wrap", period: homePeriod }) }, e(Icon, { n: "share", s: 18 })) : null),
+          P.S.length ? e("span", { className: "tap", "aria-label": T("wrap"), style: { color: C.muted, cursor: "pointer", padding: 4 }, onClick: () => setModal({ type: "wrap", period: homePeriod }) }, e(Icon, { n: "share", s: 18 })) : null),
         e("div", { style: { marginTop: 14 } }, MoneySummary(B, homePeriod)),
         goal > 0 && homePeriod === "today" ? e("div", { style: { marginTop: 12 } },
           e("div", { style: Object.assign({}, S.row, { fontSize: 12, color: C.muted, marginBottom: 6 }) }, e("span", null, T("goal")), e("span", null, money(todayKept, 0) + " / " + money(goal, 0))),
@@ -2267,6 +2611,7 @@ function App() {
   const VehicleDash = () => {
     const list = data.vehicles.filter(v => v.active !== false);
     const [pick, setPick] = useState("");
+    const [rc, setRc] = useState(null);           // safety recalls: null = not checked, "busy", { list } or { err }
     const v = vmap[pick] || vmap[defaultVid()] || list[0];
     if (!v) return null;
     const c = vehicleCost(v), odo = odoOf(v), annKm = annualKmOf(v.id), mi = unit === "mi";
@@ -2290,7 +2635,7 @@ function App() {
     const effText = v.energy === "fuel" ? (mi ? (235.215 / Math.max(0.1, num(v.cons))).toFixed(1) + " mpg · " + money(num(v.price) * L_PER_GAL) + "/gal" : num(v.cons).toFixed(1) + " L/100 km · " + money(num(v.price)) + "/L")
       : v.energy === "electric" ? (mi ? (num(v.cons) * KM_PER_MI).toFixed(1) + " kWh/100 mi" : num(v.cons).toFixed(1) + " kWh/100 km") + " · " + money(num(v.price)) + "/kWh" : "";
     const srcLine = [consKind === "verified" ? T("src_epa") : v.consSrc === "learned" ? T("src_learned") : consKind === "user" ? T("src_userCons") : T("src_typical"),
-      priceKind === "live" ? fill(T("src_live"), { d: v.priceDate || "" }) : v.priceSrc === "receipt" ? fill(T("src_receipt"), { d: v.priceDate || "" }) : priceKind === "user" ? T("src_userPrice") : T("src_defPrice")].join(" · ");
+      priceKind === "live" ? fill(T("src_live"), { d: v.priceDate || "", a: v.priceArea || "" }) + (v.priceDate && daysBetween(v.priceDate, today) > 15 ? " · ⚠ " + T("src_stale") : "") : v.priceSrc === "receipt" ? fill(T("src_receipt"), { d: v.priceDate || "" }) : priceKind === "user" ? T("src_userPrice") : T("src_defPrice")].join(" · ");
     // maintenance reminders from the parts list (needs a known odometer)
     const odoKnown = num(v.startOdo) > 0 || (v.parts || []).some(p => num(p.lastAt) > 0);
     const due = (v.parts || []).filter(p => num(p.interval) > 0).map(p => ({ p, left: num(p.lastAt) + num(p.interval) - odo })).sort((a, b) => a.left - b.left).slice(0, 3);
@@ -2347,7 +2692,28 @@ function App() {
         !odoKnown ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, paddingTop: 8 } }, T("vd_needOdo"))
           : due.map(x => e("div", { key: x.p.id || x.p.name, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: "1px solid " + C.border, fontSize: 16 } },
               e("span", null, x.p.name), e("b", { style: { color: x.left <= 0 ? C.red : x.left < 1600 ? C.amber : C.text } }, x.left <= 0 ? "⚠ " + T("vd_dueNow") : fill(T("vd_in"), { d: fmtDist(x.left, 0) })))),
-        e("div", { style: { fontSize: 13, color: C.muted, marginTop: 8, lineHeight: 1.45 } }, T("vd_remindNote"))));
+        e("div", { style: { fontSize: 13, color: C.muted, marginTop: 8, lineHeight: 1.45 } }, T("vd_remindNote"))),
+      e("button", { className: "tap", onClick: () => setModal({ type: "replace", vehicle: v }),
+        style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", cursor: "pointer", color: C.text, font: "inherit" }) },
+        e(Icon, { n: "swap", s: 24, c: C.accent }), e("span", { style: { flex: 1 } }, e("b", { style: { fontSize: 17, display: "block" } }, T("rp2_title")), e("span", { style: { fontSize: 14, color: C.sub } }, T("rp2_sub"))), "›"),
+      // safety recalls from NHTSA (free U.S. government database), cars with a known year, make and model
+      st.country === "US" && v.type === "car" && v.make && v.model && num(v.year) > 1980 ? e("section", { "aria-label": T("rc_title"), style: S.card },
+        e("div", { style: Object.assign({}, S.row, { marginBottom: 6 }) }, e("div", { style: Object.assign({}, S.h2, { marginBottom: 0 }) }, T("rc_title")),
+          HAS_SVC ? e("button", { className: "tap", disabled: rc === "busy", style: Object.assign(S.btn("ghost"), { minHeight: 44 }), onClick: async () => {
+            setRc("busy");
+            try { const r = await svc("recalls", { make: v.make, model: v.model, year: num(v.year) }); setRc({ list: r.results || [], at: dISO(new Date()), key: v.id }); }
+            catch (x) { setRc({ err: x.message, key: v.id }); } } }, rc === "busy" ? "…" : T("rc_check")) : null),
+        !HAS_SVC ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, T("rc_offline"))
+          : !rc || rc === "busy" || rc.key !== v.id ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, fill(T("rc_hint"), { v: [v.year, v.make, v.model].join(" ") }))
+          : rc.err ? e("div", { role: "alert", style: { fontSize: 15, color: C.amber } }, "⚠ " + T("rc_fail"))
+          : !rc.list.length ? e("div", { role: "status", style: { fontSize: 16, fontWeight: 700, color: C.accent } }, "✓ " + fill(T("rc_none"), { d: rc.at }))
+          : e("div", { role: "status" },
+              e("div", { style: { fontSize: 16, fontWeight: 800, color: C.amber, marginBottom: 6 } }, "⚠ " + fill(T("rc_found"), { n: rc.list.length })),
+              rc.list.slice(0, 5).map(x => e("div", { key: x.NHTSACampaignNumber, style: { padding: "10px 0", borderTop: "1px solid " + C.border, fontSize: 15, lineHeight: 1.5 } },
+                e("b", null, x.Component || ""), e("div", { style: { color: C.sub } }, String(x.Summary || "").slice(0, 220) + (String(x.Summary || "").length > 220 ? "…" : "")),
+                e("div", { style: { fontSize: 13, color: C.muted } }, "NHTSA " + x.NHTSACampaignNumber + (x.ReportReceivedDate ? " · " + x.ReportReceivedDate : "")))),
+              e("div", { style: { fontSize: 14, color: C.sub, lineHeight: 1.5, marginTop: 8 } }, T("rc_vinNote"))),
+        e("a", { href: "https://www.nhtsa.gov/recalls", target: "_blank", rel: "noopener", style: { display: "inline-block", marginTop: 10, color: C.accent, fontWeight: 700, fontSize: 15 } }, T("rc_link"))) : null);
   };
 
   const VehiclesView = () => {
@@ -2363,8 +2729,8 @@ function App() {
         e(Icon, { n: "fuel", s: 22, c: C.amber }),
         e("div", { style: { flex: 1, minWidth: 180 } },
           e("div", { style: { fontWeight: 800, fontSize: 14 } }, T("liveFuel")),
-          e("div", { style: S.small }, localMode ? T("cloudOnly") : fuel ? fuelLabel(fuel) : "—")),
-        !localMode ? e("button", { style: S.btn("ghost"), disabled: busy, onClick: async () => {
+          e("div", { style: S.small }, !HAS_SVC ? T("cloudOnly") : fuel ? fuelLabel(fuel) : "—")),
+        HAS_SVC ? e("button", { style: S.btn("ghost"), disabled: busy, onClick: async () => {
           setBusy(true); try { const r = await fetchFuel(); setFuel(Object.assign({ fetched: Date.now() }, r)); showToast(applyFuel(r) ? T("saved") : "✓"); } catch (x) { showToast(x.message); } finally { setBusy(false); } } }, busy ? "…" : T("applyFuel")) : null) : null,
       !data.vehicles.length ? Empty(T("setupHint"), e("button", { style: S.btn(), onClick: () => setModal({ type: "vehicle" }) }, T("addVehicle"))) : null,
       e("div", { className: "cols" }, data.vehicles.map(v => {
@@ -2649,7 +3015,12 @@ function App() {
     const bo = burnoutScore(data);
     const [living, setLiving] = useState(st.livingCosts || "");
     const [wd, setWd] = useState(st.workDays || 5);
-    const tg = plannerTargets(Object.assign({}, data, { settings: Object.assign({}, st, { livingCosts: num(living), workDays: num(wd) }) }));
+    const [items, setItems] = useState(Object.assign({}, st.livingItems || {}));
+    const [showItems, setShowItems] = useState(LIVING_ITEMS.some(k => num((st.livingItems || {})[k]) > 0));
+    const [sav, setSav] = useState(st.savingsTarget || ""), [buf, setBuf] = useState(st.goalBufferPct || ""), [hd, setHd] = useState(st.hoursDay || "");
+    const draft = Object.assign({}, st, { livingCosts: num(living), workDays: num(wd), livingItems: items, savingsTarget: num(sav), goalBufferPct: num(buf), hoursDay: num(hd) });
+    const tg = plannerTargets(Object.assign({}, data, { settings: draft })), itemSum = livingTotal(Object.assign({}, draft, { livingCosts: 0 }));
+    const numIn = (val, setter, key, ph) => e("input", { style: S.input, inputMode: "decimal", value: val, placeholder: ph || "0", onChange: ev => setter(ev.target.value), onBlur: () => saveSettings({ [key]: num(val) }) });
     const today = dISO(new Date());
     const tP = computePeriod(data, today, today), wP = computePeriod(data, periodRange("week")[0], today), mP = computePeriod(data, periodRange("month")[0], today);
     const dim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate(), dom = new Date().getDate();
@@ -2678,12 +3049,25 @@ function App() {
           e("div", { style: S.h2 }, T("planner")),
           e("div", { style: Object.assign({}, S.small, { marginBottom: 12, lineHeight: 1.45 }) }, T("plannerHint")),
           e("div", { className: "grid2" },
-            Field(T("livingCosts"), e("input", { style: S.input, inputMode: "decimal", value: living, onChange: ev => setLiving(ev.target.value), onBlur: () => saveSettings({ livingCosts: num(living) }) })),
+            showItems ? Field(T("livingCosts"), e("div", { style: Object.assign({}, S.input, { display: "flex", alignItems: "center", fontWeight: 800 }) }, money(itemSum, 0)))
+              : Field(T("livingCosts"), e("input", { style: S.input, inputMode: "decimal", value: living, onChange: ev => setLiving(ev.target.value), onBlur: () => saveSettings({ livingCosts: num(living) }) })),
             Field(T("workDaysWeek"), e("input", { style: S.input, inputMode: "numeric", value: wd, onChange: ev => setWd(ev.target.value), onBlur: () => saveSettings({ workDays: clamp(num(wd) || 5, 1, 7) }) }))),
+          e("button", { className: "tap", "aria-expanded": showItems, onClick: () => setShowItems(x => !x),
+            style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "4px 0 12px", cursor: "pointer", minHeight: 44 } }, (showItems ? "▾ " : "▸ ") + T("gl_breakdown")),
+          showItems ? e("div", { className: "grid2" }, LIVING_ITEMS.map(k => e("div", { key: k },
+            Field(T("gl_" + k), e("input", { style: S.input, inputMode: "decimal", value: items[k] || "", placeholder: "0",
+              onChange: ev => { const v = ev.target.value; setItems(x => Object.assign({}, x, { [k]: v })); },
+              onBlur: () => saveSettings({ livingItems: LIVING_ITEMS.reduce((o, q) => (num(items[q]) > 0 ? (o[q] = num(items[q])) : 0, o), {}) }) }))))) : null,
+          e("div", { className: "grid2" },
+            Field(T("gl_savings"), numIn(sav, setSav, "savingsTarget")),
+            Field(T("gl_buffer"), numIn(buf, setBuf, "goalBufferPct")),
+            Field(T("gl_hours"), numIn(hd, setHd, "hoursDay", "8"))),
           tg ? e("div", null,
             Line(T("netTargetMonth"), money(tg.monthNet, 0), { bold: true }),
             Line(T("dailyNetTarget"), money(tg.dailyNet, 0)),
             Line(T("dailyGrossTarget"), money(tg.dailyGross, 0), { bold: true, color: C.accent }),
+            tg.hd ? Line(fill(T("gl_perHour"), { h: tg.hd }), money(tg.hourlyNet, 2) + "/" + T("hours")) : null,
+            e("div", { style: Object.assign({}, S.small, { margin: "6px 0 0" }) }, fill(T("gl_how"), { l: money(tg.living, 0), b: Math.round(tg.buffer * 100), s: money(tg.savings, 0), n: money(tg.need, 0) })),
             e("div", { style: Object.assign({}, S.small, { margin: "6px 0 14px" }) }, T("taxReserve") + " " + pct(tg.rate) + " · " + T("gross") + " ÷ net × " + tg.ratio.toFixed(2)),
             e("div", { style: S.label }, T("pace")),
             paceRow(T("today"), tP.net, tg.dailyNet),
@@ -2894,14 +3278,18 @@ function App() {
       r.onload = () => { try {
         const d = JSON.parse(r.result);
         if (!d.shifts || !d.vehicles) throw new Error("Not a Kept backup");
-        const nd = { settings: Object.assign({}, CONFIG.defaults, d.settings || {}), vehicles: d.vehicles, shifts: d.shifts || [], expenses: d.expenses || [], trips: d.trips || [] };
+        // sessions built from trips ("derived") are recalculated, never stored: older backups contained them and restoring doubled income
+        const nd = { settings: Object.assign({}, CONFIG.defaults, d.settings || {}), vehicles: d.vehicles, shifts: (d.shifts || []).filter(x => !x.derived), expenses: d.expenses || [], trips: d.trips || [] };
         askConfirm(T("restoreConfirm"), () => { setData(nd); enqueue({ op: "replaceAll", data: nd }); showToast(T("saved")); });
       } catch (x) { showToast("⚠ " + x.message); } };
       r.readAsText(file);
     };
     const deleteAll = () => askConfirm(T("deleteAllConfirm"), () => doDeleteAll(), { typed: "DELETE" });
     const doDeleteAll = async () => {
-      try { if (!localMode) await apiCall(pin, "deleteAll"); } catch (x) { showToast("⚠ " + x.message); return; }
+      try {
+        if (cloud) { const ids = []; COLLS.forEach(c => (raw[c] || []).forEach(r => (r.photos || []).forEach(p => ids.push(p)))); await cloudReplace({ settings: Object.assign({}, CONFIG.defaults, { lang: st.lang, country: st.country, currency: st.currency, unit: st.unit }) }, true); cloudPhotoDelete(ids); }
+        else if (!localMode) await apiCall(pin, "deleteAll", { confirm: "DELETE" });
+      } catch (x) { showToast("⚠ " + x.message); return; }
       await IDB.clear().catch(() => {});
       ["kept_queue", "kept_photoQ", "kept_brief", "kept_track", "kept_fuel"].forEach(k => LS.del(k)); stopWatch(); trackRef.current = null;
       const nd = { settings: Object.assign({}, CONFIG.defaults, { lang: st.lang, country: st.country, currency: st.currency, unit: st.unit }), vehicles: [], shifts: [], expenses: [], trips: [] };
@@ -2920,7 +3308,7 @@ function App() {
             e("div", { className: "grid2" },
               Field(T("goal"), e("input", { style: S.input, inputMode: "decimal", value: f.dailyGoal, onChange: ev => set("dailyGoal", ev.target.value) })),
               Field(T("costMode"), sel("costMode", [["estimated", T("costEstimated")], ["actual", T("costActual")]]))),
-            !localMode ? e("label", { style: { display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: C.sub, marginBottom: 4 } },
+            HAS_SVC ? e("label", { style: { display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: C.sub, marginBottom: 4 } },
               e("input", { type: "checkbox", checked: !!f.autoFuel, onChange: ev => set("autoFuel", ev.target.checked) }), T("autoFuel")) : null),
           e("div", { style: S.card },
             e("div", { style: S.h2 }, T("taxProfile")),
@@ -2946,12 +3334,14 @@ function App() {
             e("div", { style: { display: "grid", gap: 8 } },
               e("button", { style: S.btn("ghost"), onClick: exportShifts }, T("exportShifts")),
               e("button", { style: S.btn("ghost"), onClick: exportExp }, T("exportExpenses")),
-              e("button", { style: S.btn("ghost"), onClick: () => downloadFile("kept-backup-" + dISO(new Date()) + ".json", JSON.stringify(data, null, 1), "application/json") }, T("backup")),
+              e("button", { style: S.btn("ghost"), onClick: () => downloadFile("kept-backup-" + dISO(new Date()) + ".json", JSON.stringify(backupData(), null, 1), "application/json") }, T("backup")),
               e("button", { style: S.btn("ghost"), onClick: () => fileRef.current && fileRef.current.click() }, T("restore")),
               e("input", { ref: fileRef, type: "file", accept: "application/json,.json", style: { display: "none" }, onChange: restore })),
             e("div", { style: Object.assign({}, S.small, { marginTop: 10, display: "flex", alignItems: "center", gap: 6 }) }, e(Icon, { n: "cloud", s: 14 }),
-              localMode ? T("localMode") : syncState === "offline" ? T("offline") : T("synced"))),
-          !localMode ? e("div", { style: S.card },
+              localMode ? T("localMode") : syncState === "offline" ? T("offline") : T("synced")),
+            cloud && !FB.storage ? e("div", { style: Object.assign({}, S.small, { marginTop: 6 }) }, T("au_photosLocal")) : null),
+          cloud ? e(AccountCardC) : null,
+          MODE === "sheet" ? e("div", { style: S.card },
             e("div", { style: S.h2 }, T("changePin")),
             Field(T("newPin"), e("input", { style: S.input, inputMode: "numeric", type: "password", value: np, onChange: ev => setNp(ev.target.value.replace(/\D/g, "").slice(0, 8)) })),
             e("div", { className: "grid2" },
@@ -2980,6 +3370,7 @@ function App() {
     const [scan, setScan] = useState(null), [scanMsg, setScanMsg] = useState(null);
     const scanRef = useRef(null);
     // Smart Offer Scan: the screenshot is read on the phone and not stored; the driver confirms every number
+    useEffect(() => { if (PENDING_SHARE) { const b = PENDING_SHARE; PENDING_SHARE = null; scanOffer(b); } });
     const scanOffer = async file => {
       if (!file) return; setScan("busy"); setScanMsg(null);
       try { const text = await ocrImage(file); const r = parseOffer(text);
@@ -2988,6 +3379,7 @@ function App() {
         if (r.pay != null) patch.pay = r.pay.toFixed(2);
         if (r.dists.length >= 2) { patch.pickup = +cv(r.dists[0]).toFixed(1); patch.trip = +cv(r.dists[1]).toFixed(1); } else if (r.dists.length === 1) { patch.pickup = ""; patch.trip = +cv(r.dists[0]).toFixed(1); }
         if (r.mins != null) patch.mins = r.mins;
+        if (r.app) patch.app = r.app;
         setO(x => Object.assign({}, x, patch));
         const found = [r.pay != null ? money(r.pay) : null, r.dists.length ? r.dists.map(d => d.v + (d.km ? " km" : " mi")).join(" + ") : null, r.mins != null ? r.mins + " min" : null, r.app || null].filter(Boolean);
         setScanMsg(found.length ? { ok: true, text: fill(T("os_found"), { f: found.join(" · ") }) } : { ok: false, text: T("os_none") });
@@ -3006,12 +3398,22 @@ function App() {
     const verdict = ready ? { above: "take", near: "maybe", below: "skip" }[R.verdict] : null;
     const vc = verdict ? { take: C.accent, maybe: C.amber, skip: C.red }[verdict] : null;
     const record = took => {
-      const r = { ts: Date.now(), pay, dist: +dist(totKm).toFixed(1), mins: Math.round(totMins), ph: +ph.toFixed(2), profit: +profit.toFixed(2), verdict, took };
+      const r = { ts: Date.now(), pay, dist: +dist(totKm).toFixed(1), mins: Math.round(totMins), ph: +ph.toFixed(2), profit: +profit.toFixed(2), verdict, took,
+        app: o.app || (track && track.mode && track.mode !== PERSONAL ? track.mode : "") };
       const nl = [r].concat(log).slice(0, 50); setLog(nl); LS.set("kept_offers", nl);
-      setO(x => Object.assign({}, x, { pay: "", pickup: "", trip: "", mins: "", ret: "" })); showToast(T("saved"));
+      setO(x => Object.assign({}, x, { pay: "", pickup: "", trip: "", mins: "", ret: "", app: "" })); showToast(T("saved"));
     };
     const big = (k, label, ph2) => Field(label, e("input", { style: Object.assign({}, S.input, { fontSize: 20, fontWeight: 800 }), inputMode: "decimal", placeholder: ph2 || "0", value: o[k], onChange: ev => set(k, ev.target.value) }));
     const vLabel = x => T(x === "take" ? "v_above" : x === "skip" ? "v_below" : "v_near");
+    // a taken offer is matched to the order that started within 30 minutes after it, so predicted and actual profit can be compared
+    const actualOf = x => {
+      if (!x.took) return null;
+      const t = data.trips.find(q => q.kind === "order" && (!x.app || q.app === x.app) && tripEarn(q) > 0 && q.start &&
+        Date.parse(q.start) >= x.ts - 5 * 60000 && Date.parse(q.start) <= x.ts + 30 * 60000);
+      return t ? +(tripEarn(t) - num(t.km) * vehicleCost(vmap[t.vehicleId] || vmap[defaultVid()]).total).toFixed(2) : null;
+    };
+    const matched = log.map(x => ({ x, a: actualOf(x) })).filter(m => m.a != null && m.x.profit != null);
+    const avgErr = matched.length ? sum(matched, m => m.a - m.x.profit) / matched.length : 0;
     const taken = log.filter(x => x.took);
     return e("div", null,
       e("div", { style: S.h1 }, T("offerTitle")),
@@ -3068,7 +3470,10 @@ function App() {
             log.slice(0, 8).map(x => e("div", { key: x.ts, style: Object.assign({}, S.row, { fontSize: 13, padding: "7px 0", borderTop: "1px solid " + C.border }) },
               e("span", { style: { color: C.sub } }, new Date(x.ts).toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" })),
               e("span", null, money(x.pay) + " · " + x.dist + " " + unit + " · " + money(x.ph, 0) + "/" + T("hours")),
-              e("span", { style: S.badge(x.took ? C.accent : C.muted) }, x.took ? T("took") : T("skipped"))))) : null)));
+              (() => { const a = actualOf(x); return a != null && x.profit != null ? e("span", { style: { fontSize: 12, color: C.sub } }, fill(T("of_actual"), { p: money(x.profit), a: money(a) })) : null; })(),
+              e("span", { style: S.badge(x.took ? C.accent : C.muted) }, x.took ? T("took") : T("skipped")))),
+            matched.length >= 3 ? e("div", { role: "note", style: { fontSize: 14, color: C.sub, lineHeight: 1.5, marginTop: 8 } },
+              fill(T(avgErr < 0 ? "of_errLow" : "of_errHigh"), { n: matched.length, v: money(Math.abs(avgErr)) })) : null) : null)));
   };
 
   // ── Personal Profit Map: where your own shifts earn the most ──
@@ -3078,10 +3483,17 @@ function App() {
     // data source: "hour" = work sessions (start area, profit ÷ hours incl. waiting); "mile" = individual orders (pickup area, profit ÷ order miles)
     const [metric, setMetric] = useState("hour");
     const [appF, setAppF] = useState("");
+    const [whenF, setWhenF] = useState(""), [dayF, setDayF] = useState("");
+    // time windows (local start time) and weekday/weekend, so the map answers "where pays best at this time?"
+    const WINDOWS = { morning: [6, 11], midday: [11, 14], afternoon: [14, 17], evening: [17, 21], night: [21, 30] };
+    const winOf = h => Object.keys(WINDOWS).find(k => { const w = WINDOWS[k], hh = h < 6 ? h + 24 : h; return hh >= w[0] && hh < w[1]; });
+    const timeOk = iso => { if (!iso || (!whenF && !dayF)) return true; const d = new Date(iso), wd = d.getDay();
+      return (!whenF || winOf(d.getHours()) === whenF) && (!dayF || (dayF === "weekend") === (wd === 0 || wd === 6)); };
+    const nowWin = winOf(new Date().getHours()), nowDay = [0, 6].indexOf(new Date().getDay()) >= 0 ? "weekend" : "weekday";
     const MIN = 5, okLoc = l => l && isFinite(l.lat) && isFinite(l.lon);
     const units = metric === "hour"
-      ? data.shifts.filter(s => okLoc(s.loc) && (!appF || (s.platforms || []).some(p => p.name === appF))).map(s => ({ loc: s.loc, net: shiftNet(s), mins: shiftMins(s), km: num(s.km) }))
-      : data.trips.filter(t => t.kind === "order" && okLoc(t.loc) && num(t.km) > 0 && (!appF || t.app === appF)).map(t => ({ loc: t.loc, net: tripEarn(t) - num(t.km) * vehicleCost(vmap[t.vehicleId]).total, mins: tripMins(t), km: num(t.km) }));
+      ? data.shifts.filter(s => okLoc(s.loc) && timeOk(s.start) && (!appF || (s.platforms || []).some(p => p.name === appF))).map(s => ({ loc: s.loc, net: shiftNet(s), mins: shiftMins(s), km: num(s.km) }))
+      : data.trips.filter(t => t.kind === "order" && okLoc(t.loc) && num(t.km) > 0 && timeOk(t.start) && (!appF || t.app === appF)).map(t => ({ loc: t.loc, net: tripEarn(t) - num(t.km) * vehicleCost(vmap[t.vehicleId]).total, mins: tripMins(t), km: num(t.km) }));
     const cellsMap = {};
     units.forEach(u => {
       const k = Math.round(u.loc.lat / 0.02) + ":" + Math.round(u.loc.lon / 0.025);
@@ -3095,7 +3507,7 @@ function App() {
     all.filter(c => !c.ok).forEach(c => { c.rank = null; c.col = "#7F93B5"; });
     const cells = ranked.concat(all.filter(c => !c.ok).sort((a, b) => b.n - a.n));
     const perLbl = metric === "hour" ? "/" + T("hours") : "/" + unit;
-    const sig = metric + appF + cells.map(c => c.k + c.n + Math.round(c.ph)).join("|");
+    const sig = metric + appF + whenF + dayF + cells.map(c => c.k + c.n + Math.round(c.ph)).join("|");
     useEffect(() => {
       if (lf !== "load") return;
       if (!document.getElementById("leaflet-css")) { const l = document.createElement("link"); l.id = "leaflet-css"; l.rel = "stylesheet"; l.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(l); }
@@ -3119,7 +3531,13 @@ function App() {
       e("div", { style: Object.assign({}, S.small, { marginBottom: 12, lineHeight: 1.5, fontSize: 13 }) }, fill(T("mapHint2"), { u: unit })),
       e("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
         Chips([["hour", T("m_hour")], ["mile", T("m_mile")]], metric, setMetric),
-        Chips([["", T("allApps")]].concat(myApps.map(a => [a, a])), appF, setAppF)),
+        Chips([["", T("allApps")]].concat(myApps.map(a => [a, a])), appF, setAppF),
+        Chips([["", T("mp_anyTime")], ["morning", T("mp_morning")], ["midday", T("mp_midday")], ["afternoon", T("mp_afternoon")], ["evening", T("mp_evening")], ["night", T("mp_night")]], whenF, setWhenF),
+        Chips([["", T("mp_anyDay")], ["weekday", T("mp_weekday")], ["weekend", T("mp_weekend")]], dayF, setDayF)),
+      whenF !== nowWin || dayF !== nowDay ? e("button", { className: "tap", onClick: () => { setWhenF(nowWin); setDayF(nowDay); },
+        style: Object.assign(S.btn("ghost"), { marginBottom: 12, minHeight: 48 }) }, "🕐 " + T("mp_now")) : null,
+      ranked.length && whenF === nowWin && dayF === nowDay ? e("div", { role: "status", style: Object.assign({}, S.card, { borderColor: C.accentBorder, fontSize: 15, lineHeight: 1.5 }) },
+        fill(T("mp_best"), { a: ranked[0].lat.toFixed(3) + ", " + ranked[0].lon.toFixed(3), v: money(ranked[0].ph) + (metric === "hour" ? "/" + T("hours") : "/" + unit), n: ranked[0].n })) : null,
       !cells.length ? e("div", null, Empty(T("mapEmpty")),
         e("label", { style: { display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: C.sub, minHeight: 44 } },
           e("input", { type: "checkbox", style: { width: 20, height: 20 }, checked: st.saveLoc !== false, onChange: ev => saveSettings({ saveLoc: ev.target.checked }) }), T("saveLoc"))) : e("div", null,
@@ -3140,7 +3558,7 @@ function App() {
             e("label", { style: { display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: C.sub, minHeight: 44 } },
               e("input", { type: "checkbox", style: { width: 20, height: 20 }, checked: st.saveLoc !== false, onChange: ev => saveSettings({ saveLoc: ev.target.checked }) }), T("saveLoc")),
             e("button", { style: Object.assign(S.btn("danger"), { minHeight: 44, marginTop: 6 }), onClick: () => askConfirm(T("delLocConfirm"), () => {
-              data.trips.filter(t => t.loc).forEach(t => upsert("trips", Object.assign({}, t, { loc: null })));
+              data.trips.filter(t => t.loc || t.endLoc).forEach(t => upsert("trips", Object.assign({}, t, { loc: null, endLoc: null })));
               (raw.shifts || []).filter(x => x.loc).forEach(x => upsert("shifts", Object.assign({}, x, { loc: null })));
               showToast(T("deleted")); }) }, T("delLoc")))));
   };
@@ -3267,6 +3685,7 @@ function App() {
         earnOnly ? Field(T("orders"), e("input", { style: S.input, inputMode: "numeric", value: f.orders, onChange: ev => set("orders", ev.target.value) }))
                  : Field(T("end"), e("input", { type: "time", style: S.input, value: f.t2, onChange: ev => set("t2", ev.target.value) }))),
       Field(T("distance") + " (" + unit + ")", e("input", { autoFocus: !!(noGps || f.gpsMissing), style: Object.assign({}, S.input, noGps || f.gpsMissing ? { borderColor: C.amber, fontSize: 20, fontWeight: 800 } : {}), inputMode: "decimal", value: f.km, onChange: ev => set("km", ev.target.value) })),
+      pers || earnOnly ? null : Field(T("purpose") + " (" + T("optional") + ")", e("input", { style: S.input, value: f.purpose || "", placeholder: tripPurpose(Object.assign({}, f, { purpose: "" })), onChange: ev => set("purpose", ev.target.value) })),
       pers ? null : payRow,
       pers ? null : moreRow,
       err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, fontSize: 15, marginBottom: 10 } }, "⚠ " + err) : null,
@@ -3283,7 +3702,7 @@ function App() {
     const [err, setErr] = useState("");
     const recRef = useRef(null);
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const run = t => { const r = parseVoice(t, myApps); setRes(r); setErr(r.kind === "unknown" ? T("vo_unknown") : ""); };
+    const run = t => { const r = parseVoiceAll(t, myApps); setRes(r); setErr(r.kind === "unknown" ? T("vo_unknown") : ""); };
     const listen = () => {
       if (!SR) { setErr(T("vo_noMic")); return; }
       try { const rec = new SR(); recRef.current = rec; rec.lang = LOCALES[st.lang] || "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
@@ -3295,13 +3714,19 @@ function App() {
     const answer = r => { const [a, b] = periodRange(r.period), B = appBreakdown(data, a, b, setAsideRate(data));
       return fill(T("vo_answer"), { p: T(r.period), g: money(B.P.gross), k: money(B.kept), m: fmtDist(sum(B.apps, x => x.km), 0) }); };
     const speak = s => { try { const u = new SpeechSynthesisUtterance(s); u.lang = LOCALES[st.lang] || "en-US"; window.speechSynthesis.speak(u); } catch (x) {} };
+    const day = res && res.dayOff ? addDays(dISO(new Date()), res.dayOff) : dISO(new Date());
+    const dayWord = res && res.dayOff ? T("vo_yesterday") : T("today").toLowerCase();
     const save = () => {
-      if (res.kind === "expense") upsert("expenses", { id: genId(), date: dISO(new Date()), category: res.category, amount: res.amount, vehicleId: defaultVid(), qty: "", note: res.note || T("vo_byVoice"), photos: [], recurring: "" });
-      if (res.kind === "income") { const now = new Date().toISOString(); upsert("trips", { id: genId(), kind: "earning", app: res.app || (myApps[0] || "Other"), date: dISO(new Date()), start: now, end: now, km: 0, pay: res.tip ? "" : res.amount, tips: res.tip ? res.amount : "", orders: "", vehicleId: defaultVid(), source: "voice" }); }
+      const at = res.dayOff ? new Date(day + "T12:00").toISOString() : new Date().toISOString();
+      res.items.forEach(it => {
+        if (it.kind === "expense") upsert("expenses", { id: genId(), date: day, category: it.category, amount: it.amount, vehicleId: defaultVid(), qty: "", note: it.note || T("vo_byVoice"), photos: [], recurring: "" });
+        if (it.kind === "income") upsert("trips", { id: genId(), kind: "earning", app: it.app || (myApps[0] || "Other"), date: day, start: at, end: at, km: 0, pay: it.tip ? "" : it.amount, tips: it.tip ? it.amount : "", orders: "", vehicleId: defaultVid(), source: "voice" });
+      });
       setModal(null); showToast(T("saved"));
     };
-    const summary = !res ? null : res.kind === "expense" ? fill(T("vo_exp"), { a: money(res.amount), c: T("c_" + res.category) + (res.note ? " · " + res.note : "") })
-      : res.kind === "income" ? fill(T("vo_inc"), { a: money(res.amount), c: (res.tip ? T("tips") : T("pay")) + (res.app ? " · " + res.app : "") }) : res.kind === "question" ? answer(res) : null;
+    const line = it => it.kind === "expense" ? fill(T("vo_exp"), { a: money(it.amount), c: T("c_" + it.category) + (it.note ? " · " + it.note : ""), d: dayWord })
+      : fill(T("vo_inc"), { a: money(it.amount), c: (it.tip ? T("tips") : T("pay")) + (it.app ? " · " + it.app : ""), d: dayWord });
+    const summary = !res ? null : res.kind === "entries" ? (res.items.length === 1 ? line(res.items[0]) : fill(T("vo_many"), { n: res.items.length, d: dayWord })) : res.kind === "question" ? answer(res) : null;
     return ModalShell(T("vo_title"), e("div", null,
       e("button", { className: "tap", onClick: listen, disabled: listening, "aria-label": T("vo_tap"),
         style: Object.assign(S.btn(), { width: "100%", minHeight: 72, fontSize: 19, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }) },
@@ -3312,6 +3737,7 @@ function App() {
       err ? e("div", { role: "alert", style: { color: C.amber, fontWeight: 700, fontSize: 15, margin: "10px 0" } }, "⚠ " + err) : null,
       summary ? e("div", { role: "status", style: { marginTop: 12, padding: 14, borderRadius: 14, background: C.card2, border: "1px solid " + C.border } },
         e("div", { style: { fontSize: 17, fontWeight: 700, lineHeight: 1.45, color: C.text } }, summary),
+        res.kind === "entries" && res.items.length > 1 ? e("ul", { style: { margin: "8px 0 0 18px", padding: 0, fontSize: 16, lineHeight: 1.6 } }, res.items.map((it, i) => e("li", { key: i }, line(it)))) : null,
         res.kind === "question"
           ? e("button", { style: Object.assign(S.btn("ghost"), { marginTop: 10, minHeight: 48 }), onClick: () => speak(summary) }, "🔊 " + T("vo_read"))
           : e("div", null, e("div", { style: { fontSize: 14, color: C.muted, margin: "8px 0 10px" } }, T("vo_check")),
@@ -3331,9 +3757,9 @@ function App() {
     const legacy = (raw.shifts || []).filter(s => s.date >= a && s.date <= b);
     const exps = data.expenses.filter(x => x.date >= a && x.date <= b).sort((p, q) => p.date.localeCompare(q.date));
     const bizMi = sum(trips.filter(t => t.app !== PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.km)), persMi = sum(trips.filter(t => t.app === PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.personalKm));
-    const mileRows = () => [["Date", "Start", "End", "App", "Purpose", "Type", "Distance (" + unit + ")", "Source"]].concat(
-      trips.map(t => [t.date, tHM(t.start), tHM(t.end), t.app === PERSONAL ? "" : t.app, t.app === PERSONAL ? "Personal" : "Business", t.kind, +dist(num(t.km)).toFixed(2), t.source || ""]),
-      legacy.map(s => [s.date, tHM(s.start), tHM(s.end), (s.platforms || []).map(p => p.name).join(" / "), "Business", "shift", +dist(num(s.km)).toFixed(2), "shift"]));
+    const mileRows = () => [["Date", "Start", "End", "App", "Business or personal", "Business purpose", "Start place (lat/lon)", "End place (lat/lon)", "Type", "Distance (" + unit + ")", "Source"]].concat(
+      trips.map(t => [t.date, tHM(t.start), tHM(t.end), t.app === PERSONAL ? "" : t.app, t.app === PERSONAL ? "Personal" : "Business", tripPurpose(t), placeText(t.loc), placeText(t.endLoc), t.kind, +dist(num(t.km)).toFixed(2), t.source || ""]),
+      legacy.map(s => [s.date, tHM(s.start), tHM(s.end), (s.platforms || []).map(p => p.name).join(" / "), "Business", "Gig work session", placeText(s.loc), "", "shift", +dist(num(s.km)).toFixed(2), "shift"]));
     const incRows = () => [["Date", "App", "Type", "Pay", "Tips", "Bonus", "Cancellation", "Adjustment", "Total", "Cash"]].concat(
       data.trips.filter(t => t.date >= a && t.date <= b && tripEarn(t) !== 0).map(t => [t.date, t.app, t.kind, num(t.pay), num(t.tips), num(t.bonus), num(t.cancel), num(t.adjust), +tripEarn(t).toFixed(2), t.cash ? "yes" : ""]),
       legacy.map(s => [s.date, (s.platforms || []).map(p => p.name).join(" / "), "shift", sum(s.platforms || [], p => num(p.base)), shiftTips(s), sum(s.platforms || [], p => num(p.bonus)), 0, 0, +shiftGross(s).toFixed(2), ""]));
@@ -3365,7 +3791,82 @@ function App() {
       e("div", { className: "no-print", style: Object.assign({}, S.small, { fontSize: 13, lineHeight: 1.5 }) }, T("rp_note")));
   };
 
+  // keep the current vehicle or switch: the driver's own distance, a real insurance quote, typed price and loan terms
+  function ReplaceModal({ vehicle }) {
+    const v = vehicle, mi = unit === "mi";
+    const recIns = data.expenses.filter(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === v.id)).sort((a, b) => b.date.localeCompare(a.date))[0];
+    const curIns = recIns ? monthlyOf(recIns) : (v.insurance === "" || v.insurance == null ? "" : num(v.insurance));
+    const kmDefault = annualKmOf(v.id) / 12;
+    const [f, setF] = useState({ type: "car", fuel: "gasoline", name: "", price: "", resale: "", years: 2, eff: "", ins: "", down: "", apr: "", loan: "", dist: Math.round(dist(kmDefault)), curIns: curIns === "" ? "" : curIns.toFixed(2) });
+    const set = (k, x) => setF(o => Object.assign({}, o, { [k]: x }));
+    const p = CONFIG.vehicleTypes[f.type], months = clamp(num(f.years), 1, 6) * 12;
+    const ev = f.type === "car" ? f.fuel === "electric" : p.energy === "electric", fuelUse = f.type === "car" ? !ev : p.energy === "fuel";
+    // efficiency typed in the driver's units (mpg or kWh/100 mi; L/100 km or kWh/100 km) → internal per 100 km
+    const effInt = num(f.eff) > 0 ? (fuelUse ? (mi ? 235.215 / num(f.eff) : num(f.eff)) : (mi ? num(f.eff) / KM_PER_MI : num(f.eff))) : (f.type === "car" ? typicalEnergy("midsize", f.fuel, st.country).cons : p.cons);
+    const priceUnit = fuelUse ? (v.energy === "fuel" ? num(v.price) : (st.country === "NL" ? 1.95 : 0.83)) : (v.energy === "electric" ? num(v.price) : (st.country === "NL" ? 0.30 : 0.17));
+    const resaleGuess = num(f.price) > 0 ? num(f.price) * Math.pow(f.type === "car" ? 0.85 : 0.75, clamp(num(f.years), 1, 6)) : 0;
+    const R = num(f.price) > 0 ? replaceCompare(Object.assign({}, v), f.curIns === "" ? "" : num(f.curIns),
+      { type: f.type, price: num(f.price), resale: f.resale === "" ? resaleGuess : num(f.resale), months, cons: effInt, priceUnit, insurance: f.ins === "" ? "" : num(f.ins),
+        down: f.down === "" ? num(f.price) : num(f.down), apr: num(f.apr), loanMonths: num(f.loan) }, toKm(f.dist)) : null;
+    const nIn = (k, ph) => e("input", { style: S.input, inputMode: "decimal", value: f[k], placeholder: ph || "", onChange: ev2 => set(k, ev2.target.value) });
+    const row = (label, a, b, bold) => e("div", { style: { display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 8, padding: "9px 0", borderTop: "1px solid " + C.border, fontSize: bold ? 17 : 15, fontWeight: bold ? 800 : 500 } },
+      e("span", { style: { color: bold ? C.text : C.sub } }, label), e("span", { style: { textAlign: "right" } }, money(a)), e("span", { style: { textAlign: "right" } }, money(b)));
+    const isEbike = f.type !== "car" && f.type !== "motorcycle";
+    return ModalShell(T("rp2_title"), e("div", null,
+      e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, marginBottom: 12 } }, fill(T("rp2_intro"), { v: vName(v) })),
+      Field(T("rp2_type"), e("select", { style: S.input, value: f.type, onChange: ev2 => set("type", ev2.target.value) },
+        Object.keys(CONFIG.vehicleTypes).map(k => e("option", { key: k, value: k }, CONFIG.vehicleTypes[k].icon + " " + T("t_" + k))))),
+      f.type === "car" ? Field(T("rp2_fuel"), e("select", { style: S.input, value: f.fuel, onChange: ev2 => set("fuel", ev2.target.value) },
+        ["gasoline", "hybrid", "diesel", "electric"].map(k => e("option", { key: k, value: k }, T("fk_" + k))))) : null,
+      e("div", { className: "grid2" },
+        Field(T("rp2_price"), nIn("price", "0")),
+        Field(fill(T("rp2_resale"), { n: clamp(num(f.years), 1, 6) }), nIn("resale", resaleGuess ? Math.round(resaleGuess) + " (" + T("tg_est").toLowerCase() + ")" : ""))),
+      e("div", { className: "grid2" },
+        Field(T("rp2_years"), e("select", { style: S.input, value: f.years, onChange: ev2 => set("years", ev2.target.value) }, [1, 2, 3, 4, 5].map(y => e("option", { key: y, value: y }, y)))),
+        Field(fuelUse ? (mi ? "mpg" : "L/100 km") : (mi ? "kWh/100 mi" : "kWh/100 km"), nIn("eff", T("tg_est")))),
+      e("div", { className: "grid2" },
+        Field(T("rp2_ins"), nIn("ins", T("rp2_quote"))),
+        Field(fill(T("rp2_dist"), { u: unit }), nIn("dist"))),
+      curIns === "" ? Field(fill(T("rp2_curIns"), { v: vName(v) }), nIn("curIns", T("rp2_quote"))) : null,
+      e("div", { className: "grid3" }, Field(T("rp2_down"), nIn("down", T("rp2_cash"))), Field(T("rp2_apr"), nIn("apr", "0")), Field(T("rp2_loan"), nIn("loan", "0"))),
+      !R ? e("div", { style: { fontSize: 15, color: C.muted, margin: "8px 0" } }, T("rp2_needPrice"))
+        : R.missing.length ? e("div", { role: "alert", style: { fontSize: 15, fontWeight: 700, color: C.amber, background: C.warnBg, border: "1px solid " + C.warnBorder, borderRadius: 12, padding: 12, margin: "8px 0" } }, "⚠ " + T("rp2_insMissing"))
+        : e("section", { "aria-label": T("rp2_result"), role: "status", style: { marginTop: 8 } },
+            e("div", { style: { fontSize: 20, fontWeight: 900, color: R.diffMonth <= 0 ? C.accent : C.red, marginBottom: 4 } },
+              fill(T(R.diffMonth <= 0 ? "rp2_saves" : "rp2_costs"), { m: money(Math.abs(R.diffMonth), 0), p: money(Math.abs(R.diffPeriod), 0), n: months })),
+            e("div", { style: { fontSize: 14, color: C.sub, marginBottom: 8, display: "flex", gap: 8, alignItems: "center" } }, Tag("estimate"), fill(T("rp2_basis"), { d: fmtDist(R.kmMonth, 0) })),
+            isEbike ? e("div", { role: "note", style: { fontSize: 14, color: C.amber, lineHeight: 1.5, marginBottom: 8 } }, "⚠ " + T("rp2_bikeNote")) : null,
+            e("div", { style: { display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 8, fontSize: 13, fontWeight: 800, color: C.muted, textTransform: "uppercase" } },
+              e("span", null, T("rp2_perMonth")), e("span", { style: { textAlign: "right" } }, T("rp2_now")), e("span", { style: { textAlign: "right" } }, T("rp2_new"))),
+            row(fuelUse || v.energy === "fuel" ? T("rp2_energy") : T("x_charge"), R.cur.energy, R.cand.energy),
+            row(T("l_dep"), R.cur.dep, R.cand.dep),
+            row(T("rp2_maint"), R.cur.maint, R.cand.maint),
+            row(T("c_insurance"), R.cur.ins, R.cand.ins),
+            R.cand.interest > 0 ? row(T("rp2_interest"), 0, R.cand.interest) : null,
+            R.cur.other > 0 ? row(T("rp2_other"), R.cur.other, 0) : null,
+            row(T("rp2_total"), R.cur.total, R.cand.total, true),
+            R.upfront > 0 ? e("div", { style: { fontSize: 15, color: C.sub, marginTop: 10 } }, fill(T("rp2_upfront"), { a: money(R.upfront, 0) }) + (R.payment > 0 ? " · " + fill(T("rp2_payment"), { a: money(R.payment, 0) }) : "")) : null,
+            st.country === "US" ? e("div", { style: { fontSize: 14, color: C.muted, lineHeight: 1.5, marginTop: 8 } }, T(isEbike ? "rp2_taxEbike" : "rp2_taxCar")) : null)),
+      () => setModal(null));
+  }
+
   function VehDatesModal({ vehicle }) {
+    const [gap, setGap] = useState(null);
+    // save dates + reading; missing miles become a trip the driver classified (never silently absorbed)
+    const finish = how => {
+      const entered = f.startOdo !== "" ? toKm(f.startOdo) : null, today = dISO(new Date()), at = new Date().toISOString();
+      let v = Object.assign({}, vehicle, { regDue: f.regDue, inspDue: f.inspDue, battDate: f.battDate });
+      if (entered != null) {
+        const tracked = odoOf(vehicle) - num(vehicle.startOdo);
+        if (gap && how !== "skip") {
+          upsert("trips", { id: genId(), date: today, start: at, end: at, km: +gap.km.toFixed(3), app: how === "work" ? myApps[0] : PERSONAL, kind: how === "work" ? "online" : "personal",
+            pay: "", tips: "", vehicleId: vehicle.id, source: "odometer", purpose: T("od_purpose") });
+          v.startOdo = num(vehicle.startOdo);                       // the new trip carries the difference
+        } else v.startOdo = Math.max(0, entered - tracked);
+        v.odoReadings = (vehicle.odoReadings || []).concat([{ date: today, km: +entered.toFixed(1) }]).slice(-24);
+      }
+      upsert("vehicles", v); setModal(null); showToast(T("saved"));
+    };
     const [f, setF] = useState({ regDue: vehicle.regDue || "", inspDue: vehicle.inspDue || "", battDate: vehicle.battDate || "", startOdo: num(vehicle.startOdo) > 0 ? Math.round(dist(num(vehicle.startOdo))) : "" });
     const set = (k, x) => setF(o => Object.assign({}, o, { [k]: x }));
     const dIn = k => e("input", { type: "date", style: Object.assign({}, S.input, { fontSize: 17 }), value: f[k], onChange: ev => set(k, ev.target.value) });
@@ -3373,10 +3874,23 @@ function App() {
       Field(T("rm_reg"), dIn("regDue")), Field(T("rm_insp"), dIn("inspDue")), Field(T("rm_battInst"), dIn("battDate")),
       Field(T("odoNow") + " (" + unit + ")", e("input", { style: Object.assign({}, S.input, { fontSize: 17 }), inputMode: "numeric", value: f.startOdo, onChange: ev => set("startOdo", ev.target.value) }), T("odoHint")),
       e("div", { style: Object.assign({}, S.small, { fontSize: 13, marginBottom: 12, lineHeight: 1.5 }) }, T("vd_remindNote")),
+      gap ? e("div", { role: "alert", style: { padding: 14, borderRadius: 14, background: C.warnBg, border: "1px solid " + C.warnBorder, marginBottom: 12 } },
+        e("div", { style: { fontSize: 16, fontWeight: 800, color: C.amber, lineHeight: 1.45, marginBottom: 10 } },
+          fill(T("od_missing"), { g: fmtDist(gap.km, 0), d: gap.since || "—" })),
+        e("div", { style: { fontSize: 14, color: C.sub, lineHeight: 1.5, marginBottom: 10 } }, T("od_ask")),
+        e("div", { style: { display: "grid", gap: 8 } },
+          myApps.length ? e("button", { style: Object.assign(S.btn(), { minHeight: 52 }), onClick: () => finish("work") }, fill(T("od_work"), { a: myApps[0] })) : null,
+          e("button", { style: Object.assign(S.btn("ghost"), { minHeight: 52 }), onClick: () => finish("personal") }, T("od_personal")),
+          e("button", { style: Object.assign(S.btn("ghost"), { minHeight: 52 }), onClick: () => finish("skip") }, T("od_skip")))) :
       e("button", { style: Object.assign(S.btn(), { width: "100%", minHeight: 56, fontSize: 17 }), onClick: () => {
-        const tracked = odoOf(vehicle) - num(vehicle.startOdo);
-        upsert("vehicles", Object.assign({}, vehicle, { regDue: f.regDue, inspDue: f.inspDue, battDate: f.battDate }, f.startOdo !== "" ? { startOdo: Math.max(0, toKm(f.startOdo) - tracked) } : {}));
-        setModal(null); showToast(T("saved")); } }, T("save"))), () => setModal(null));
+        // odometer check: compare the new reading with what Kept tracked since the last reading
+        const known = num(vehicle.startOdo) > 0, entered = f.startOdo !== "" ? toKm(f.startOdo) : null;
+        if (entered != null && known) {
+          const diff = entered - odoOf(vehicle), last = (vehicle.odoReadings || []).slice(-1)[0];
+          const since = last ? entered - last.km : entered - num(vehicle.startOdo);
+          if (diff > Math.max(10, 0.03 * Math.max(0, since))) { setGap({ km: diff, since: last ? last.date : "" }); return; }
+        }
+        finish("plain"); } }, T("save"))), () => setModal(null));
   }
 
   function ConfirmDlg() {
@@ -3486,6 +4000,10 @@ function App() {
         e("div", { style: { fontSize: 26, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 6 } }, titles[step][0]),
         e("div", { style: { color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.45 } }, titles[step][1]),
         e("div", { style: { flex: 1 } }, body),
+        cloud && step === 0 && (CONFIG.apiUrl || LS.get("kept_device_data", null)) ? e("div", { style: { display: "grid", gap: 8, marginTop: 16 } },
+          LS.get("kept_device_data", null) ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 15 }), onClick: () => setModal({ type: "import", src: "device" }) },
+            fill(T("im_devBtn"), { n: COLLS.reduce((k, c) => k + ((LS.get("kept_device_data", {})[c]) || []).filter(r => !r.derived).length, 0) })) : null,
+          CONFIG.apiUrl ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 15 }), onClick: () => setModal({ type: "import", src: "pin" }) }, T("im_pinBtn")) : null) : null,
         CONFIG.staging && step === 0 ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, marginTop: 16, fontSize: 15, borderStyle: "dashed" }),
           onClick: () => { const smp = sampleData(ctry); smp.vehicles.forEach(x => upsert("vehicles", x)); smp.trips.forEach(x => upsert("trips", x)); smp.expenses.forEach(x => upsert("expenses", x));
             saveSettings({ apps: ["Uber", "Uber Eats", "DoorDash"], country: "US", state: "VA", onboarded: true, defaultVehicleId: smp.vehicles[0].id, name: "Sample driver" }); setView("home"); } }, T("stg_sample")) : null,
@@ -3614,8 +4132,8 @@ function App() {
     const [makes, setMakes] = useState([]); const [make, setMake] = useState("");
     const [models, setModels] = useState([]); const [model, setModel] = useState("");
     const [optsL, setOptsL] = useState([]); const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
-    const call = async (q, okFn) => { setBusy(true); setErr(""); try { const r = await apiCall(pin, "mpg", q); okFn(r); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
-    if (localMode) return e("div", { style: Object.assign({}, S.small, { marginBottom: 10 }) }, T("lookupMpg") + " — " + T("cloudOnly"));
+    const call = async (q, okFn) => { setBusy(true); setErr(""); try { const r = await svc("mpg", q); okFn(r); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
+    if (!HAS_SVC) return e("div", { style: Object.assign({}, S.small, { marginBottom: 10 }) }, T("lookupMpg") + " — " + T("cloudOnly"));
     return e("div", { style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: 12, marginBottom: 12 } },
       e("div", { style: Object.assign({}, S.label, { color: C.accent }) }, T("lookupMpg") + " (fueleconomy.gov)"),
       e("div", { className: "grid2" },
@@ -3638,9 +4156,9 @@ function App() {
     const [vin, setVin] = useState((init && init.vin) || ""), [vinBusy, setVinBusy] = useState(false), [vinMsg, setVinMsg] = useState(null);
     // VIN decode through the backend (NHTSA vPIC, free US government database)
     const lookupVin = async () => {
-      if (localMode) { setVinMsg({ ok: false, text: T("vinCloud") }); return; }
+      if (!HAS_SVC) { setVinMsg({ ok: false, text: T("vinCloud") }); return; }
       setVinBusy(true); setVinMsg(null);
-      try { const r = mapVin(await apiCall(pinRef.current, "vin", { vin }));
+      try { const r = mapVin(await svc("vin", { vin }));
         if (!r || !r.ok || !r.make) { setVinMsg({ ok: false, text: T("vinFail") }); return; }
         setF(x => Object.assign({}, x, { vin, vinSrc: "nhtsa", year: r.year || x.year, make: r.make, model: r.model || x.model, body: r.body, engine: r.engine || x.engine, name: x.name || [r.year, r.make, r.model].filter(Boolean).join(" ") }));
         setFuelKind(r.fuelKind);
@@ -3717,7 +4235,7 @@ function App() {
         e("div", { style: { flex: 1 } }, Field(T("vin") + " (" + T("optional") + ")", e("input", { style: Object.assign({}, S.input, { textTransform: "uppercase", letterSpacing: ".05em" }), maxLength: 17, value: vin, placeholder: "17 characters", onChange: ev => setVin(ev.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase()) }))),
         e("button", { style: Object.assign(S.btn("ghost"), { minHeight: 46, marginBottom: 12 }), disabled: vin.length !== 17 || vinBusy, onClick: lookupVin }, vinBusy ? "…" : T("vinLookup"))) : null,
       vinMsg ? e("div", { role: "status", style: { fontSize: 14, marginBottom: 12, color: vinMsg.ok ? C.accent : C.amber, fontWeight: 600 } }, vinMsg.text) : null,
-      isCar ? (showLookup ? e(MpgLookupC, { onPick: onMpg }) : (!localMode ? e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }, onClick: () => setShowLookup(true) }, "🔎 " + T("lookupMpg")) : null)) : null,
+      isCar ? (showLookup ? e(MpgLookupC, { onPick: onMpg }) : (HAS_SVC ? e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }, onClick: () => setShowLookup(true) }, "🔎 " + T("lookupMpg")) : null)) : null,
       isCar ? e("div", null,
         e("div", { style: { display: "grid", gridTemplateColumns: "90px 1fr 1fr", gap: 10, alignItems: "end" } },
           Field(T("yearModel"), e("input", { style: S.input, inputMode: "numeric", value: f.year, onChange: ev => set("year", ev.target.value.replace(/\D/g, "").slice(0, 4)) })),
@@ -3741,7 +4259,7 @@ function App() {
       estPanel,
       e("div", { style: Object.assign({}, S.row, { background: C.card2, border: "1px solid " + C.border, borderRadius: 12, padding: "10px 12px", marginBottom: 12 }) },
         e("span", { style: { color: C.sub, fontSize: 13 } }, T("costPerKm") + " " + unit + " (" + T("depreciation").toLowerCase() + " + " + T("energy").toLowerCase() + " + " + T("parts").toLowerCase() + ")"), e("b", { style: { color: C.accent, fontSize: 18 } }, money(perUnit(c.total), 3))),
-      e("div", { style: { color: C.accent, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 12 }, onClick: () => setAdv(a => !a) }, (adv ? "▾ " : "▸ ") + T("advanced")),
+      e("button", { type: "button", "aria-expanded": adv, style: { background: "none", border: "none", padding: "8px 0", font: "inherit", color: C.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", marginBottom: 8, minHeight: 44 }, onClick: () => setAdv(a => !a) }, (adv ? "▾ " : "▸ ") + T("advanced")),
       adv ? e("div", { style: { borderLeft: "2px solid " + C.border, paddingLeft: 12, marginBottom: 12 } },
         Field(T("depModeL"), e("select", { style: S.input, value: f.depMode, onChange: ev => {
           const m = ev.target.value;
@@ -3767,6 +4285,10 @@ function App() {
         e("div", { className: "grid2" }, Field(T("rent"), moneyIn("rent")), Field(T("otherFixed"), moneyIn("otherFixed"))),
         st.country === "US" && isCar ? Field(T("taxMethod"), e("select", { style: S.input, value: f.taxMethod || "standard", onChange: ev => set("taxMethod", ev.target.value) },
           e("option", { value: "standard" }, T("stdMileage")), e("option", { value: "actual" }, T("actualExp")))) : null,
+        // IRS Topic 510: owned car — standard rate must be chosen in the car's first business year; leased car — standard rate for the whole lease
+        st.country === "US" && isCar && (f.leased ? (f.taxMethod || "standard") === "actual" : !isNew && (init.taxMethod || "standard") !== (f.taxMethod || "standard"))
+          ? e("div", { role: "note", style: { fontSize: 14, lineHeight: 1.5, color: C.amber, background: C.warnBg, border: "1px solid " + C.warnBorder, borderRadius: 12, padding: 10, marginBottom: 12 } },
+              "⚠ " + T(f.leased ? "tm_lease" : (f.taxMethod || "standard") === "standard" ? "tm_toStd" : "tm_toActual")) : null,
         st.country === "US" && !isCar ? e("div", { style: Object.assign({}, S.small, { marginBottom: 10 }) }, T("taxMethod") + ": " + T("actualExp") + " (IRS standard rate is for cars, vans, pickups and panel trucks only)") : null,
         st.country === "NL" ? chk("privateOwned", T("privatelyOwned"), true) : null,
         chk("active", T("active"), true)) : null,
@@ -3819,7 +4341,154 @@ function App() {
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  LOGIN
+  //  ACCOUNTS (Firebase Authentication)
+  // ════════════════════════════════════════════════════════════════
+  const authMsg = err => {
+    const c = (err && err.code) || "";
+    if (/invalid-email/.test(c)) return T("au_eEmail");
+    if (/user-not-found|wrong-password|invalid-credential|invalid-login/.test(c)) return T("au_eWrong");
+    if (/email-already-in-use/.test(c)) return T("au_eExists");
+    if (/weak-password/.test(c)) return T("au_eWeak");
+    if (/too-many-requests/.test(c)) return T("au_eMany");
+    if (/network-request-failed/.test(c)) return T("au_noConn");
+    if (/popup-closed|cancelled-popup/.test(c)) return "";
+    if (/requires-recent-login/.test(c)) return T("au_eRecent");
+    return T("au_eOther") + (c ? " (" + c.replace("auth/", "") + ")" : "");
+  };
+  const backupData = () => ({ app: "Kept", version: CONFIG.version, exported: new Date().toISOString(), settings: raw.settings,
+    vehicles: raw.vehicles || [], expenses: raw.expenses || [], trips: raw.trips || [], shifts: (raw.shifts || []).filter(x => !x.derived) });
+
+  function AuthScreen() {
+    const [mode, setMode] = useState("in");          // in | up | reset
+    const [em, setEm] = useState(""), [pw, setPw] = useState(""), [show, setShow] = useState(false);
+    const [err, setErr] = useState(loginErr), [msg, setMsg] = useState(""), [busy, setBusy] = useState(false);
+    const go = async () => {
+      setErr(""); setMsg("");
+      if (!/^\S+@\S+\.\S+$/.test(em.trim())) return setErr(T("au_eEmail"));
+      if (mode !== "reset" && pw.length < (mode === "up" ? 8 : 1)) return setErr(mode === "up" ? T("au_eWeak") : T("au_ePw"));
+      setBusy(true);
+      try {
+        await initFirebase();
+        if (mode === "in") await FB.auth.signInWithEmailAndPassword(em.trim(), pw);
+        else if (mode === "up") { const r = await FB.auth.createUserWithEmailAndPassword(em.trim(), pw); r.user.sendEmailVerification().catch(() => {}); }
+        else { await FB.auth.sendPasswordResetEmail(em.trim()); setMsg(T("au_resetSent")); }
+      } catch (x) { if (mode === "reset" && /user-not-found/.test(x.code || "")) setMsg(T("au_resetSent")); else setErr(authMsg(x)); }
+      finally { setBusy(false); }
+    };
+    const google = async () => {
+      setErr(""); setBusy(true);
+      try { await initFirebase(); const p = new window.firebase.auth.GoogleAuthProvider();
+        try { await FB.auth.signInWithPopup(p); } catch (x) { if (/popup-blocked|operation-not-supported/.test(x.code || "")) await FB.auth.signInWithRedirect(p); else throw x; } }
+      catch (x) { setErr(authMsg(x)); } finally { setBusy(false); }
+    };
+    const tab = (k, label) => e("button", { type: "button", role: "tab", "aria-selected": mode === k, onClick: () => { setMode(k); setErr(""); setMsg(""); },
+      style: { flex: 1, minHeight: 48, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 16, fontWeight: 800, font: "inherit", background: mode === k ? C.card : "transparent", color: mode === k ? C.text : C.muted, boxShadow: mode === k ? C.shadow : "none" } }, label);
+    return e("main", { style: { minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: C.bg } },
+      e("div", { style: { width: "100%", maxWidth: 400 } },
+        e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 } },
+          e("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, e(LogoMark, { s: 44 }), e("span", { style: { fontSize: 28, fontWeight: 900, letterSpacing: "-0.5px", color: C.text } }, CONFIG.appName)),
+          e("select", { "aria-label": T("language"), style: Object.assign({}, S.input, { width: "auto", minHeight: 44 }), value: st.lang, onChange: ev => { const v = ev.target.value; setData(d => Object.assign({}, d, { settings: Object.assign({}, d.settings, { lang: v }) })); } },
+            CONFIG.languages.map(l => e("option", { key: l[0], value: l[0] }, l[1])))),
+        e("div", { style: { color: C.sub, fontSize: 16, marginBottom: 18, lineHeight: 1.45 } }, CONFIG.tagline),
+        e("section", { style: Object.assign({}, S.card, { padding: 20 }) },
+          mode !== "reset" ? e("div", { role: "tablist", style: { display: "flex", gap: 4, padding: 4, borderRadius: 14, background: C.card2, marginBottom: 18 } }, tab("in", T("au_signIn")), tab("up", T("au_create"))) :
+            e("h1", { style: { fontSize: 22, fontWeight: 900, margin: "0 0 8px", color: C.text } }, T("au_resetT")),
+          mode === "reset" ? e("div", { style: { color: C.sub, fontSize: 15, marginBottom: 14, lineHeight: 1.45 } }, T("au_resetHint")) : null,
+          Field(T("au_email"), e("input", { type: "email", autoComplete: "email", inputMode: "email", style: Object.assign({}, S.input, { fontSize: 17 }), value: em, onChange: ev => setEm(ev.target.value), onKeyDown: ev => { if (ev.key === "Enter") go(); } })),
+          mode !== "reset" ? Field(T("au_password"), e("div", { style: { display: "flex", gap: 8 } },
+            e("input", { "aria-label": T("au_password"), type: show ? "text" : "password", autoComplete: mode === "up" ? "new-password" : "current-password", style: Object.assign({}, S.input, { fontSize: 17, flex: 1 }), value: pw, onChange: ev => setPw(ev.target.value), onKeyDown: ev => { if (ev.key === "Enter") go(); } }),
+            e("button", { type: "button", "aria-pressed": show, style: Object.assign(S.btn("ghost"), { minHeight: 48, minWidth: 72 }), onClick: () => setShow(!show) }, show ? T("au_hide") : T("au_show"))),
+            mode === "up" ? T("au_pwRule") : null) : null,
+          err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, fontSize: 15, margin: "4px 0 12px", lineHeight: 1.4 } }, err) : null,
+          msg ? e("div", { role: "status", style: { color: C.accent, fontWeight: 700, fontSize: 15, margin: "4px 0 12px", lineHeight: 1.4 } }, msg) : null,
+          e("button", { style: Object.assign(S.btn(), { width: "100%", minHeight: 56, fontSize: 18 }), disabled: busy, onClick: go }, busy ? "…" : mode === "in" ? T("au_signIn") : mode === "up" ? T("au_create") : T("au_sendReset")),
+          mode === "in" ? e("button", { type: "button", style: { background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 14, minHeight: 44, font: "inherit" }, onClick: () => { setMode("reset"); setErr(""); } }, T("au_forgot")) : null,
+          mode === "reset" ? e("button", { type: "button", style: { background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 14, minHeight: 44, font: "inherit" }, onClick: () => { setMode("in"); setMsg(""); } }, "← " + T("au_signIn")) : null,
+          mode !== "reset" && !IS_NATIVE ? e("div", null,
+            e("div", { style: { display: "flex", alignItems: "center", gap: 10, margin: "16px 0", color: C.muted, fontSize: 14 } }, e("div", { style: { flex: 1, height: 1, background: C.border } }), T("au_or"), e("div", { style: { flex: 1, height: 1, background: C.border } })),
+            e("button", { style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }), disabled: busy, onClick: google },
+              e("svg", { width: 20, height: 20, viewBox: "0 0 48 48", "aria-hidden": true }, e("path", { fill: "#EA4335", d: "M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z" }), e("path", { fill: "#4285F4", d: "M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z" }), e("path", { fill: "#FBBC05", d: "M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z" }), e("path", { fill: "#34A853", d: "M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" })),
+              T("au_google"))) : null),
+        e("div", { style: { color: C.muted, fontSize: 13, textAlign: "center", lineHeight: 1.55, marginTop: 14 } }, T("au_private"),
+          CONFIG.privacyUrl ? e("span", null, " ", e("a", { href: CONFIG.privacyUrl, target: "_blank", rel: "noopener", style: { color: C.accent, fontWeight: 700 } }, T("au_privacy"))) : null),
+        e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 24, opacity: .6, marginTop: 22, display: "block", marginLeft: "auto", marginRight: "auto" } })));
+  }
+
+  function AccountCard() {
+    const u = user || {}, pwUser = (u.providerData || []).some(p => p.providerId === "password");
+    const dev = LS.get("kept_device_data", null), devN = dev ? COLLS.reduce((n, c) => n + (dev[c] || []).filter(r => !r.derived).length, 0) : 0;
+    return e("div", { style: S.card },
+      e("div", { style: S.h2 }, T("au_account")),
+      e("div", { style: { fontSize: 15, color: C.text, marginBottom: 4, wordBreak: "break-all" } }, u.email || "—"),
+      e("div", { style: Object.assign({}, S.small, { marginBottom: 12, color: u.emailVerified ? C.accent : C.amber }) }, u.emailVerified ? "✓ " + T("au_verified") : T("au_notVerified")),
+      e("div", { style: { display: "grid", gap: 8 } },
+        !u.emailVerified && pwUser ? e("button", { style: S.btn("ghost"), onClick: () => FB.auth.currentUser.sendEmailVerification().then(() => showToast(T("au_verifySent"))).catch(x => showToast("⚠ " + authMsg(x))) }, T("au_verifyBtn")) : null,
+        pwUser ? e("button", { style: S.btn("ghost"), onClick: () => FB.auth.sendPasswordResetEmail(u.email).then(() => showToast(T("au_resetSent"))).catch(x => showToast("⚠ " + authMsg(x))) }, T("au_changePw")) : null,
+        CONFIG.apiUrl ? e("button", { style: S.btn("ghost"), onClick: () => setModal({ type: "import", src: "pin" }) }, T("im_pinBtn")) : null,
+        devN ? e("button", { style: S.btn("ghost"), onClick: () => setModal({ type: "import", src: "device" }) }, fill(T("im_devBtn"), { n: devN })) : null,
+        e("button", { style: S.btn("ghost"), onClick: () => askConfirm(T("au_signOutQ"), () => signOut(), { okLabel: T("au_signOut") }) }, T("au_signOut")),
+        e("button", { style: S.btn("danger"), onClick: () => setModal({ type: "deleteAcct" }) }, T("au_delete"))));
+  }
+
+  // bring records in from the PIN version (its Google Sheet) or from what this phone stored before accounts
+  function ImportModal({ src }) {
+    const [p, setP] = useState(""), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [done, setDone] = useState(null);
+    const dev = LS.get("kept_device_data", null);
+    const count = d => COLLS.reduce((n, c) => n + (d[c] || []).filter(r => !r.derived).length, 0);
+    const run = async () => {
+      setBusy(true); setErr("");
+      try {
+        let d = dev;
+        if (src === "pin") { d = await apiCall(p, "getAll", null, CONFIG.apiUrl); }
+        if (!d) throw new Error(T("im_none"));
+        const nd = { vehicles: d.vehicles || [], expenses: d.expenses || [], trips: d.trips || [], shifts: (d.shifts || []).filter(x => !x.derived) };
+        if (d.settings && Object.keys(d.settings).length) nd.settings = Object.assign({}, d.settings, { onboarded: true });
+        await cloudReplace(nd, false);
+        if (src === "device") LS.del("kept_device_data");
+        setModal(null); showToast(fill(T("im_done"), { n: count(nd) }));     // the screen behind may change (onboarding ends), so confirm with a toast
+      } catch (x) { setErr(/Unauthorized/i.test(x.message) ? T("wrongPin") : x.message); }
+      finally { setBusy(false); }
+    };
+    return ModalShell(src === "pin" ? T("im_pinT") : T("im_devT"), done != null
+      ? e("div", null, e("div", { role: "status", style: { fontSize: 18, fontWeight: 800, color: C.accent, marginBottom: 16 } }, fill(T("im_done"), { n: done })),
+          e("button", { style: Object.assign(S.btn(), { width: "100%", minHeight: 56 }), onClick: () => setModal(null) }, T("done")))
+      : e("div", null,
+          e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, marginBottom: 14 } }, src === "pin" ? T("im_pinHint") : fill(T("im_devHint"), { n: dev ? count(dev) : 0 })),
+          src === "pin" ? Field("PIN", e("input", { type: "password", inputMode: "numeric", autoComplete: "off", style: Object.assign({}, S.input, { fontSize: 20, letterSpacing: ".3em" }), value: p, onChange: ev => setP(ev.target.value.replace(/\D/g, "").slice(0, 8)) })) : null,
+          err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, marginBottom: 12 } }, "⚠ " + err) : null,
+          e("button", { style: Object.assign(S.btn(), { width: "100%", minHeight: 56, fontSize: 17 }), disabled: busy || (src === "pin" && p.length < 4), onClick: run }, busy ? "…" : T("im_go"))), () => setModal(null));
+  }
+
+  function DeleteAccountModal() {
+    const u = FB.auth && FB.auth.currentUser, pwUser = u && (u.providerData || []).some(p => p.providerId === "password");
+    const [typed, setTyped] = useState(""), [pw, setPw] = useState(""), [busy, setBusy] = useState(false), [err, setErr] = useState("");
+    const go = async () => {
+      setBusy(true); setErr("");
+      try {
+        if (pwUser) await u.reauthenticateWithCredential(window.firebase.auth.EmailAuthProvider.credential(u.email, pw));
+        else await u.reauthenticateWithPopup(new window.firebase.auth.GoogleAuthProvider());
+        const ids = []; COLLS.forEach(c => (raw[c] || []).forEach(r => (r.photos || []).forEach(x => ids.push(x))));
+        stopCloud();                                   // so the account is not re-created while it is being emptied
+        await cloudReplace({}, true);
+        await userDoc(u.uid).delete();
+        cloudPhotoDelete(ids);
+        await u.delete();
+        ["kept_data", "kept_brief", "kept_queue", "kept_photoQ", "kept_track", "kept_work", "kept_fuel", "kept_uid", "kept_device_data"].forEach(k => LS.del(k));
+        await IDB.clear().catch(() => {});
+        try { await FB.db.terminate(); await FB.db.clearPersistence(); } catch (x) {}
+        location.reload();
+      } catch (x) { setErr(authMsg(x) || x.message); setBusy(false); }
+    };
+    return ModalShell(T("au_delete"), e("div", null,
+      e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, marginBottom: 14 } }, T("au_deleteHint")),
+      Field(fill(T("au_typeDel"), { w: "DELETE" }), e("input", { style: Object.assign({}, S.input, { fontSize: 18 }), autoComplete: "off", value: typed, onChange: ev => setTyped(ev.target.value) })),
+      pwUser ? Field(T("au_password"), e("input", { type: "password", autoComplete: "current-password", style: Object.assign({}, S.input, { fontSize: 17 }), value: pw, onChange: ev => setPw(ev.target.value) })) : null,
+      err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, marginBottom: 12 } }, "⚠ " + err) : null,
+      e("button", { style: Object.assign(S.btn("danger"), { width: "100%", minHeight: 56, fontSize: 17 }), disabled: busy || typed.trim().toUpperCase() !== "DELETE" || (pwUser && !pw), onClick: go }, busy ? "…" : T("au_deleteGo"))), () => setModal(null));
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  LOGIN (PIN version)
   // ════════════════════════════════════════════════════════════════
   function Login() {
     const [p, setP] = useState("");
@@ -3836,6 +4505,10 @@ function App() {
   }
 
   const LoginC = stable("Login", Login);
+  const AuthC = stable("AuthScreen", AuthScreen);
+  const AccountCardC = stable("AccountCard", AccountCard);
+  const ImportModalC = stable("ImportModal", ImportModal);
+  const DeleteAccountModalC = stable("DeleteAccountModal", DeleteAccountModal);
   const ShiftModalC = stable("ShiftModal", ShiftModal);
   const ExpenseModalC = stable("ExpenseModal", ExpenseModal);
   const VehicleModalC = stable("VehicleModal", VehicleModal);
@@ -3855,13 +4528,21 @@ function App() {
   const VehicleDashC = stable("VehicleDash", VehicleDash);
   const ConfirmDlgC = stable("ConfirmDlg", ConfirmDlg);
   const VehDatesModalC = stable("VehDatesModal", VehDatesModal);
+  const ReplaceModalC = stable("ReplaceModal", ReplaceModal);
   const VoiceModalC = stable("VoiceModal", VoiceModal);
   const VIEWS = { home: simple ? stable("simpleHome", SimpleHome) : stable("home", HomeView), money: stable("money", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
     insights: stable("insights", InsightsView), coach: stable("coach", CoachView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
     tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: simple ? stable("simpleMore", SimpleMore) : stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView), reports: stable("reports", ReportsView) };
 
-  if (!authed) return e(LoginC);
-  if (!st.onboarded) return e(OnboardingC);
+  if (LIVE_MISCONFIG) return e("main", { role: "alert", style: { minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: C.bg } },
+    e("div", { style: { maxWidth: 440, textAlign: "center" } }, e(LogoMark, { s: 56 }),
+      e("h1", { style: { fontSize: 24, fontWeight: 900, color: C.text, margin: "16px 0 10px" } }, T("mc_title")),
+      e("p", { style: { fontSize: 16, color: C.sub, lineHeight: 1.55 } }, LIVE_MISCONFIG === "staging" ? T("mc_staging") : T("mc_local"))));
+  if (cloud && (user === undefined || (user && !cloudReady))) return e("main", { "aria-busy": true, style: { minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, flexDirection: "column", gap: 14 } },
+    e(LogoMark, { s: 64 }), e("div", { role: "status", style: { color: C.sub, fontSize: 16 } }, T("au_loading")));
+  if (!authed) return cloud ? e(AuthC) : e(LoginC);
+  if (!st.onboarded) return e(React.Fragment, null, e(OnboardingC),
+    modal && modal.type === "import" ? e(ImportModalC, { key: "import" + modal.src, src: modal.src }) : null);
 
   // ════════════════════════════════════════════════════════════════
   //  LAYOUT
@@ -3872,9 +4553,12 @@ function App() {
   const inMore = view === "more" || (MOBILE.every(m => m[0] !== view) && view !== "home");
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
 
+  // while a dialog is open the page behind it can't be reached by keyboard or screen reader
+  const behind = modal || dlg ? { inert: "", "aria-hidden": true } : {};
   return e("div", { className: "app-root", style: S.root },
     CONFIG.staging ? e("div", { role: "note", style: { background: "#7C3AED", color: "#fff", fontSize: 13, fontWeight: 800, textAlign: "center", padding: "6px 10px", paddingTop: "calc(6px + env(safe-area-inset-top))" } }, T("stg_banner")) : null,
-    e("header", { style: S.header },
+    localMode && !CONFIG.staging ? e("div", { role: "note", style: { background: C.warnBg, color: C.amber, borderBottom: "1px solid " + C.warnBorder, fontSize: 14, fontWeight: 700, textAlign: "center", padding: "6px 12px" } }, T("lm_banner")) : null,
+    e("header", Object.assign({ style: S.header }, behind),
       e("div", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }, onClick: () => setView("home") },
         e(LogoMark, { s: 32 }),
         e("span", { style: { fontWeight: 900, fontSize: 20, letterSpacing: "-0.5px" } }, CONFIG.appName),
@@ -3890,14 +4574,14 @@ function App() {
           style: { width: 44, height: 44, borderRadius: 12, border: "1px solid " + C.border, background: view === "settings" ? C.accentDim : C.card2, color: view === "settings" ? C.accent : C.sub, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } },
           e(Icon, { n: "gear", s: 22 })),
         e("img", { className: "hide-m", src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 32, opacity: 0.9, marginLeft: 4 } }))),
-    e("div", { style: { flex: 1, display: "flex", minHeight: 0 } },
+    e("div", Object.assign({ style: { flex: 1, display: "flex", minHeight: 0 } }, behind),
       e("div", { className: "desktop-sidebar", style: S.sidebar },
         e("div", { style: S.sideLabel }, st.name || CONFIG.appName),
         e("nav", { "aria-label": "Main" }, NAV.map(n => e("button", { key: n[0], "aria-current": view === n[0] ? "page" : undefined, className: "navbtn", style: Object.assign({}, S.sideItem(view === n[0]), { display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", borderLeft: S.sideItem(view === n[0]).borderLeft, textAlign: "left", fontSize: 15, minHeight: 46 }), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 20 }), T(n[0]))))),
       e("main", { className: "app-content", style: S.content }, e("div", { style: S.inner },
         syncState === "offline" ? e("div", { role: "status", style: { marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, lineHeight: 1.45 } }, "⚡ " + T("offlineMsg")) : null,
         e(VIEWS[view] || VIEWS.home)))),
-    e("div", { className: "bottom-nav", style: { position: "fixed", left: 0, right: 0, bottom: 0, background: C.navBg, backdropFilter: "blur(10px)", borderTop: "1px solid " + C.border, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 40 } },
+    e("div", { className: "bottom-nav", inert: behind.inert, "aria-hidden": behind["aria-hidden"], style: { position: "fixed", left: 0, right: 0, bottom: 0, background: C.navBg, backdropFilter: "blur(10px)", borderTop: "1px solid " + C.border, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 40 } },
       MOBILE.map(n => { const on = n[0] === "more" ? inMore : view === n[0];
         return e("button", { key: n[0], "aria-current": on ? "page" : undefined, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 60, padding: "8px 0 6px", background: "none", border: "none", color: on ? C.accent : C.muted, fontSize: 13, fontWeight: on ? 800 : 600, cursor: "pointer" }, onClick: () => setView(n[0]) },
           e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0])); })),
@@ -3908,6 +4592,9 @@ function App() {
     modal && modal.type === "earn" ? e(TripModalC, { key: (modal.trip && modal.trip.id) || "earn" + (modal.app || ""), init: modal.trip, quick: modal.trip ? "ride" : "earn", app: modal.app }) : null,
     modal && modal.type === "nav" ? e(NavModalC, { key: "nav" }) : null,
     modal && modal.type === "voice" ? e(VoiceModalC, { key: "voice" }) : null,
+    modal && modal.type === "import" ? e(ImportModalC, { key: "import" + modal.src, src: modal.src }) : null,
+    modal && modal.type === "deleteAcct" ? e(DeleteAccountModalC, { key: "delacct" }) : null,
+    modal && modal.type === "replace" ? e(ReplaceModalC, { key: "rp" + modal.vehicle.id, vehicle: modal.vehicle }) : null,
     modal && modal.type === "vdates" ? e(VehDatesModalC, { key: "vd" + modal.vehicle.id, vehicle: modal.vehicle }) : null,
     modal && modal.type === "pickApp" ? e(PickAppModalC, { key: "pick", switching: modal.switching }) : null,
     modal && modal.type === "pickExpense" ? e(PickExpenseModalC, { key: "pickx" }) : null,
