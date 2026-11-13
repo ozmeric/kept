@@ -1,0 +1,13 @@
+{
+  "appId": "io.usebuildflow.kept",
+  "appName": "Kept",
+  "webDir": "www",
+  "server": {
+    "url": "https://kept.usebuildflow.io",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0B1220"
+  }
+}
