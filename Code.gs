@@ -6,7 +6,8 @@
  *
  * Optional Script Properties (Project Settings → Script properties):
  *   GEMINI_API_KEY   — enables the AI "Today's Brief" (free key at aistudio.google.com)
- *   GEMINI_MODEL     — optional; by default Kept uses Google's newest "gemini-X.Y-flash" model
+ *   GEMINI_MODEL     — optional: one model or several separated by commas, tried in order. Without it Kept
+ *                      tries Google's newest Flash-Lite models, then Flash models, then the "-latest" aliases.
  *   EIA_API_KEY      — enables live US fuel prices (free key at eia.gov/opendata)
  *   PIN              — set automatically when the user changes their PIN in the app (PIN version only)
  *   PIN_ACCESS       — set to "off" once every driver has moved their data into a Kept account (closes the PIN door)
@@ -248,50 +249,95 @@ function deleteAll(ss) {
 function brief(stats) {
   var key = prop("GEMINI_API_KEY");
   if (!key) throw new Error("NO_AI_KEY");
-  var model = prop("GEMINI_MODEL") || geminiModel(key, false);
   var langName = { en: "English", nl: "Dutch", tr: "Turkish" }[stats.lang] || "English";
   var prompt =
     "You are Kept, a coach for gig drivers and couriers. Write today's brief in " + langName + ".\n" +
-    "Rules: 3 to 4 short sentences, plain text, no headings, no bullet points, no emojis. Use the numbers given; never invent figures. " +
-    "Money is in " + stats.currency + ", distance in " + stats.unit + ". Mention one concrete thing to do today (e.g. which day/time pays best, " +
-    "whether to take it easier if burnout is 'watch' or 'high', how far from the daily target they are). No tax or legal advice.\n" +
+    "Rules: 2 to 4 short sentences, plain text, no headings, no bullet points, no emojis. " +
+    "Only state facts that appear in the data below. Copy numbers exactly as given; do not calculate, round differently or estimate new numbers. " +
+    "If a field is missing or null, do not mention that topic. Do not name a weekday unless it is bestWeekday or today's weekday. " +
+    "Money is in " + stats.currency + ", distance in " + stats.unit + ". End with one practical suggestion that follows from the data. No tax or legal advice.\n" +
     "Data (JSON): " + JSON.stringify(stats);
-  var res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
-    method: "post", contentType: "application/json", muteHttpExceptions: true,
-    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 300 } })
-  });
-  var j = JSON.parse(res.getContentText());
-  // a retired or unknown model: look up the newest Flash model once and retry (unless the owner pinned GEMINI_MODEL)
-  if (j.error && !prop("GEMINI_MODEL") && /no longer available|not found|not supported/i.test(j.error.message || "")) {
-    var fresh = geminiModel(key, true);
-    if (fresh && fresh !== model) {
-      res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + fresh + ":generateContent?key=" + encodeURIComponent(key), {
+  // several models, tried in order until one gives a usable brief (see geminiCandidates)
+  var cache = CacheService.getScriptCache(), list = geminiCandidates(key), t0 = Date.now(), tried = [];
+  for (var i = 0; i < list.length; i++) {
+    if (Date.now() - t0 > 90000) { tried.push("stopped: 90 s used"); break; }   // leave time for the app's request
+    var model = list[i], t1 = Date.now(), why = "";
+    try {
+      var res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
         method: "post", contentType: "application/json", muteHttpExceptions: true,
-        payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 300 } }) });
-      j = JSON.parse(res.getContentText());
-    }
+        payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 1024 } }) });
+      var j = JSON.parse(res.getContentText());
+      if (j.error) why = j.error.message || "error";
+      var text = !why && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
+        ? j.candidates[0].content.parts.map(function (p) { return p.text || ""; }).join("").trim() : "";
+      // a usable brief is plain sentences: no code marks or JSON, ends like a sentence, at least ~60 characters
+      if (!why && (!text || /[`{}]/.test(text) || text.length < 60 || !/[.!?…]["”')]?$/.test(text))) why = "unclear answer";
+      if (!why) { var bad = ungrounded(text, stats); if (bad) why = "made up " + bad; }
+      var secs = Math.round((Date.now() - t1) / 1000);
+      if (!why) {
+        if (secs > 30) cache.put("gemini_slow_" + model, "1", 86400);  // works but slow: try it later next time
+        else cache.put("gemini_ok", model, 86400);                     // remembered as the first choice for a day
+        return { text: text, model: model, seconds: secs, tried: tried };
+      }
+      tried.push(model + ": " + String(why).slice(0, 80));
+      if (secs > 30) cache.put("gemini_slow_" + model, "1", 86400);
+    } catch (x) { tried.push(model + ": " + String(x).slice(0, 80)); }
   }
-  if (j.error) throw new Error("Gemini: " + j.error.message);
-  var text = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
-    ? j.candidates[0].content.parts.map(function (p) { return p.text || ""; }).join("").trim() : "";
-  if (!text) throw new Error("Gemini returned no text");
-  return { text: text };
+  throw new Error("Gemini: no model gave a usable brief (" + tried.join("; ") + ")");
 }
 
-// newest stable "gemini-X.Y-flash" model this key can use (Google's model list), cached for a day
-function geminiModel(key, refresh) {
-  var cache = CacheService.getScriptCache();
-  if (!refresh) { var hit = cache.get("gemini_model"); if (hit) return hit; }
-  var j = JSON.parse(UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + encodeURIComponent(key), { muteHttpExceptions: true }).getContentText());
-  var best = null, bestV = -1;
-  (j.models || []).forEach(function (m) {
-    var name = String(m.name || "").replace(/^models\//, ""), mm = name.match(/^gemini-(\d+(?:\.\d+)?)-flash$/);
-    if (!mm || (m.supportedGenerationMethods || []).indexOf("generateContent") < 0) return;
-    var v = parseFloat(mm[1]); if (v > bestV) { bestV = v; best = name; }
-  });
-  if (!best) throw new Error("Gemini: no Flash model is available for this key");
-  cache.put("gemini_model", best, 86400);
-  return best;
+// The brief may only use numbers and weekdays that are in the driver's data (the AI must not invent facts).
+// Returns what was made up, or "" when every number and weekday is backed by the data.
+function ungrounded(text, stats) {
+  var vals = [];
+  (function walk(v) { if (v == null) return; if (typeof v === "number") vals.push(v); else if (typeof v === "string") { if (/^-?\d+(\.\d+)?$/.test(v)) vals.push(parseFloat(v)); }
+    else if (typeof v === "object") Object.keys(v).forEach(function (k) { walk(v[k]); }); })(stats);
+  var nums = String(text).replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || [];
+  for (var i = 0; i < nums.length; i++) {
+    var n = parseFloat(nums[i]);
+    var ok = vals.some(function (v) { return Math.abs(v - n) < 0.005 || Math.round(v) === n || Math.abs(Math.round(v * 10) / 10 - n) < 0.001 || Math.abs(Math.round(v * 100) / 100 - n) < 0.001; });
+    if (!ok) return "the number " + nums[i];
+  }
+  var days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag",
+    "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+  var map = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 }, best = map[stats.bestWeekday], now = map[stats.weekday];
+  for (var d = 0; d < days.length; d++) {
+    if (new RegExp("(^|[^\\wçğıöşü])" + days[d] + "(lar|s)?([^\\wçğıöşü]|$)", "i").test(text) && d % 7 !== best && d % 7 !== now) return "the day " + days[d];
+  }
+  return "";
+}
+
+// The models to try, in order:
+//  1. Script property GEMINI_MODEL, if set: one model or several separated by commas,
+//     e.g. "gemini-3.8-flash-lite, gemini-3.8-flash, gemini-flash-latest"
+//  2. otherwise from Google's model list for this key: every stable "gemini-X.Y-flash-lite" (newest first),
+//     then every "gemini-X.Y-flash" (newest first), then the "-latest" aliases as a last resort.
+// The model that last worked comes first; models that were slow (over 30 s) move to the end for a day.
+function geminiCandidates(key) {
+  var cache = CacheService.getScriptCache(), list = [];
+  var pinned = String(prop("GEMINI_MODEL") || "").split(",").map(function (x) { return x.trim().replace(/^models\//, ""); }).filter(String);
+  if (pinned.length) list = pinned;
+  else {
+    var cached = cache.get("gemini_models");
+    if (cached) list = JSON.parse(cached);
+    else {
+      try {
+        var j = JSON.parse(UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + encodeURIComponent(key), { muteHttpExceptions: true }).getContentText());
+        var found = [];
+        (j.models || []).forEach(function (m) {
+          var name = String(m.name || "").replace(/^models\//, ""), mm = name.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/);
+          if (mm && (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0) found.push({ name: name, score: (mm[2] ? 1000 : 0) + parseFloat(mm[1]) });
+        });
+        list = found.sort(function (a, b) { return b.score - a.score; }).slice(0, 6).map(function (x) { return x.name; });
+      } catch (x) {}
+      ["gemini-flash-lite-latest", "gemini-flash-latest"].forEach(function (a) { if (list.indexOf(a) < 0) list.push(a); });
+      cache.put("gemini_models", JSON.stringify(list), 86400);
+    }
+  }
+  var ok = cache.get("gemini_ok");
+  if (ok && list.indexOf(ok) > 0) { list.splice(list.indexOf(ok), 1); list.unshift(ok); }
+  var fast = list.filter(function (m) { return !cache.get("gemini_slow_" + m); }), slow = list.filter(function (m) { return cache.get("gemini_slow_" + m); });
+  return fast.concat(slow);
 }
 
 // ── live fuel prices (cached 6 h) ──
@@ -421,8 +467,9 @@ function testIntegrations() {
   try { Logger.log("VIN test: " + JSON.stringify(vin({ vin: "4T1B11HK4KU236014" }))); } catch (x) { Logger.log("VIN FAILED: " + x); }
   try { Logger.log("MPG makes 2022: " + mpg({ step: "make", year: 2022 }).items.length); } catch (x) { Logger.log("MPG FAILED: " + x); }
   try { Logger.log("MPG Toyota Prius 2022: " + JSON.stringify(mpg({ step: "options", year: 2022, make: "Toyota", model: "Prius" }))); } catch (x) { Logger.log("MPG options FAILED: " + x); }
-  try { Logger.log("Gemini: " + brief({ lang: "en", currency: "EUR", unit: "km", today: { net: 120, hours: 6 } }).text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
   try { var ss = getss(); savePhoto(ss, "ph_test", Utilities.base64Encode("test"), "text/plain"); Logger.log("Photo save OK"); deletePhoto(ss, "ph_test"); } catch (x) { Logger.log("Photos FAILED: " + x); }
+  try { Logger.log("Gemini models to try: " + geminiCandidates(prop("GEMINI_API_KEY") || "").join(", ")); } catch (x) { Logger.log("Gemini model list FAILED: " + x); }
+  try { var t0 = Date.now(), b = brief({ lang: "en", currency: "USD", unit: "mi", today: { shifts: 2, net: 120, hours: 6, perHour: 20 }, week: { shifts: 5, net: 610, hours: 31 }, bestWeekday: "Friday", burnout: { score: 34, level: "fresh", hours7d: 31, streak: 3 }, target: { dailyNet: 150, dailyGross: 205, remainingToday: 30 }, vehicleCostShare: 18 }); Logger.log("Gemini (" + b.model + ", " + b.seconds + " s" + (b.tried.length ? "; skipped " + b.tried.join("; ") : "") + "): " + b.text); } catch (x) { Logger.log("Gemini FAILED: " + x); }
 }
 
 // ── nightly backup of the Sheet (PIN version) ──
