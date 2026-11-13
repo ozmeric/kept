@@ -19,21 +19,23 @@ jobs:
           echo "== email/password sign-up (test account)"
           EM="kept-selftest-$GITHUB_RUN_ID@example.com"
           S=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$K" -H 'Content-Type: application/json' -d "{\"email\":\"$EM\",\"password\":\"Selftest-$GITHUB_RUN_ID!\",\"returnSecureToken\":true}")
-          TOK=$(echo "$S" | jq -r '.idToken // empty'); UID=$(echo "$S" | jq -r '.localId // empty')
+          TOK=$(echo "$S" | jq -r '.idToken // empty'); U=$(echo "$S" | jq -r '.localId // empty')
           [ -n "$TOK" ] && pass "Email/Password sign-in is enabled" || { fail "sign-up failed: $(echo "$S" | jq -c '.error.message')"; exit 1; }
           echo "== database rules"
           c() { curl -s -o /tmp/r -w '%{http_code}' "$@"; }
           code=$(c "$FS/users/someone-else"); [ "$code" = 403 ] && pass "signed-out read is refused" || fail "signed-out read returned $code $(head -c 200 /tmp/r)"
-          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/$UID/trips/t1" -d '{"fields":{"id":{"stringValue":"t1"},"km":{"doubleValue":1.5}}}')
+          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/$U/trips/t1" -d '{"fields":{"id":{"stringValue":"t1"},"km":{"doubleValue":1.5}}}')
           [ "$code" = 200 ] && pass "driver can write own trip" || fail "own write returned $code $(head -c 300 /tmp/r)"
-          code=$(c -H "Authorization: Bearer $TOK" "$FS/users/$UID/trips/t1"); [ "$code" = 200 ] && pass "driver can read own trip" || fail "own read returned $code"
+          code=$(c -H "Authorization: Bearer $TOK" "$FS/users/$U/trips/t1"); [ "$code" = 200 ] && pass "driver can read own trip" || fail "own read returned $code"
           code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/someone-else/trips/t1" -d '{"fields":{"id":{"stringValue":"t1"}}}')
           [ "$code" = 403 ] && pass "driver cannot write another driver's data" || fail "foreign write returned $code"
-          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/$UID/secrets/x" -d '{"fields":{"id":{"stringValue":"x"}}}')
+          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/$U/secrets/x" -d '{"fields":{"id":{"stringValue":"x"}}}')
           [ "$code" = 403 ] && pass "unknown collections are refused" || fail "unknown collection write returned $code"
-          echo "== clean up"
-          c -X DELETE -H "Authorization: Bearer $TOK" "$FS/users/$UID/trips/t1" >/dev/null
-          c -X DELETE -H "Authorization: Bearer $TOK" "$FS/users/$UID" >/dev/null
+          echo "== clean up (this run and the stopped run 43353894831)"
+          O=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$K" -H 'Content-Type: application/json' -d '{"email":"kept-selftest-43353894831@example.com","password":"Selftest-43353894831!","returnSecureToken":true}' | jq -r '.idToken // empty')
+          if [ -n "$O" ]; then code=$(c -X POST "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=$K" -H 'Content-Type: application/json' -d "{\"idToken\":\"$O\"}"); [ "$code" = 200 ] && pass "leftover test account deleted" || fail "leftover delete returned $code"; else echo "no leftover account"; fi
+          c -X DELETE -H "Authorization: Bearer $TOK" "$FS/users/$U/trips/t1" >/dev/null
+          c -X DELETE -H "Authorization: Bearer $TOK" "$FS/users/$U" >/dev/null
           code=$(c -X POST "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=$K" -H 'Content-Type: application/json' -d "{\"idToken\":\"$TOK\"}")
           [ "$code" = 200 ] && pass "test account deleted" || fail "test account delete returned $code"
           exit $FAILED
