@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kept for Android</title>
+<link rel="icon" href="./icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F6F8FB;--card:#FFFFFF;--text:#0F172A;--sub:#475569;--line:#E2E8F0;--accent:#047857;--fill:#10B981;--on:#04281D;--warnBg:#FFF7ED;--warn:#9A3412;color-scheme:light}
+  @media (prefers-color-scheme: dark){:root{--bg:#0B1220;--card:#111A2E;--text:#EAF2FF;--sub:#A9B6CC;--line:#22304D;--accent:#34D399;--fill:#10B981;--on:#04281D;--warnBg:#2A1D0E;--warn:#FDBA74;color-scheme:dark}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:17px/1.55 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:560px;margin:0 auto;padding:24px max(16px,env(safe-area-inset-left)) 48px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:22px}
+  .brand img{width:40px;height:40px;border-radius:10px}
+  .lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .lang button{font:inherit;font-size:15px;font-weight:700;padding:8px 14px;border:0;background:transparent;color:var(--sub);cursor:pointer;min-height:44px}
+  .lang button[aria-pressed=true]{background:var(--fill);color:var(--on)}
+  h1{font-size:30px;line-height:1.15;margin:0 0 6px;letter-spacing:-.5px}
+  .lead{color:var(--sub);margin:0 0 18px}
+  .dl{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;border-radius:18px;background:var(--fill);color:var(--on);font-weight:900;font-size:20px;text-decoration:none;box-shadow:0 8px 24px rgba(16,185,129,.25)}
+  .note{font-size:14px;color:var(--sub);text-align:center;margin:8px 0 22px}
+  ol{list-style:none;padding:0;margin:0;counter-reset:s}
+  li{counter-increment:s;position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 14px 14px 58px;margin-bottom:10px}
+  li::before{content:counter(s);position:absolute;left:14px;top:14px;width:30px;height:30px;border-radius:50%;background:var(--fill);color:var(--on);font-weight:900;text-align:center;line-height:30px}
+  li b{display:block;font-size:17px}
+  li span{color:var(--sub);font-size:15px}
+  .warn{background:var(--warnBg);color:var(--warn);border-radius:14px;padding:12px 14px;font-size:15px;margin:14px 0}
+  .more{display:block;text-align:center;margin-top:18px;color:var(--accent);font-weight:800}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div class="brand"><img src="./icon-192.png" alt=""> Kept</div>
+    <div class="lang" role="group" aria-label="Language / Dil">
+      <button type="button" data-l="en" aria-pressed="true">EN</button>
+      <button type="button" data-l="tr" aria-pressed="false">TR</button>
+    </div>
+  </div>
+
+  <section data-lang="en">
+    <h1>Kept for Android</h1>
+    <p class="lead">Counts your miles with the screen off, starts rides by itself, and puts today's take-home on your home screen.</p>
+    <a class="dl" href="https://github.com/ozmeric/kept/releases/download/android/kept.apk">⬇ Download Kept (APK)</a>
+    <p class="note">About 4 MB · Android 5.1 or newer · not in Google Play yet</p>
+    <ol>
+      <li><b>Open the downloaded file</b><span>Tap the download notice, or open Files → Downloads → kept.apk.</span></li>
+      <li><b>Allow this source once</b><span>Android asks for permission: tap Settings → turn on “Allow from this source” → go back.</span></li>
+      <li><b>Tap Install</b><span>If Play Protect warns about an unknown developer: More details → Install anyway.</span></li>
+      <li><b>Sign in</b><span>Use email and password. Used the PIN version before? Choose “Bring over data from the PIN version” once.</span></li>
+      <li><b>Allow location “all the time”</b><span>Settings → Apps → Kept → Permissions → Location → Allow all the time. Then Apps → Kept → Battery → Unrestricted.</span></li>
+      <li><b>Automatic rides</b><span>In Kept: Settings → Your apps → Allow notification access → turn on “Kept ride detection”.</span></li>
+    </ol>
+    <div class="warn">Installing a newer Kept says “App not installed”? Open Kept once so today's trips save, uninstall it, then install the new file. Your data is safe in your account.</div>
+    <a class="more" href="./android-install.pdf">Full install guide (PDF) →</a>
+  </section>
+
+  <section data-lang="tr" hidden>
+    <h1>Android için Kept</h1>
+    <p class="lead">Ekran kapalıyken millerinizi sayar, siparişleri kendiliğinden başlatır ve bugünkü net kazancınızı ana ekranınıza koyar.</p>
+    <a class="dl" href="https://github.com/ozmeric/kept/releases/download/android/kept.apk">⬇ Kept'i indir (APK)</a>
+    <p class="note">Yaklaşık 4 MB · Android 5.1 ve üzeri · henüz Google Play'de yok</p>
+    <ol>
+      <li><b>İnen dosyayı açın</b><span>İndirme bildirimine dokunun ya da Dosyalar → İndirilenler → kept.apk'yı açın.</span></li>
+      <li><b>Bu kaynağa bir kez izin verin</b><span>Android izin ister: Ayarlar'a dokunun → “Bu kaynaktan izin ver”i açın → geri dönün.</span></li>
+      <li><b>Yükle'ye dokunun</b><span>Play Protect bilinmeyen geliştirici uyarısı verirse: Diğer ayrıntılar → Yine de yükle.</span></li>
+      <li><b>Giriş yapın</b><span>E-posta ve şifre kullanın. Daha önce PIN sürümünü kullandıysanız bir kez “PIN sürümündeki verileri aktar”ı seçin.</span></li>
+      <li><b>Konuma “her zaman” izin verin</b><span>Ayarlar → Uygulamalar → Kept → İzinler → Konum → Her zaman izin ver. Sonra Uygulamalar → Kept → Pil → Kısıtlamasız.</span></li>
+      <li><b>Otomatik sipariş algılama</b><span>Kept'te: Ayarlar → Uygulamalarınız → Bildirim erişimine izin ver → “Kept ride detection”ı açın.</span></li>
+    </ol>
+    <div class="warn">Yeni Kept kurulurken “Uygulama yüklenmedi” mi diyor? Bugünün yolculukları kaydedilsin diye Kept'i bir kez açın, kaldırın, sonra yeni dosyayı kurun. Verileriniz hesabınızda güvende.</div>
+    <a class="more" href="./android-install.pdf">Tam kurulum kılavuzu (PDF) →</a>
+  </section>
+</main>
+<script>
+  (function () {
+    var btns = document.querySelectorAll(".lang button");
+    function show(l) {
+      document.documentElement.lang = l;
+      document.querySelectorAll("[data-lang]").forEach(function (s) { s.hidden = s.getAttribute("data-lang") !== l; });
+      btns.forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-l") === l)); });
+      try { localStorage.setItem("kept_dl_lang", l); } catch (e) {}
+    }
+    btns.forEach(function (b) { b.addEventListener("click", function () { show(b.getAttribute("data-l")); }); });
+    var saved = null; try { saved = localStorage.getItem("kept_dl_lang"); } catch (e) {}
+    show(saved || (/^tr/i.test(navigator.language || "") ? "tr" : "en"));
+  })();
+</script>
+</body>
+</html>
