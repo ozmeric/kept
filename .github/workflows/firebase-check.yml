@@ -1,0 +1,39 @@
+name: Firebase setup check
+on: { push: { branches: [firebase-check] } }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check sign-in, authorized domains and database rules
+        env:
+          K: AIzaSyAzAcUfzHlEJy_kAzsdSuOYrVYMCZUXgJ0
+          P: kept-f0749
+        run: |
+          set -u
+          FS="https://firestore.googleapis.com/v1/projects/$P/databases/(default)/documents"
+          pass() { echo "PASS $1"; }; fail() { echo "FAIL $1"; FAILED=1; }; FAILED=0
+          echo "== authorized domains"
+          D=$(curl -s "https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=$K")
+          echo "$D" | jq -c '.authorizedDomains'
+          echo "$D" | jq -e '.authorizedDomains | index("kept.usebuildflow.io")' >/dev/null && pass "kept.usebuildflow.io is authorized" || fail "kept.usebuildflow.io missing from authorized domains"
+          echo "== email/password sign-up (test account)"
+          EM="kept-selftest-$GITHUB_RUN_ID@example.com"
+          S=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$K" -H 'Content-Type: application/json' -d "{\"email\":\"$EM\",\"password\":\"Selftest-$GITHUB_RUN_ID!\",\"returnSecureToken\":true}")
+          TOK=$(echo "$S" | jq -r '.idToken // empty'); UID=$(echo "$S" | jq -r '.localId // empty')
+          [ -n "$TOK" ] && pass "Email/Password sign-in is enabled" || { fail "sign-up failed: $(echo "$S" | jq -c '.error.message')"; exit 1; }
+          echo "== database rules"
+          c() { curl -s -o /tmp/r -w '%{http_code}' "$@"; }
+          code=$(c "$FS/users/someone-else"); [ "$code" = 403 ] && pass "signed-out read is refused" || fail "signed-out read returned $code $(head -c 200 /tmp/r)"
+          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/$UID/trips/t1" -d '{"fields":{"id":{"stringValue":"t1"},"km":{"doubleValue":1.5}}}')
+          [ "$code" = 200 ] && pass "driver can write own trip" || fail "own write returned $code $(head -c 300 /tmp/r)"
+          code=$(c -H "Authorization: Bearer $TOK" "$FS/users/$UID/trips/t1"); [ "$code" = 200 ] && pass "driver can read own trip" || fail "own read returned $code"
+          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/someone-else/trips/t1" -d '{"fields":{"id":{"stringValue":"t1"}}}')
+          [ "$code" = 403 ] && pass "driver cannot write another driver's data" || fail "foreign write returned $code"
+          code=$(c -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$FS/users/$UID/secrets/x" -d '{"fields":{"id":{"stringValue":"x"}}}')
+          [ "$code" = 403 ] && pass "unknown collections are refused" || fail "unknown collection write returned $code"
+          echo "== clean up"
+          c -X DELETE -H "Authorization: Bearer $TOK" "$FS/users/$UID/trips/t1" >/dev/null
+          c -X DELETE -H "Authorization: Bearer $TOK" "$FS/users/$UID" >/dev/null
+          code=$(c -X POST "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=$K" -H 'Content-Type: application/json' -d "{\"idToken\":\"$TOK\"}")
+          [ "$code" = 200 ] && pass "test account deleted" || fail "test account delete returned $code"
+          exit $FAILED
