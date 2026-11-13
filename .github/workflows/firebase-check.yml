@@ -4,12 +4,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: CBS fuel query variants
+      - name: Exact Code.gs requests
         run: |
-          B="https://opendata.cbs.nl/ODataApi/odata/80416NED"
-          echo "== desc top 1"; curl -s "$B/TypedDataSet?\$orderby=Perioden%20desc&\$top=1" | jq -c '.value[0] | {Perioden}'
-          echo "== count"; curl -s "$B/TypedDataSet?\$top=1&\$inlinecount=allpages" | jq -c '."odata.count"'
-          echo "== periods tail"; curl -s "$B/Perioden" | jq -c '[.value[] | .Key] | (length, .[0:3], .[-3:])'
-          echo "== filtered recent"; curl -s "$B/TypedDataSet?\$filter=Perioden%20ge%20%2720261001%27" | jq -c '[.value[] | .Perioden] | (length, .[-2:])'
-          echo "== last row keys"; curl -s "$B/TypedDataSet?\$filter=Perioden%20ge%20%2720261101%27" | jq -c '.value[-1]'
-          echo "== table info"; curl -s "$B/TableInfos" | jq -c '.value[0] | {Title, Period, Modified, Status}'
+          echo "== CBS newest row"; curl -s "https://opendata.cbs.nl/ODataApi/odata/80416NED/TypedDataSet?$filter=Perioden%20ge%20'20261013'" | jq -c '[.value[] | select(.Perioden|test("^[0-9]{8}$"))] | sort_by(.Perioden) | last'
+          echo "== VIN"; curl -s "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/4T1B11HK4KU236014?format=json" | jq -c '.Results[0] | {ModelYear, Make, Model, ErrorCode}'
