@@ -636,6 +636,13 @@ const I18N = {
   realHourly:["Real hourly profit","Echte winst per uur","Gerçek saatlik kâr"], noIncomeYet:["No income entered for this time yet.","Nog geen inkomsten ingevoerd.","Bu süre için henüz gelir girilmedi."],
   simpleMode:["Simple mode","Eenvoudige modus","Basit mod"], proMode:["Pro mode","Pro-modus","Pro mod"],
   modeHint:["Simple mode shows only the everyday buttons. Pro mode shows every tool. Your data is the same in both.","Eenvoudig toont alleen de dagelijkse knoppen; Pro toont alles. Je gegevens blijven gelijk.","Basit mod yalnızca günlük düğmeleri gösterir. Pro mod tüm araçları gösterir. Verileriniz ikisinde de aynıdır."],
+  li_title:["Kept uses your location to count miles","Kept gebruikt je locatie om kilometers te tellen","Kept, milleri saymak için konumunuzu kullanır"],
+  li_body:["Kept collects location data to count the miles you drive for your mileage log and to start and end rides, even when the app is closed or not in use.","Kept verzamelt locatiegegevens om je gereden kilometers te tellen voor je rittenadministratie en om ritten te starten en te beëindigen, ook wanneer de app gesloten is of niet wordt gebruikt.","Kept, mil kaydınız için sürdüğünüz milleri saymak ve sürüşleri başlatıp bitirmek amacıyla, uygulama kapalıyken veya kullanılmıyorken bile konum verilerini toplar."],
+  li_p1:["While tracking is on, Android shows a Kept notice the whole time.","Zolang het bijhouden aan staat, toont Android steeds een Kept-melding.","Takip açıkken Android sürekli bir Kept bildirimi gösterir."],
+  li_p2:["Where each drive starts and ends is saved for the mileage log. You can switch that off on the Profit map screen.","Waar elke rit begint en eindigt wordt bewaard voor de rittenadministratie. Je kunt dat uitzetten op het scherm Winstkaart.","Her sürüşün başladığı ve bittiği yer mil kaydı için saklanır. Bunu Kâr haritası ekranından kapatabilirsiniz."],
+  li_p3:["Your location is not used for ads and is not sold.","Je locatie wordt niet gebruikt voor advertenties en niet verkocht.","Konumunuz reklam için kullanılmaz ve satılmaz."],
+  li_next:["Next, Android asks for permission. Choose “Allow all the time” so miles count with the screen off.","Hierna vraagt Android om toestemming. Kies ‘Altijd toestaan’ zodat kilometers ook met het scherm uit tellen.","Ardından Android izin ister. Ekran kapalıyken de mil sayılması için “Her zaman izin ver”i seçin."],
+  li_ok:["Continue","Doorgaan","Devam"], li_no:["Not now","Niet nu","Şimdi değil"],
   add_title:["Add","Toevoegen","Ekle"], mg_records:["Records","Administratie","Kayıtlar"], mg_tools:["Tools","Hulpmiddelen","Yardımcı araçlar"], mg_account:["Account","Account","Hesap"],
   h_costsTax:["Costs & tax","Kosten en belasting","Giderler ve vergi"], h_details:["Show details","Details tonen","Ayrıntıları göster"], h_less:["Hide details","Details verbergen","Ayrıntıları gizle"],
   ob_stepOf:["{a} of {b}","{a} van {b}","{a} / {b}"], ob_skipCar:["Skip for now","Nu overslaan","Şimdilik geç"],
@@ -1911,7 +1918,7 @@ function App() {
     if (g !== t.gps) commit(Object.assign({}, t, { gps: g }));
   };
   const retryGps = () => { const t = trackRef.current || blankTrack(PERSONAL); stopWatch(); commit(Object.assign({}, t, { gps: "wait", on: true })); startWatch();
-    if (nativeRef.current) nativeRef.current.startTracking({}).catch(() => {}); };
+    if (nativeRef.current && LS.get("kept_locOk", false)) nativeRef.current.startTracking({}).catch(() => {}); };
   const startWatch = () => {
     if (!navigator.geolocation) { const t = trackRef.current; if (t) commit(Object.assign({}, t, { gps: "none" })); return; }
     if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
@@ -1964,7 +1971,10 @@ function App() {
     const rec = recordSeg(t, Date.now(), noGps ? { gpsMissing: true } : null); commit(restart(t, { order: false, orderStart: null }));
     if (rec) setModal(noGps ? { type: "trip", trip: rec, noGps: true } : { type: "earn", trip: rec });
   };
+  // Android app: explain background location before the phone's own permission prompt (Google Play rule)
+  useEffect(() => { if (IS_NATIVE && st.onboarded && !LS.get("kept_locOk", false)) setModal(m => m || { type: "locInfo" }); }, [st.onboarded]);
   const setTracking = on => {
+    if (nativeRef.current && on && !LS.get("kept_locOk", false)) { setModal({ type: "locInfo" }); return; }
     if (nativeRef.current) { if (on) LS.del("kept_nativePaused"); else LS.set("kept_nativePaused", true); (on ? nativeRef.current.startTracking({}) : nativeRef.current.stopTracking({})).catch(() => {}); return; }
     const t = trackRef.current || blankTrack(PERSONAL);
     if (!on) { if (t.on) recordSeg(t, Date.now()); stopWatch(); commit(Object.assign({}, restart(t), { on: false, order: false, last: null })); }
@@ -2017,7 +2027,7 @@ function App() {
     const subs = [n.addListener("status", onStatus), n.addListener("tripsChanged", () => drain()),
       n.addListener("rideCompleted", ev => drain().then(list => { const tr = list.find(x => x.id === (ev && ev.id)) || list[list.length - 1]; if (tr && tr.kind === "order") setModal({ type: "earn", trip: tr }); }))];
     n.configure({ apps: st.apps || [], unit, rules: st.notifRules || {}, lang: st.lang || "en" }).catch(() => {});
-    n.getStatus().then(x => { onStatus(x); if (x && !x.on && st.autoTrack !== false && !LS.get("kept_nativePaused", false)) n.startTracking({}).catch(() => {}); }).catch(() => {});
+    n.getStatus().then(x => { onStatus(x); if (x && !x.on && st.autoTrack !== false && !LS.get("kept_nativePaused", false) && LS.get("kept_locOk", false)) n.startTracking({}).catch(() => {}); }).catch(() => {});
     drain();
     const vis = () => { if (document.visibilityState === "visible") { drain(); n.getStatus().then(onStatus).catch(() => {}); } };
     document.addEventListener("visibilitychange", vis);
@@ -2384,6 +2394,18 @@ function App() {
       row(T("addExpense"), "receipt", C.amber, () => setModal({ type: "pickExpense" })),
       row(T("scanReceipt"), "camera", C.purple, () => setModal({ type: "expense", scan: true })),
       row(T("checkOfferT"), "check", C.blue, () => { setModal(null); setView("offer"); })), () => setModal(null));
+  }
+
+  function LocInfoModal() {
+    const no = () => { LS.set("kept_nativePaused", true); setModal(null); };
+    const ok = () => { LS.set("kept_locOk", true); LS.del("kept_nativePaused"); setModal(null); if (nativeRef.current) nativeRef.current.startTracking({}).catch(() => {}); };
+    const pt = k => e("li", { key: k, style: { marginBottom: 8 } }, T(k));
+    return ModalShell(T("li_title"), e("div", null,
+      e("p", { style: { fontSize: 17, lineHeight: 1.5, color: C.text, margin: "0 0 12px", fontWeight: 600 } }, T("li_body")),
+      e("ul", { style: { fontSize: 16, lineHeight: 1.5, color: C.sub, margin: "0 0 12px", paddingLeft: 20 } }, ["li_p1", "li_p2", "li_p3"].map(pt)),
+      e("p", { style: { fontSize: 15, lineHeight: 1.5, color: C.sub, margin: "0 0 16px" } }, T("li_next")),
+      e("button", { className: "tap", style: Object.assign(S.btn(), { width: "100%", minHeight: 60, fontSize: 18 }), onClick: ok }, T("li_ok")),
+      e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 16, marginTop: 8 }), onClick: no }, T("li_no"))), no);
   }
 
   function PickExpenseModal() {
@@ -4615,6 +4637,7 @@ function App() {
   const PickAppModalC = stable("PickAppModal", PickAppModal);
   const PickExpenseModalC = stable("PickExpenseModal", PickExpenseModal);
   const AddModalC = stable("AddModal", AddModal);
+  const LocInfoModalC = stable("LocInfoModal", LocInfoModal);
   const SummaryModalC = stable("SummaryModal", SummaryModal);
   const ExplainModalC = stable("ExplainModal", ExplainModal);
   const AppsCardC = stable("AppsCard", AppsCard);
@@ -4695,6 +4718,7 @@ function App() {
     modal && modal.type === "pickApp" ? e(PickAppModalC, { key: "pick", switching: modal.switching }) : null,
     modal && modal.type === "pickExpense" ? e(PickExpenseModalC, { key: "pickx" }) : null,
     modal && modal.type === "add" ? e(AddModalC, { key: "add" }) : null,
+    modal && modal.type === "locInfo" ? e(LocInfoModalC, { key: "locinfo" }) : null,
     modal && modal.type === "summary" ? e(SummaryModalC, { key: "sum", from: modal.from, to: modal.to }) : null,
     modal && modal.type === "explain" ? e(ExplainModalC, { key: "explain" + (modal.period || ""), period: modal.period }) : null,
     modal && modal.type === "wrap" ? e(WrapModalC, { key: "wrap", period: modal.period }) : null,
