@@ -86,6 +86,7 @@ const CONFIG = {
   servicesUrl:  (window.KEPT_CONFIG && (window.KEPT_CONFIG.servicesUrl || window.KEPT_CONFIG.apiUrl)) || "",
   liveHosts:    ["kept.usebuildflow.io"],   // the production site: refuses to start with staging or local-only settings
   privacyUrl:   (window.KEPT_CONFIG && window.KEPT_CONFIG.privacyUrl) || "",
+  termsUrl:     (window.KEPT_CONFIG && window.KEPT_CONFIG.termsUrl) || "",
 
   defaults: { name:"", lang:"en", country:"US", currency:"USD", unit:"mi", setAsidePct:30,
               dailyGoal:150, costMode:"estimated", defaultVehicleId:"",
@@ -635,6 +636,10 @@ const I18N = {
   realHourly:["Real hourly profit","Echte winst per uur","Gerçek saatlik kâr"], noIncomeYet:["No income entered for this time yet.","Nog geen inkomsten ingevoerd.","Bu süre için henüz gelir girilmedi."],
   simpleMode:["Simple mode","Eenvoudige modus","Basit mod"], proMode:["Pro mode","Pro-modus","Pro mod"],
   modeHint:["Simple mode shows only the everyday buttons. Pro mode shows every tool. Your data is the same in both.","Eenvoudig toont alleen de dagelijkse knoppen; Pro toont alles. Je gegevens blijven gelijk.","Basit mod yalnızca günlük düğmeleri gösterir. Pro mod tüm araçları gösterir. Verileriniz ikisinde de aynıdır."],
+  add_title:["Add","Toevoegen","Ekle"], mg_records:["Records","Administratie","Kayıtlar"], mg_tools:["Tools","Hulpmiddelen","Yardımcı araçlar"], mg_account:["Account","Account","Hesap"],
+  h_costsTax:["Costs & tax","Kosten en belasting","Giderler ve vergi"], h_details:["Show details","Details tonen","Ayrıntıları göster"], h_less:["Hide details","Details verbergen","Ayrıntıları gizle"],
+  ob_stepOf:["{a} of {b}","{a} van {b}","{a} / {b}"], ob_skipCar:["Skip for now","Nu overslaan","Şimdilik geç"],
+  au_agree:["By creating an account you agree to the","Door een account te maken ga je akkoord met:","Hesap oluşturarak şunları kabul edersiniz:"], au_terms:["Terms","Voorwaarden","Kullanım Koşulları"], au_and:["and","en","ve"],
   display:["Display","Weergave","Görünüm"], allTools:["All tools","Alle tools","Tüm araçlar"],
   x_title:["How your profit is calculated","Zo wordt je winst berekend","Kârınız nasıl hesaplanır"],
   x_earned:["Income you entered","Ingevoerde inkomsten","Girdiğiniz gelir"], x_perMile:["{m} × {r} per {u}","{m} × {r} per {u}","{m} × {u} başına {r}"],
@@ -1468,6 +1473,7 @@ function applyTheme(pref, scale) {
 
 // minimal icon set (24px stroke)
 const ICONS = {
+  plus: "M12 5v14M5 12h14",
   home: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
   list: "M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01",
   receipt: "M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6",
@@ -2255,6 +2261,7 @@ function App() {
   const insMissing = () => { const v = vmap[defaultVid()]; return !!v && v.type === "car" && (v.insurance === "" || v.insurance == null) && !data.expenses.some(x => x.recurring && x.category === "insurance"); };
 
   const SimpleHome = () => {
+    const [det, setDet] = useState(false);
     const t = track || {}, today = dISO(new Date()), rate = setAsideRate(data);
     const B = appBreakdown(data, today, today, rate), P = B.P;
     const working = t.on && t.mode && t.mode !== PERSONAL;
@@ -2284,6 +2291,27 @@ function App() {
       !data.vehicles.length ? e("div", { style: Object.assign({}, S.card, { borderColor: C.accentBorder }) },
         e("div", { style: { fontWeight: 800, fontSize: 16, marginBottom: 10 } }, T("setupHint").replace(/\bkm\b/, unit)),
         BigBtn(T("addVehicle"), () => setModal({ type: "vehicle" }))) : null,
+      // 2. work + tracking state
+      e("section", { "aria-label": T("working"), style: Object.assign({}, S.card, { padding: 18, borderColor: working ? col : C.border }) },
+        StateRow(t),
+        !working
+          ? e("div", null,
+              BigBtn("▶  " + T("startWorking"), () => myApps.length === 1 ? startWorking(myApps[0]) : setModal({ type: "pickApp" }), { style: { minHeight: 76, fontSize: 22 } }),
+              e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } }, t.on ? T("personalToday") + ": " + fmtDist(persKm, 1) : T("trackingPaused")),
+              !t.on ? e("div", { style: { marginTop: 10 } }, BigBtn(T("resume"), () => setTracking(true), { kind: "ghost", style: { fontSize: 16, minHeight: 56 } })) : null)
+          : e("div", null,
+              e("div", { style: { fontSize: 15, color: C.sub, marginBottom: 14 } }, T("working") + " " + fmtDur((Date.now() - workFrom) / 60000) + " · " + T("workMiles") + " " + fmtDist(workKm, 1)),
+              t.order
+                ? e("div", null,
+                    e("div", { style: { fontSize: 40, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginBottom: 12 } }, fmtDur(rideMins),
+                      e("span", { style: { fontSize: 18, color: C.sub, fontWeight: 700, marginLeft: 12 } }, fmtDist(liveKm, 1))),
+                    BigBtn("✓  " + T("completeRide"), completeRide),
+                    e("div", { style: { marginTop: 10 } }, BigBtn(T("navigate"), () => setModal({ type: "nav" }), { kind: "ghost", style: { fontSize: 17, minHeight: 56 } })))
+                : BigBtn("▶  " + T("startRide"), startRide, { style: { background: col, color: dark ? "#0B1220" : "#fff" } }),
+              !t.order ? e("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
+                e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => setModal({ type: "pickApp", switching: true }) }, T("switchApp")),
+                e("button", { className: "tap", style: Object.assign(S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: stopWorking }, "■ " + T("stopWorking"))) : null),
+        GpsNote(t, true)),
       // 1. today's money: take-home + four clearly labelled parts
       e("section", { "aria-label": T("todayProfit"), style: Object.assign({}, S.card, { padding: 20 }) },
         e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } },
@@ -2292,9 +2320,12 @@ function App() {
           money(has ? B.kept : 0)),
         e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
           stat(T("earned"), money(P.gross), "actual"),
-          stat(T("h_exp"), "−" + money(P.actualExp), "actual"),
-          stat(T("h_veh"), "−" + money(P.estVehicle), "estimate"),
-          stat(T("m_tax"), "−" + money(B.tax), "estimate")),
+          stat(T("h_costsTax"), "−" + money(P.gross - B.kept), "estimate"),
+          det ? stat(T("h_exp"), "−" + money(P.actualExp), "actual") : null,
+          det ? stat(T("h_veh"), "−" + money(P.estVehicle), "estimate") : null,
+          det ? stat(T("m_tax"), "−" + money(B.tax), "estimate") : null),
+        e("button", { className: "tap", "aria-expanded": det, onClick: () => setDet(!det),
+          style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "10px 0 0", cursor: "pointer", minHeight: 44 } }, det ? T("h_less") : T("h_details")),
         !has ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, marginTop: 12 } }, costs > 0.004 ? fill(T("sayNoIncome"), { c: money(costs) }) : T("sayNothing")) : null,
         insMissing() ? e("button", { className: "tap", onClick: () => setView("vehicles"),
           style: { display: "block", width: "100%", textAlign: "left", marginTop: 12, padding: "10px 12px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 48 } },
@@ -2331,33 +2362,7 @@ function App() {
             e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => setView("log") }, T("ct_fix")),
             e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => { confirm(); showToast(T("ct_thanks")); } }, T("ct_ok"))));
       })(),
-      // 2. work + tracking state
-      e("section", { "aria-label": T("working"), style: Object.assign({}, S.card, { padding: 18, borderColor: working ? col : C.border }) },
-        StateRow(t),
-        !working
-          ? e("div", null,
-              BigBtn("▶  " + T("startWorking"), () => myApps.length === 1 ? startWorking(myApps[0]) : setModal({ type: "pickApp" }), { style: { minHeight: 76, fontSize: 22 } }),
-              e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } }, t.on ? T("personalToday") + ": " + fmtDist(persKm, 1) : T("trackingPaused")),
-              !t.on ? e("div", { style: { marginTop: 10 } }, BigBtn(T("resume"), () => setTracking(true), { kind: "ghost", style: { fontSize: 16, minHeight: 56 } })) : null)
-          : e("div", null,
-              e("div", { style: { fontSize: 15, color: C.sub, marginBottom: 14 } }, T("working") + " " + fmtDur((Date.now() - workFrom) / 60000) + " · " + T("workMiles") + " " + fmtDist(workKm, 1)),
-              t.order
-                ? e("div", null,
-                    e("div", { style: { fontSize: 40, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginBottom: 12 } }, fmtDur(rideMins),
-                      e("span", { style: { fontSize: 18, color: C.sub, fontWeight: 700, marginLeft: 12 } }, fmtDist(liveKm, 1))),
-                    BigBtn("✓  " + T("completeRide"), completeRide),
-                    e("div", { style: { marginTop: 10 } }, BigBtn(T("navigate"), () => setModal({ type: "nav" }), { kind: "ghost", style: { fontSize: 17, minHeight: 56 } })))
-                : BigBtn("▶  " + T("startRide"), startRide, { style: { background: col, color: dark ? "#0B1220" : "#fff" } }),
-              !t.order ? e("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
-                e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => setModal({ type: "pickApp", switching: true }) }, T("switchApp")),
-                e("button", { className: "tap", style: Object.assign(S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: stopWorking }, "■ " + T("stopWorking"))) : null),
-        GpsNote(t, true)),
-      // 3. four everyday actions
-      e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 } },
-        tile(T("addIncome"), "offer", () => setModal({ type: "earn", app: working ? t.mode : undefined }), C.accent),
-        tile(T("addExpense"), "receipt", () => setModal({ type: "pickExpense" }), C.amber),
-        tile(T("checkOfferT"), "check", () => setView("offer"), C.blue),
-        tile(T("myEarnings"), "chart", () => setView("money"), C.purple)));
+      null);
   };
 
   function PickAppModal({ switching }) {
@@ -2367,6 +2372,18 @@ function App() {
         Dot(n, 16), n)),
       e("div", { style: { minHeight: 56 } }, platformSelect("", n => { saveSettings({ apps: (st.apps || []).concat([n]) }); switching ? (setMode(n), setModal(null)) : startWorking(n); }, { minHeight: 56, fontSize: 17 }, "+ " + T("otherApp")))),
       () => setModal(null));
+  }
+
+  function AddModal() {
+    const row = (label, icon, col, fn) => e("button", { key: label, className: "tap", onClick: fn,
+      style: { display: "flex", alignItems: "center", gap: 14, minHeight: 64, padding: "0 16px", borderRadius: 16, border: "1px solid " + C.border, background: C.card2, color: C.text, fontSize: 18, fontWeight: 800, cursor: "pointer", textAlign: "left" } },
+      e("span", { "aria-hidden": true, style: { width: 44, height: 44, borderRadius: 12, background: col + "1F", color: col, display: "flex", alignItems: "center", justifyContent: "center" } }, e(Icon, { n: icon, s: 24 })), label);
+    const t = track || {}, working = t.on && t.mode && t.mode !== PERSONAL;
+    return ModalShell(T("add_title"), e("div", { style: { display: "grid", gap: 10 } },
+      row(T("addIncome"), "offer", C.accent, () => setModal({ type: "earn", app: working ? t.mode : undefined })),
+      row(T("addExpense"), "receipt", C.amber, () => setModal({ type: "pickExpense" })),
+      row(T("scanReceipt"), "camera", C.purple, () => setModal({ type: "expense", scan: true })),
+      row(T("checkOfferT"), "check", C.blue, () => { setModal(null); setView("offer"); })), () => setModal(null));
   }
 
   function PickExpenseModal() {
@@ -2432,11 +2449,16 @@ function App() {
 
   // Simple-mode "More": every tool, one big row each
   const SimpleMore = () => e("div", { style: { maxWidth: 560, margin: "0 auto" } },
-    e("div", { style: S.h1 }, T("allTools")),
-    [["expenses", "receipt"], ["log", "list"], ["reports", "share"], ["tax", "tax"], ["offer", "offer"], ["coach", "coach"], ["map", "pin"], ["compare", "swap"], ["insights", "chart"], ["settings", "gear"]].map(x =>
-      e("button", { key: x[0], className: "tap", onClick: () => setView(x[0]),
-        style: { width: "100%", display: "flex", alignItems: "center", gap: 14, minHeight: 60, padding: "0 16px", marginBottom: 8, borderRadius: 14, border: "1px solid " + C.border, background: C.card, color: C.text, fontSize: 18, fontWeight: 700, cursor: "pointer", textAlign: "left" } },
-        e("span", { style: { color: C.accent } }, e(Icon, { n: x[1], s: 24 })), T(x[0]))),
+    e("h1", { style: S.h1 }, T("more")),
+    [["mg_records", [["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["reports", "share"]]],
+     ["mg_tools", [["offer", "offer"], ["map", "pin"], ["coach", "coach"], ["compare", "swap"], ["insights", "chart"]]],
+     ["mg_account", [["settings", "gear"]]]].map(g => e("section", { key: g[0], "aria-label": T(g[0]), style: { marginBottom: 14 } },
+      e("h2", { style: { fontSize: 14, fontWeight: 800, color: C.sub, margin: "0 4px 6px" } }, T(g[0])),
+      e("div", { style: { background: C.card, border: "1px solid " + C.border, borderRadius: 18, overflow: "hidden" } },
+        g[1].map((x, i) => e("button", { key: x[0], className: "tap", onClick: () => setView(x[0]),
+          style: { width: "100%", display: "flex", alignItems: "center", gap: 14, minHeight: 58, padding: "0 16px", border: "none", borderTop: i ? "1px solid " + C.border : "none", background: "none", color: C.text, fontSize: 17, fontWeight: 700, cursor: "pointer", textAlign: "left" } },
+          e("span", { style: { color: C.accent, display: "flex" } }, e(Icon, { n: x[1], s: 22 })), e("span", { style: { flex: 1 } }, T(x[0])),
+          e("span", { "aria-hidden": true, style: { color: C.muted, fontSize: 20 } }, "›")))))),
     e("button", { className: "tap", onClick: () => { saveSettings({ uiMode: "pro" }); setView("home"); },
       style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 56, fontSize: 16, marginTop: 8 }) }, T("proMode") + " →"),
     e("div", { style: Object.assign({}, S.small, { marginTop: 8, fontSize: 13, lineHeight: 1.5 }) }, T("modeHint")));
@@ -3974,13 +3996,14 @@ function App() {
     const [state, setState] = useState(st.state || "");
     const [loc, setLoc] = useState("");
     const [showTypes, setShowTypes] = useState(false);
+    const [skipCar, setSkipCar] = useState(false);
     const setv = (k, x) => setV(o => Object.assign({}, o, { [k]: x }));
     const toggle = n => setApps(a => a.indexOf(n) >= 0 ? a.filter(x => x !== n) : a.concat([n]));
     const askLoc = () => { if (!navigator.geolocation) { setLoc("no"); return; } setLoc("…");
       navigator.geolocation.getCurrentPosition(() => setLoc("ok"), () => setLoc("no"), { enableHighAccuracy: true, timeout: 15000 }); };
     const finish = () => {
       let vid = pickVid;
-      if (!hasVeh) {
+      if (!hasVeh && !skipCar) {
         let rec = presetVehicle(v.type, ctry);
         Object.assign(rec, { year: num(v.year), make: v.make, model: v.model.trim(), name: [v.year, v.make, v.model.trim()].filter(Boolean).join(" ") });
         if (v.type === "car") Object.assign(rec, { body: v.body, fuelKind: v.fuelKind, fuelType: "petrol" }, typicalEnergy(v.body, v.fuelKind, ctry));
@@ -4039,7 +4062,8 @@ function App() {
       e("div", { style: { display: "flex", justifyContent: "center", padding: "28px 16px calc(28px + env(safe-area-inset-bottom))" } },
       e("div", { style: { width: "100%", maxWidth: 480, display: "flex", flexDirection: "column" } },
         e("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 26 } }, e(LogoMark, { s: 34 }), e("span", { style: { fontWeight: 900, fontSize: 20 } }, CONFIG.appName),
-          e("div", { style: { flex: 1 } }), [0, 1, 2].map(i => e("div", { key: i, style: { width: i === step ? 22 : 8, height: 8, borderRadius: 8, background: i <= step ? C.accent : C.border, transition: "width .2s" } }))),
+          e("div", { style: { flex: 1 } }), [0, 1, 2].map(i => e("div", { key: i, "aria-hidden": true, style: { width: i === step ? 22 : 8, height: 8, borderRadius: 8, background: i <= step ? C.accent : C.border, transition: "width .2s" } })),
+          e("span", { style: { fontSize: 14, fontWeight: 700, color: C.sub, marginLeft: 4 } }, fill(T("ob_stepOf"), { a: step + 1, b: 3 }))),
         e("div", { style: { fontSize: 26, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 6 } }, titles[step][0]),
         e("div", { style: { color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.45 } }, titles[step][1]),
         e("div", { style: { flex: 1 } }, body),
@@ -4052,7 +4076,9 @@ function App() {
             saveSettings({ apps: ["Uber", "Uber Eats", "DoorDash"], country: "US", state: "VA", onboarded: true, defaultVehicleId: smp.vehicles[0].id, name: "Sample driver" }); setView("home"); } }, T("stg_sample")) : null,
         e("div", { style: { display: "flex", gap: 8, marginTop: 24 } },
           step > 0 ? e("button", { style: Object.assign(S.btn("ghost"), { padding: 15 }), onClick: () => setStep(step - 1) }, T("back")) : null,
-          e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, padding: 15, fontSize: 16, opacity: canNext ? 1 : .5 }), disabled: !canNext, onClick: () => step < 2 ? setStep(step + 1) : finish() }, step < 2 ? T("next") : T("letsGo"))))));
+          e("button", { className: "tap", style: Object.assign(S.btn(), { flex: 1, padding: 15, fontSize: 16, opacity: canNext ? 1 : .5 }), disabled: !canNext, onClick: () => { if (step === 1) setSkipCar(false); step < 2 ? setStep(step + 1) : finish(); } }, step < 2 ? T("next") : T("letsGo"))),
+        step === 1 && !hasVeh ? e("button", { type: "button", className: "tap", onClick: () => { setSkipCar(true); setStep(2); },
+          style: { background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 16, cursor: "pointer", minHeight: 48, marginTop: 6, font: "inherit" } }, T("ob_skipCar")) : null)));
   }
 
   function ShiftModal({ init, fromTracking }) {
@@ -4445,6 +4471,9 @@ function App() {
           err ? e("div", { role: "alert", style: { color: C.red, fontWeight: 700, fontSize: 15, margin: "4px 0 12px", lineHeight: 1.4 } }, err) : null,
           msg ? e("div", { role: "status", style: { color: C.accent, fontWeight: 700, fontSize: 15, margin: "4px 0 12px", lineHeight: 1.4 } }, msg) : null,
           e("button", { style: Object.assign(S.btn(), { width: "100%", minHeight: 56, fontSize: 18 }), disabled: busy, onClick: go }, busy ? "…" : mode === "in" ? T("au_signIn") : mode === "up" ? T("au_create") : T("au_sendReset")),
+          mode === "up" && CONFIG.termsUrl && CONFIG.privacyUrl ? e("div", { style: { color: C.sub, fontSize: 14, textAlign: "center", lineHeight: 1.5, marginTop: 12 } }, T("au_agree") + " ",
+            e("a", { href: CONFIG.termsUrl, target: "_blank", rel: "noopener", style: { color: C.accent, fontWeight: 700 } }, T("au_terms")), " " + T("au_and") + " ",
+            e("a", { href: CONFIG.privacyUrl, target: "_blank", rel: "noopener", style: { color: C.accent, fontWeight: 700 } }, T("au_privacy")), ".") : null,
           mode === "in" ? e("button", { type: "button", style: { background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 14, minHeight: 44, font: "inherit" }, onClick: () => { setMode("reset"); setErr(""); } }, T("au_forgot")) : null,
           mode === "reset" ? e("button", { type: "button", style: { background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 14, minHeight: 44, font: "inherit" }, onClick: () => { setMode("in"); setMsg(""); } }, "← " + T("au_signIn")) : null,
           mode !== "reset" && !IS_NATIVE ? e("div", null,
@@ -4585,6 +4614,7 @@ function App() {
   const StatusCardC = stable("StatusCard", StatusCard);
   const PickAppModalC = stable("PickAppModal", PickAppModal);
   const PickExpenseModalC = stable("PickExpenseModal", PickExpenseModal);
+  const AddModalC = stable("AddModal", AddModal);
   const SummaryModalC = stable("SummaryModal", SummaryModal);
   const ExplainModalC = stable("ExplainModal", ExplainModal);
   const AppsCardC = stable("AppsCard", AppsCard);
@@ -4611,7 +4641,7 @@ function App() {
   //  LAYOUT
   // ════════════════════════════════════════════════════════════════
   const NAV = [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]];
-  const MOBILE = simple ? [["home", "home"], ["money", "chart"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
+  const MOBILE = simple ? [["home", "home"], ["money", "chart"], ["add", "plus"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
   if (simple) NAV.splice(0, NAV.length, ["home", "home"], ["money", "chart"], ["vehicles", "car"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["more", "more"]);
   const inMore = view === "more" || (MOBILE.every(m => m[0] !== view) && view !== "home");
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
@@ -4646,6 +4676,9 @@ function App() {
         e(VIEWS[view] || VIEWS.home)))),
     e("div", { className: "bottom-nav", inert: behind.inert, "aria-hidden": behind["aria-hidden"], style: { position: "fixed", left: 0, right: 0, bottom: 0, background: C.navBg, backdropFilter: "blur(10px)", borderTop: "1px solid " + C.border, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 40 } },
       MOBILE.map(n => { const on = n[0] === "more" ? inMore : view === n[0];
+        if (n[0] === "add") return e("div", { key: "add", style: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center" } },
+          e("button", { className: "tap", "aria-label": T("add_title"), onClick: () => setModal({ type: "add" }),
+            style: { width: 56, height: 56, borderRadius: 56, border: "none", background: C.fill, color: C.onAccent, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: C.shadow } }, e(Icon, { n: "plus", s: 28, w: 2.8 })));
         return e("button", { key: n[0], "aria-current": on ? "page" : undefined, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 60, padding: "8px 0 6px", background: "none", border: "none", color: on ? C.accent : C.muted, fontSize: 13, fontWeight: on ? 800 : 600, cursor: "pointer" }, onClick: () => setView(n[0]) },
           e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0])); })),
     modal && modal.type === "shift" ? e(ShiftModalC, { key: (modal.shift && modal.shift.id) || "new", init: modal.shift, fromTracking: modal.fromTracking }) : null,
@@ -4661,6 +4694,7 @@ function App() {
     modal && modal.type === "vdates" ? e(VehDatesModalC, { key: "vd" + modal.vehicle.id, vehicle: modal.vehicle }) : null,
     modal && modal.type === "pickApp" ? e(PickAppModalC, { key: "pick", switching: modal.switching }) : null,
     modal && modal.type === "pickExpense" ? e(PickExpenseModalC, { key: "pickx" }) : null,
+    modal && modal.type === "add" ? e(AddModalC, { key: "add" }) : null,
     modal && modal.type === "summary" ? e(SummaryModalC, { key: "sum", from: modal.from, to: modal.to }) : null,
     modal && modal.type === "explain" ? e(ExplainModalC, { key: "explain" + (modal.period || ""), period: modal.period }) : null,
     modal && modal.type === "wrap" ? e(WrapModalC, { key: "wrap", period: modal.period }) : null,
