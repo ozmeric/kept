@@ -25,18 +25,13 @@ The workflow `.github/workflows/android.yml` builds the app on GitHub.
 
 The workflow also runs by itself whenever something in `android/` changes.
 
-### Google Play release (later)
-Google Play needs a signed bundle (`.aab`). Create an upload key once on any computer with Java:
+### Signing
+Every phone only accepts an update signed with the same key as the installed app. Add the four secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD` in GitHub → Settings → Secrets and variables → Actions. Builds then produce a signed `app-release.apk` (published as `kept.apk` from `main`) and a signed `app-release.aab` for Google Play. Keep the keystore file and its password somewhere safe: without them, updates can't be published.
 
-```bash
-keytool -genkeypair -v -keystore kept-upload.keystore -alias kept -keyalg RSA -keysize 2048 -validity 10000
-base64 -w0 kept-upload.keystore > keystore.txt   # on a Mac: base64 -i kept-upload.keystore -o keystore.txt
-```
-
-Then in GitHub → Settings → Secrets and variables → Actions add `KEYSTORE_BASE64` (contents of keystore.txt), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`kept`) and `KEY_PASSWORD`. The next run also produces `app-release.aab`. Keep the keystore file safe: Play only accepts updates signed with the same key.
+Without the secrets, the build makes a debug APK with a new random key each time; it cannot install over an earlier build.
 
 ## Build it on your computer (alternative)
-You need Node.js 18+ and Android Studio (it includes the Android SDK and JDK 17).
+You need Node.js 22+ and a current Android Studio (Android SDK 36, JDK 21).
 
 ```bash
 cd android
@@ -50,6 +45,16 @@ npx cap open android         # opens Android Studio; wait for Gradle sync, then 
 3. Recommended: Android settings → Apps → Kept → Location → **Allow all the time**, so rides start even when Kept is closed.
 4. Samsung, Xiaomi and some other phones stop background apps. Apps → Kept → Battery → **Unrestricted**.
 5. Optional: long-press the home screen → Widgets → Kept.
+
+## Updating safely
+Trips recorded in the background stay on the phone until the account confirms them. Before installing a new version, signing out or changing phones, open Kept → Settings → **Safe to update?** and wait for the green "Everything is saved in your account". Install new versions over the old one; don't uninstall first.
+
+## What Stage 1 added (Nov 2026)
+- **Android 16 target** (Capacitor 8.5.3, API 36; minimum Android 7.0), as Google Play requires for new apps.
+- **Google fused location** (GPS + Wi-Fi + sensors) when Play services is on the phone; plain GPS otherwise. State is written to storage every 15 seconds instead of on every fix.
+- **"Kept stopped counting miles" alert** when Android stops tracking, and automatic restart when Kept is opened.
+- **After a phone restart or an app update**, tracking resumes by itself if location is set to "Allow all the time"; otherwise Kept shows a notice to tap (an Android rule).
+- **Crash reporting** (Firebase Crashlytics) switches on when `google-services.json` is supplied: add the Firebase Android app (package `io.usebuildflow.kept`), download the file, and store it base64-encoded as the GitHub secret `GOOGLE_SERVICES_JSON`.
 
 ## Tuning ride detection (learn mode)
 Gig apps word their notifications differently and change them over time. The built-in keywords are a starting point:
@@ -78,7 +83,7 @@ To tune them:
 Uber and Uber Eats share one app. Kept picks Uber Eats when the notification mentions eats, deliver or order.
 
 ## What has and hasn't been tested
-- Tested: the web app's handling of native trips, the widget data and Share to Kept, with a simulated Android bridge; all Java compiles against the Android and Capacitor 6.1.2 method signatures.
+- Tested: the web app's handling of native trips (released from the phone only after the account confirms them), the Safe to update check, the widget data and Share to Kept, with a simulated Android bridge; the app builds on GitHub Actions.
 - Not yet tested: a real build and a real phone. The first GitHub run is the first full build; then drive 5 shifts per app and compare the miles with the odometer (Vehicles → Set dates → Odometer now does the comparison for you).
 
 ## Limits

@@ -24,29 +24,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "20" }
+        with: { node-version: "22" }
       - uses: actions/setup-java@v4
-        with: { distribution: "temurin", java-version: "17" }
+        with: { distribution: "temurin", java-version: "21" }
       # GitHub's Ubuntu runners already include the Android SDK (ANDROID_HOME); just accept its licences
-      - name: Android SDK licences
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-      # the same debug signing key for every build, so a new APK installs over the old one
-      - name: Reuse the debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: kept-debug-keystore-v1
+      - name: Android SDK licences and API 36
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null || true
       - name: Create the Android project
         working-directory: android
         env:
           KEPT_URL: ${{ github.event.inputs.site_url || 'https://kept.usebuildflow.io' }}
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: "6.0.${{ github.run_number }}"
+          VERSION_NAME: "6.1.${{ github.run_number }}"
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: bash setup-android.sh
       - name: Build debug APK
         working-directory: android/android
         run: ./gradlew --no-daemon assembleDebug
-      - name: Build signed release bundle (only when signing secrets exist)
+      - name: Check what was built (Android target, permissions, components)
+        run: |
+          APK=android/android/app/build/outputs/apk/debug/app-debug.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt2" dump badging "$APK" | grep -E "^package|^minSdkVersion|^sdkVersion|^targetSdkVersion|uses-permission" | tee badging.txt
+          grep -q "targetSdkVersion:'36'" badging.txt
+          grep -qE "^(minSdkVersion|sdkVersion):'24'" badging.txt
+          for p in ACCESS_BACKGROUND_LOCATION FOREGROUND_SERVICE_LOCATION RECEIVE_BOOT_COMPLETED POST_NOTIFICATIONS; do grep -q "$p" badging.txt || { echo "missing permission $p"; exit 1; }; done
+          "$BT/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > manifest.txt
+          for c in TrackingService BootReceiver GigNotificationListener KeptWidget ActionReceiver; do grep -q "io.usebuildflow.kept.$c" manifest.txt || { echo "missing component $c"; exit 1; }; done
+          unzip -l "$APK" | grep -c "classes.*dex"
+          "$BT/dexdump" -f "$APK" 2>/dev/null | grep -c "FusedLocationProviderClient" || true
+          echo "Build check passed"
+      - name: Build the signed app (only when the signing secrets exist)
         if: env.HAS_KEYSTORE == 'true'
         working-directory: android/android
         env:
@@ -55,15 +65,18 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
-          ./gradlew --no-daemon bundleRelease
-          jarsigner -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" app/build/outputs/bundle/release/app-release.aab "$KEY_ALIAS"
-          rm release.keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          SIGN="-Pandroid.injected.signing.store.file=$RUNNER_TEMP/release.keystore -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD -Pandroid.injected.signing.key.alias=$KEY_ALIAS -Pandroid.injected.signing.key.password=$KEY_PASSWORD"
+          ./gradlew --no-daemon assembleRelease bundleRelease $SIGN
+          rm "$RUNNER_TEMP/release.keystore"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -E "SHA-256|Signer #1 certificate DN"
       - uses: actions/upload-artifact@v4
         with:
           name: kept-android
           path: |
             android/android/app/build/outputs/apk/debug/app-debug.apk
+            android/android/app/build/outputs/apk/release/app-release.apk
             android/android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: warn
       - name: Publish kept.apk for drivers (main branch only)
@@ -72,7 +85,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          cp android/android/app/build/outputs/apk/debug/app-debug.apk kept.apk
+          # the signed app when the signing key is set up (installs over earlier signed versions); the debug build otherwise
+          REL=android/android/app/build/outputs/apk/release/app-release.apk
+          if [ -f "$REL" ]; then cp "$REL" kept.apk; else cp android/android/app/build/outputs/apk/debug/app-debug.apk kept.apk; fi
           if ! gh release view android --repo "$REPO" > /dev/null 2>&1; then
             gh release create android --repo "$REPO" --title "Kept for Android" --target "$GITHUB_SHA" \
               --notes "Install file for drivers. Direct link: https://github.com/$REPO/releases/download/android/kept.apk — see https://kept.usebuildflow.io/android.html"
