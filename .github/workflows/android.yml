@@ -53,9 +53,9 @@ jobs:
         run: |
           APK=android/android/app/build/outputs/apk/debug/app-debug.apk
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/aapt2" dump badging "$APK" | grep -E "^package|^sdkVersion|^targetSdkVersion|uses-permission" | tee badging.txt
+          "$BT/aapt2" dump badging "$APK" | grep -E "^package|^minSdkVersion|^sdkVersion|^targetSdkVersion|uses-permission" | tee badging.txt
           grep -q "targetSdkVersion:'36'" badging.txt
-          grep -q "sdkVersion:'24'" badging.txt
+          grep -qE "^(minSdkVersion|sdkVersion):'24'" badging.txt
           for p in ACCESS_BACKGROUND_LOCATION FOREGROUND_SERVICE_LOCATION RECEIVE_BOOT_COMPLETED POST_NOTIFICATIONS; do grep -q "$p" badging.txt || { echo "missing permission $p"; exit 1; }; done
           "$BT/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > manifest.txt
           for c in TrackingService BootReceiver GigNotificationListener KeptWidget ActionReceiver; do grep -q "io.usebuildflow.kept.$c" manifest.txt || { echo "missing component $c"; exit 1; }; done
