@@ -49,6 +49,19 @@ jobs:
       - name: Build debug APK
         working-directory: android/android
         run: ./gradlew --no-daemon assembleDebug
+      - name: Check what was built (Android target, permissions, components)
+        run: |
+          APK=android/android/app/build/outputs/apk/debug/app-debug.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt2" dump badging "$APK" | grep -E "^package|^sdkVersion|^targetSdkVersion|uses-permission" | tee badging.txt
+          grep -q "targetSdkVersion:'36'" badging.txt
+          grep -q "sdkVersion:'24'" badging.txt
+          for p in ACCESS_BACKGROUND_LOCATION FOREGROUND_SERVICE_LOCATION RECEIVE_BOOT_COMPLETED POST_NOTIFICATIONS; do grep -q "$p" badging.txt || { echo "missing permission $p"; exit 1; }; done
+          "$BT/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > manifest.txt
+          for c in TrackingService BootReceiver GigNotificationListener KeptWidget ActionReceiver; do grep -q "io.usebuildflow.kept.$c" manifest.txt || { echo "missing component $c"; exit 1; }; done
+          unzip -l "$APK" | grep -c "classes.*dex"
+          "$BT/dexdump" -f "$APK" 2>/dev/null | grep -c "FusedLocationProviderClient" || true
+          echo "Build check passed"
       - name: Build signed release bundle (only when signing secrets exist)
         if: env.HAS_KEYSTORE == 'true'
         working-directory: android/android
