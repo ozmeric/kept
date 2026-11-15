@@ -25,15 +25,10 @@ The workflow `.github/workflows/android.yml` builds the app on GitHub.
 
 The workflow also runs by itself whenever something in `android/` changes.
 
-### Google Play release (later)
-Google Play needs a signed bundle (`.aab`). Create an upload key once on any computer with Java:
+### Signing
+Every phone only accepts an update signed with the same key as the installed app. Add the four secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD` in GitHub → Settings → Secrets and variables → Actions. Builds then produce a signed `app-release.apk` (published as `kept.apk` from `main`) and a signed `app-release.aab` for Google Play. Keep the keystore file and its password somewhere safe: without them, updates can't be published.
 
-```bash
-keytool -genkeypair -v -keystore kept-upload.keystore -alias kept -keyalg RSA -keysize 2048 -validity 10000
-base64 -w0 kept-upload.keystore > keystore.txt   # on a Mac: base64 -i kept-upload.keystore -o keystore.txt
-```
-
-Then in GitHub → Settings → Secrets and variables → Actions add `KEYSTORE_BASE64` (contents of keystore.txt), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (`kept`) and `KEY_PASSWORD`. The next run also produces `app-release.aab`. Keep the keystore file safe: Play only accepts updates signed with the same key.
+Without the secrets, the build makes a debug APK with a new random key each time; it cannot install over an earlier build.
 
 ## Build it on your computer (alternative)
 You need Node.js 22+ and a current Android Studio (Android SDK 36, JDK 21).
