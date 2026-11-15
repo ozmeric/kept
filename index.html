@@ -390,6 +390,15 @@ const I18N = {
   hi_morning:["Good morning","Goedemorgen","Günaydın"], hi_afternoon:["Good afternoon","Goedemiddag","İyi günler"], hi_evening:["Good evening","Goedenavond","İyi akşamlar"],
   hi_streak:["{n}-day streak","{n} dagen op rij","{n} gün üst üste"], hi_streakT:["Days in a row with work logged","Dagen op rij met werk","Üst üste iş kaydedilen gün"],
   hi_goalHit:["Goal hit for today!","Dagdoel gehaald!","Bugünkü hedef tamam!"], hi_goalTxt:["{a} profit before tax — your goal was {b}. Anything more is extra.","{a} winst — doel was {b}.","Vergi öncesi {a} kâr — hedefiniz {b} idi. Bundan sonrası ekstra."],
+  sf_title:["Safe to update?","Veilig om te updaten?","Güncellemek güvenli mi?"], sf_checking:["Checking what is saved…","Controleren…","Kaydedilenler kontrol ediliyor…"],
+  sf_safe:["Everything is saved in your account","Alles is opgeslagen in je account","Her şey hesabınıza kaydedildi"],
+  sf_safeTxt:["You can update, reinstall or change phones. Sign in again and your records come back.","Je kunt updaten, opnieuw installeren of van telefoon wisselen.","Güncelleyebilir, yeniden kurabilir ya da telefon değiştirebilirsiniz. Tekrar giriş yapınca kayıtlarınız geri gelir."],
+  sf_wait:["Not yet — some records are only on this phone","Nog niet — sommige gegevens staan alleen op deze telefoon","Henüz değil — bazı kayıtlar yalnızca bu telefonda"],
+  sf_trip1:["1 trip","1 rit","1 yolculuk"], sf_photo1:["1 receipt photo","1 bonfoto","1 fiş fotoğrafı"], sf_trips:["{n} trips","{n} ritten","{n} yolculuk"], sf_writes:["recent changes","recente wijzigingen","son değişiklikler"], sf_photos:["{n} receipt photos","{n} bonfoto's","{n} fiş fotoğrafı"],
+  sf_waitTxt:["Keep Kept open for a minute, then tap Check again. Don't uninstall or sign out until this turns green.","Houd Kept een minuut open en controleer opnieuw. Verwijder de app nog niet.","Kept'i bir dakika açık tutun, sonra Tekrar kontrol et'e dokunun. Bu yeşile dönene kadar uygulamayı kaldırmayın ve çıkış yapmayın."],
+  sf_offlineTxt:["This phone is offline. Connect to the internet, keep Kept open, then tap Check again. Don't uninstall or sign out yet.","Deze telefoon is offline. Maak verbinding en controleer opnieuw.","Bu telefon çevrimdışı. İnternete bağlanın, Kept'i açık tutun, sonra Tekrar kontrol et'e dokunun. Henüz kaldırmayın ve çıkış yapmayın."],
+  sf_again:["Check again","Opnieuw controleren","Tekrar kontrol et"], sf_signOutBlock:["Some records are not saved yet. Open Settings → Safe to update? and wait until it is green.","Nog niet alles is opgeslagen.","Bazı kayıtlar henüz kaydedilmedi. Ayarlar → Güncellemek güvenli mi? bölümünde yeşile dönmesini bekleyin."],
+  trk_resumed:["Your phone had paused mileage tracking. Kept turned it back on.","Je telefoon had het bijhouden gepauzeerd. Kept heeft het weer aangezet.","Telefonunuz mil takibini duraklatmıştı. Kept yeniden başlattı."],
   ct_title:["Check today","Vandaag controleren","Bugünü kontrol et"], ct_sum:["{o} orders · {m} of work driving · {g} earned · {x} expenses","{o} orders · {m} · {g} verdiend · {x} uitgaven","{o} sipariş · {m} iş sürüşü · {g} kazanç · {x} gider"],
   ct_noPay:["{n} orders have no pay entered — tap Fix to add it.","{n} orders zonder bedrag.","{n} siparişte ücret girilmemiş — eklemek için Düzelt'e dokunun."], ct_noMiles:["{n} orders have no miles (GPS was off).","{n} orders zonder afstand.","{n} siparişte mesafe yok (GPS kapalıydı)."],
   ct_fix:["Fix","Aanpassen","Düzelt"], ct_ok:["Looks right","Klopt","Doğru"], ct_thanks:["Today is confirmed","Vandaag bevestigd","Bugün onaylandı"],
@@ -1955,17 +1964,50 @@ function App() {
     if (!on) { if (t.on) recordSeg(t, Date.now()); stopWatch(); commit(Object.assign({}, restart(t), { on: false, order: false, last: null })); }
     else { commit(restart(t, { on: true, last: null, gps: "wait" })); startWatch(); }
   };
+  // Is everything on this phone also saved in the account? Used before signing out, updating or reinstalling.
+  const syncCheck = async () => {
+    const n = KN(); let trips = 0, writes = false;
+    if (n && n.getSyncState) { try { trips = ((await n.getSyncState()) || {}).pendingTrips || 0; } catch (x) {} }
+    if (cloud && FB.db && FB.db.waitForPendingWrites) {
+      const ok = await Promise.race([FB.db.waitForPendingWrites().then(() => true), new Promise(r => setTimeout(() => r(false), 4000))]).catch(() => false);
+      writes = !ok;
+    } else if (MODE === "sheet") writes = LS.get("kept_queue", []).length > 0;
+    const photos = LS.get("kept_photoQ", []).length;
+    return { trips, writes, photos, safe: !trips && !writes && !photos, online: navigator.onLine !== false, at: Date.now() };
+  };
+  // errors in the web screen go to the Android app's crash reporting (message and stack only, never records)
+  useEffect(() => {
+    const n = KN(); if (!n || !n.logError) return;
+    const send = (m, st2) => { try { n.logError({ message: String(m || "").slice(0, 300), stack: String(st2 || "").slice(0, 1500) }).catch(() => {}); } catch (x) {} };
+    const onErr = ev => send(ev.message, ev.error && ev.error.stack), onRej = ev => send(ev.reason && ev.reason.message || ev.reason, ev.reason && ev.reason.stack);
+    window.addEventListener("error", onErr); window.addEventListener("unhandledrejection", onRej);
+    return () => { window.removeEventListener("error", onErr); window.removeEventListener("unhandledrejection", onRej); };
+  }, []);
   // ── native bridge (Android app) ──
   useEffect(() => {
     const n = KN(); if (!n || !authed) return;
     nativeRef.current = n; stopWatch();
+    // Trips recorded in the background stay on the phone until the account has confirmed them:
+    // the phone's copy is released only after the server acknowledged the write (never on a queued, offline write).
     const drain = async () => {
       try { const r = await n.drainTrips(); const list = (r && r.trips) || [];
-        list.forEach(t => upsert("trips", Object.assign({ pay: "", tips: "", source: "native" }, t, { vehicleId: t.vehicleId || defaultVid() }, dataRef.current.settings.saveLoc === false ? { loc: null, endLoc: null } : {})));
-        if (list.length) n.ackTrips({ ids: list.map(t => t.id) }).catch(() => {});
-        return list; } catch (x) { return []; }
+        const have = new Set(dataRef.current.trips.map(t => t.id));
+        const fresh = list.filter(t => !have.has(t.id));              // already shown: don't overwrite the driver's edits
+        fresh.forEach(t => upsert("trips", Object.assign({ pay: "", tips: "", source: "native" }, t, { vehicleId: t.vehicleId || defaultVid() }, dataRef.current.settings.saveLoc === false ? { loc: null, endLoc: null } : {})));
+        if (list.length) {
+          const ids = list.map(t => t.id), ack = () => n.ackTrips({ ids }).catch(() => {});
+          if (cloud && FB.db && FB.db.waitForPendingWrites) FB.db.waitForPendingWrites().then(ack).catch(() => {});
+          else ack();
+        }
+        return fresh; } catch (x) { return []; }
     };
-    const onStatus = s => commit(Object.assign({}, trackRef.current || blankTrack(PERSONAL), s || {}, { native: true }));
+    let revived = 0;
+    const onStatus = s => {
+      commit(Object.assign({}, trackRef.current || blankTrack(PERSONAL), s || {}, { native: true }));
+      // tracking should be on but Android stopped it (battery saver, restart): start it again and say so
+      if (s && s.on && s.running === false && Date.now() - revived > 30000) { revived = Date.now();
+        n.startTracking({}).then(() => showToast(T("trk_resumed"))).catch(() => {}); }
+    };
     const subs = [n.addListener("status", onStatus), n.addListener("tripsChanged", () => drain()),
       n.addListener("rideCompleted", ev => drain().then(list => { const tr = list.find(x => x.id === (ev && ev.id)) || list[list.length - 1]; if (tr && tr.kind === "order") setModal({ type: "earn", trip: tr }); }))];
     n.configure({ apps: st.apps || [], unit, rules: st.notifRules || {}, lang: st.lang || "en" }).catch(() => {});
@@ -3341,6 +3383,7 @@ function App() {
               localMode ? T("localMode") : syncState === "offline" ? T("offline") : T("synced")),
             cloud && !FB.storage ? e("div", { style: Object.assign({}, S.small, { marginTop: 6 }) }, T("au_photosLocal")) : null),
           cloud ? e(AccountCardC) : null,
+          !localMode ? e(SafeCardC) : null,
           MODE === "sheet" ? e("div", { style: S.card },
             e("div", { style: S.h2 }, T("changePin")),
             Field(T("newPin"), e("input", { style: S.input, inputMode: "numeric", type: "password", value: np, onChange: ev => setNp(ev.target.value.replace(/\D/g, "").slice(0, 8)) })),
@@ -4414,6 +4457,23 @@ function App() {
         e("img", { src: "./buildflow-logo.png", alt: "BuildFlow by Weblina LLC", style: { height: 24, opacity: .6, marginTop: 22, display: "block", marginLeft: "auto", marginRight: "auto" } })));
   }
 
+  // "Safe to update?": shows whether anything is still only on this phone
+  function SafeCard() {
+    const [r, setR] = useState(null), [busy, setBusy] = useState(false);
+    const run = async () => { setBusy(true); try { setR(await syncCheck()); } finally { setBusy(false); } };
+    useEffect(() => { run(); }, []);
+    const waiting = r && !r.safe ? [r.trips ? (r.trips === 1 ? T("sf_trip1") : fill(T("sf_trips"), { n: r.trips })) : null, r.writes ? T("sf_writes") : null, r.photos ? (r.photos === 1 ? T("sf_photo1") : fill(T("sf_photos"), { n: r.photos })) : null].filter(Boolean).join(" · ") : "";
+    return e("section", { "aria-label": T("sf_title"), style: Object.assign({}, S.card, r ? { borderColor: r.safe ? C.accentBorder : C.warnBorder } : {}) },
+      e("div", { style: S.h2 }, T("sf_title")),
+      !r ? e("div", { style: { fontSize: 15, color: C.sub } }, T("sf_checking"))
+        : r.safe ? e("div", { role: "status" }, e("div", { style: { fontSize: 17, fontWeight: 800, color: C.accent, marginBottom: 4 } }, "✓ " + T("sf_safe")),
+            e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, T("sf_safeTxt")))
+        : e("div", { role: "alert" }, e("div", { style: { fontSize: 17, fontWeight: 800, color: C.amber, marginBottom: 4 } }, "⚠ " + T("sf_wait")),
+            e("div", { style: { fontSize: 15, color: C.text, lineHeight: 1.5, marginBottom: 4 } }, waiting),
+            e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5 } }, T(r.online ? "sf_waitTxt" : "sf_offlineTxt"))),
+      e("button", { style: Object.assign(S.btn("ghost"), { marginTop: 12, minHeight: 48 }), disabled: busy, onClick: run }, busy ? "…" : T("sf_again")));
+  }
+
   function AccountCard() {
     const u = user || {}, pwUser = (u.providerData || []).some(p => p.providerId === "password");
     const dev = LS.get("kept_device_data", null), devN = dev ? COLLS.reduce((n, c) => n + (dev[c] || []).filter(r => !r.derived).length, 0) : 0;
@@ -4426,7 +4486,9 @@ function App() {
         pwUser ? e("button", { style: S.btn("ghost"), onClick: () => FB.auth.sendPasswordResetEmail(u.email).then(() => showToast(T("au_resetSent"))).catch(x => showToast("⚠ " + authMsg(x))) }, T("au_changePw")) : null,
         CONFIG.apiUrl ? e("button", { style: S.btn("ghost"), onClick: () => setModal({ type: "import", src: "pin" }) }, T("im_pinBtn")) : null,
         devN ? e("button", { style: S.btn("ghost"), onClick: () => setModal({ type: "import", src: "device" }) }, fill(T("im_devBtn"), { n: devN })) : null,
-        e("button", { style: S.btn("ghost"), onClick: () => askConfirm(T("au_signOutQ"), () => signOut(), { okLabel: T("au_signOut") }) }, T("au_signOut")),
+        e("button", { style: S.btn("ghost"), onClick: async () => { const r = await syncCheck();
+          if (!r.safe) { showToast("⚠ " + T("sf_signOutBlock")); return; }
+          askConfirm(T("au_signOutQ"), () => signOut(), { okLabel: T("au_signOut") }); } }, T("au_signOut")),
         e("button", { style: S.btn("danger"), onClick: () => setModal({ type: "deleteAcct" }) }, T("au_delete"))));
   }
 
@@ -4507,6 +4569,7 @@ function App() {
   const LoginC = stable("Login", Login);
   const AuthC = stable("AuthScreen", AuthScreen);
   const AccountCardC = stable("AccountCard", AccountCard);
+  const SafeCardC = stable("SafeCard", SafeCard);
   const ImportModalC = stable("ImportModal", ImportModal);
   const DeleteAccountModalC = stable("DeleteAccountModal", DeleteAccountModal);
   const ShiftModalC = stable("ShiftModal", ShiftModal);

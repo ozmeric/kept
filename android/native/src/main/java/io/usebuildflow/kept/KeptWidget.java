@@ -41,7 +41,7 @@ public class KeptWidget extends AppWidgetProvider {
 
     static void update(Context c, AppWidgetManager m, int[] ids) {
         SharedPreferences p = c.getSharedPreferences(PREF, Context.MODE_PRIVATE);
-        JSONObject st = TripStore.state(c);
+        JSONObject st = TrackingService.status(c);   // newest state, also between writes to storage
         boolean on = st.optBoolean("on", false), order = st.optBoolean("order", false);
         String mode = st.optString("mode", TrackingService.PERSONAL);
         boolean personal = TrackingService.PERSONAL.equals(mode);

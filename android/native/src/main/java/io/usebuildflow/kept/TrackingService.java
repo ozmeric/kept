@@ -11,10 +11,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -38,7 +35,7 @@ import java.util.UUID;
  *  - a segment is saved as a trip when the mode changes, a ride starts/ends, or after 10 min without movement
  *  - fixes worse than 50 m, jitter under 8 m and jumps faster than 70 m/s are ignored
  */
-public class TrackingService extends Service implements LocationListener {
+public class TrackingService extends Service implements LocationSource.Sink {
     public static final String ACTION_START = "io.usebuildflow.kept.START";
     public static final String ACTION_STOP = "io.usebuildflow.kept.STOP";
     public static final String ACTION_MODE = "io.usebuildflow.kept.MODE";
@@ -53,6 +50,12 @@ public class TrackingService extends Service implements LocationListener {
     static final String CH_RIDES = "kept_rides";
     static final int NOTIF_TRACK = 4101;
     static final int NOTIF_RIDE = 4102;
+    static final String CH_ALERT = "kept_alerts";
+    static final int NOTIF_STOPPED = 4103;
+    private static final long PERSIST_MS = 15_000L;      // state is written to storage at most this often between events
+    /** True while the service is alive in this process (the web app compares it with the saved "on" state). */
+    static volatile boolean running = false;
+    private static volatile JSONObject live;             // newest state, for status() between writes
     private static final long IDLE_MS = 10 * 60 * 1000L;
 
     /** The plugin registers here to push status / trip events to the web app while it is open. */
@@ -64,8 +67,9 @@ public class TrackingService extends Service implements LocationListener {
     private static Events events;
     public static void setEvents(Events e) { events = e; }
 
-    private LocationManager lm;
-    private JSONObject s;            // live state, persisted in TripStore on every change
+    private LocationSource source;
+    private JSONObject s;            // live state; written to TripStore on every event and every 15 s while driving
+    private long lastPersist = 0;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable idleCheck = new Runnable() {
         @Override public void run() {
@@ -79,15 +83,20 @@ public class TrackingService extends Service implements LocationListener {
         Intent i = new Intent(c, TrackingService.class).setAction(action);
         if (mode != null) i.putExtra(EXTRA_MODE, mode);
         if (source != null) i.putExtra(EXTRA_SOURCE, source);
-        ContextCompat.startForegroundService(c, i);
+        try { ContextCompat.startForegroundService(c, i); }
+        catch (RuntimeException e) {                 // Android refused a background start (Android 12+)
+            CrashLog.record(e);
+            if (!ACTION_STOP.equals(action)) notifyStopped(c, "blocked");
+        }
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
 
     @Override public void onCreate() {
         super.onCreate();
-        lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        source = new LocationSource(this, this);
         s = TripStore.state(this);
+        live = s; running = true;
         if (!s.has("mode")) put("mode", PERSONAL);
         createChannels(this);
     }
@@ -95,7 +104,18 @@ public class TrackingService extends Service implements LocationListener {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null && intent.getAction() != null ? intent.getAction() : ACTION_START;
         long now = System.currentTimeMillis();
-        startForegroundNow();
+        boolean fg = startForegroundNow();
+        if (!fg && !ACTION_STOP.equals(action)) {    // no location permission, or Android blocked the start
+            if (s.optBoolean("on")) notifyStopped(this, "blocked");
+            closeSegment(now, null);                  // keep what was driven so far
+            restart(now);
+            synchronized (s) { TripStore.saveState(this, s); }
+            stopUpdates();
+            s = new JSONObject();                     // onDestroy must not report this as a second stop
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (fg) cancelStopped(this);
         switch (action) {
             case ACTION_STOP:
                 closeSegment(now, null);
@@ -146,6 +166,10 @@ public class TrackingService extends Service implements LocationListener {
     @Override public void onDestroy() {
         handler.removeCallbacks(idleCheck);
         stopUpdates();
+        boolean unexpected = s.optBoolean("on");                  // the driver did not stop it: Android did
+        if (s.length() > 0) TripStore.saveState(this, s);
+        running = false; live = null;
+        if (unexpected) notifyStopped(this, "stopped");
         super.onDestroy();
     }
 
@@ -156,8 +180,8 @@ public class TrackingService extends Service implements LocationListener {
             return;
         }
         try {
-            lm.removeUpdates(this);
-            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000L, 5f, this, Looper.getMainLooper());
+            if ("none".equals(source.kind())) source.start();      // already running: keep it (commands arrive often)
+            put("src", source.kind());
             handler.removeCallbacks(idleCheck);
             handler.postDelayed(idleCheck, 60_000);
         } catch (SecurityException | IllegalArgumentException e) {
@@ -166,14 +190,23 @@ public class TrackingService extends Service implements LocationListener {
     }
 
     private void stopUpdates() {
-        try { lm.removeUpdates(this); } catch (Exception ignored) {}
+        try { source.stop(); } catch (Exception ignored) {}
         handler.removeCallbacks(idleCheck);
     }
 
-    @Override public void onLocationChanged(Location loc) {
+    @Override public void onAvailable(boolean available) {
+        if (available && "ok".equals(s.optString("gps"))) return;
+        put("gps", available ? "wait" : "off"); save();
+    }
+
+    @Override public void onSearching() {
+        if (!"wait".equals(s.optString("gps"))) { put("gps", "wait"); save(); }
+    }
+
+    @Override public void onFix(Location loc) {
         long now = System.currentTimeMillis();
         put("gps", "ok"); put("acc", Math.round(loc.getAccuracy()));
-        if (loc.getAccuracy() > 50) { save(); return; }
+        if (loc.getAccuracy() > 50) { tick(); return; }
         double lat = loc.getLatitude(), lon = loc.getLongitude();
         if (!s.has("startLat")) { put("startLat", round5(lat)); put("startLon", round5(lon)); }
         if (!s.has("lastLat")) { setLast(lat, lon, now); save(); return; }
@@ -188,17 +221,14 @@ public class TrackingService extends Service implements LocationListener {
             restart(now); put("startLat", round5(lat)); put("startLon", round5(lon)); setLast(lat, lon, now);
             save(); return;
         }
-        if (d < 8) { save(); return; }
-        if (d / dt > 70) { setLast(lat, lon, now); save(); return; }
+        if (d < 8) { tick(); return; }
+        if (d / dt > 70) { setLast(lat, lon, now); tick(); return; }
         checkIdle(now);
         put("segKm", s.optDouble("segKm", 0) + d / 1000);
         put("lastMove", now);
         setLast(lat, lon, now);
-        save();
+        tick();
     }
-    @Override public void onStatusChanged(String p, int st, Bundle b) {}
-    @Override public void onProviderEnabled(String p) { put("gps", "wait"); save(); }
-    @Override public void onProviderDisabled(String p) { put("gps", "off"); save(); }
 
     private void checkIdle(long now) {
         if (!s.optBoolean("on") || s.optBoolean("order")) return;
@@ -255,11 +285,23 @@ public class TrackingService extends Service implements LocationListener {
 
     private void setLast(double lat, double lon, long t) { put("lastLat", lat); put("lastLon", lon); put("lastT", t); }
 
-    private void put(String k, Object v) { try { s.put(k, v); } catch (JSONException ignored) {} }
+    private void put(String k, Object v) { synchronized (s) { try { s.put(k, v); } catch (JSONException ignored) {} } }
+
+    /** After a GPS fix: write to storage at most every 15 s (a fix arrives every 3 s; writing each one wastes battery). */
+    private void tick() {
+        if (System.currentTimeMillis() - lastPersist >= PERSIST_MS) save(); else publish();
+    }
 
     private String uiSig = "";
+    /** After an event (mode change, ride start or end, trip saved): write to storage now. */
     private void save() {
-        TripStore.saveState(this, s);
+        lastPersist = System.currentTimeMillis();
+        put("alive", lastPersist);
+        synchronized (s) { TripStore.saveState(this, s); }
+        publish();
+    }
+
+    private void publish() {
         // redraw the notification and the widget only when what they show changes (every ~0.1 km), not on every GPS fix
         String sig = s.optBoolean("on") + "|" + s.optString("mode") + "|" + s.optBoolean("order") + "|" + Math.round(s.optDouble("segKm", 0) * 10) + "|" + s.optString("gps");
         if (!sig.equals(uiSig)) {
@@ -272,8 +314,11 @@ public class TrackingService extends Service implements LocationListener {
 
     /** Status in the same shape the web app's tracker uses. */
     public static JSONObject status(Context c) {
-        JSONObject st = TripStore.state(c), out = new JSONObject();
-        try {
+        JSONObject cur = live, st = cur != null ? cur : TripStore.state(c), out = new JSONObject();
+        synchronized (st) { try {
+            out.put("running", running);
+            out.put("src", st.optString("src", ""));
+            out.put("pending", TripStore.pendingTrips(c).length());
             out.put("on", st.optBoolean("on"));
             out.put("mode", st.optString("mode", PERSONAL));
             out.put("order", st.optBoolean("order"));
@@ -283,7 +328,7 @@ public class TrackingService extends Service implements LocationListener {
             out.put("gps", st.optString("gps", "wait"));
             out.put("acc", st.optInt("acc", 0));
             out.put("native", true);
-        } catch (JSONException ignored) {}
+        } catch (JSONException ignored) {} }
         return out;
     }
 
@@ -293,6 +338,32 @@ public class TrackingService extends Service implements LocationListener {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CH_TRACK, "Mileage tracking", NotificationManager.IMPORTANCE_LOW));
         nm.createNotificationChannel(new NotificationChannel(CH_RIDES, "Rides", NotificationManager.IMPORTANCE_HIGH));
+        nm.createNotificationChannel(new NotificationChannel(CH_ALERT, "Tracking alerts", NotificationManager.IMPORTANCE_HIGH));
+    }
+
+    /** Tells the driver that mileage tracking is off although they did not stop it. Tapping opens Kept, which resumes it. */
+    static void notifyStopped(Context c, String why) {
+        try {
+            createChannels(c);
+            boolean tr = "tr".equals(TripStore.config(c).optString("lang", "en"));
+            String title = tr ? "Kept mil saymayı durdurdu" : "Kept stopped counting miles";
+            String text = "restart".equals(why) ? (tr ? "Telefon yeniden başladı. Devam etmek için dokunun." : "Your phone restarted. Tap to resume tracking.")
+                    : "update".equals(why) ? (tr ? "Kept güncellendi. Devam etmek için dokunun." : "Kept was updated. Tap to resume tracking.")
+                    : (tr ? "Telefon takibi durdurdu. Devam etmek için dokunun." : "Your phone paused tracking. Tap to resume.");
+            Notification n = new NotificationCompat.Builder(c, CH_ALERT)
+                    .setSmallIcon(R.drawable.ic_kept_notify)
+                    .setContentTitle(title).setContentText(text)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+                    .setAutoCancel(true)
+                    .setContentIntent(openApp(c))
+                    .build();
+            ((NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE)).notify(NOTIF_STOPPED, n);
+            CrashLog.log("tracking stopped: " + why);
+        } catch (Exception e) { CrashLog.record(e); }
+    }
+
+    static void cancelStopped(Context c) {
+        try { ((NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE)).cancel(NOTIF_STOPPED); } catch (Exception ignored) {}
     }
 
     static PendingIntent action(Context c, String action, int req) {
@@ -327,10 +398,17 @@ public class TrackingService extends Service implements LocationListener {
         return b.build();
     }
 
-    private void startForegroundNow() {
-        Notification n = buildTrackNotification();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_TRACK, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-        else startForeground(NOTIF_TRACK, n);
+    /** False when Android refuses: location permission missing (Android 14+) or a blocked background start (Android 12+). */
+    private boolean startForegroundNow() {
+        try {
+            Notification n = buildTrackNotification();
+            if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_TRACK, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            else startForeground(NOTIF_TRACK, n);
+            return true;
+        } catch (RuntimeException e) {
+            CrashLog.record(e);
+            return false;
+        }
     }
 
     private void updateNotification() {

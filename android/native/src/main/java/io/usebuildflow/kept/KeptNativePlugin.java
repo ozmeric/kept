@@ -184,6 +184,20 @@ public class KeptNativePlugin extends Plugin implements TrackingService.Events {
         }
     }
 
+    /** An error caught in the web screen, for crash reporting (message and stack only). */
+    @PluginMethod public void logError(PluginCall call) {
+        CrashLog.recordWeb(call.getString("message"), call.getString("stack"));
+        call.resolve();
+    }
+
+    /** What the phone still holds that the account has not confirmed: trips recorded in the background. */
+    @PluginMethod public void getSyncState(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("pendingTrips", TripStore.pendingTrips(getContext()).length());
+        o.put("running", TrackingService.running);
+        call.resolve(o);
+    }
+
     @PluginMethod public void getNotificationLog(PluginCall call) {
         JSONArray log = TripStore.log(getContext());
         JSObject o = new JSObject();
