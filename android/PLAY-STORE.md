@@ -6,7 +6,7 @@ Draft text and answers for Play Console. Nothing here has been submitted. Items 
 | Item | Status |
 |---|---|
 | Organization developer account (needs a D-U-N-S number, organization website and phone) | **[you]** |
-| 4 signing secrets in GitHub (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) | **[you]** values are in `github-secrets.txt` |
+| 4 signing secrets in GitHub (`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) | Added Nov 15, 2026 |
 | Signed bundle `app-release.aab` | Built by Actions → Build Kept Android once the secrets exist (artifact `kept-android`) |
 | Target API 36, minimum Android 7.0 | Done (checked in the build) |
 | Version code | Automatic: the workflow run number |
