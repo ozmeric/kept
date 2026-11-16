@@ -643,6 +643,30 @@ const I18N = {
   li_p3:["Your location is not used for ads and is not sold.","Je locatie wordt niet gebruikt voor advertenties en niet verkocht.","Konumunuz reklam için kullanılmaz ve satılmaz."],
   li_next:["Next, Android asks for permission. Choose “Allow all the time” so miles count with the screen off.","Hierna vraagt Android om toestemming. Kies ‘Altijd toestaan’ zodat kilometers ook met het scherm uit tellen.","Ardından Android izin ister. Ekran kapalıyken de mil sayılması için “Her zaman izin ver”i seçin."],
   li_ok:["Continue","Doorgaan","Devam"], li_no:["Not now","Niet nu","Şimdi değil"],
+  company:["Company miles","Zakelijke kilometers","Şirket milleri"],
+  co_intro:["Drive your own car for a company you own or work for? Mark those drives here and Kept works out what the company owes you, with a log you can hand to the bookkeeper.","Rijd je met je eigen auto voor een bedrijf? Markeer die ritten hier en Kept rekent uit wat het bedrijf je verschuldigd is, met een overzicht voor de boekhouder.","Kendi aracınızla sahibi olduğunuz veya çalıştığınız bir şirket için mi sürüyorsunuz? Bu sürüşleri burada işaretleyin; Kept şirketin size ne kadar borçlu olduğunu hesaplar ve muhasebeciye verebileceğiniz bir kayıt hazırlar."],
+  co_on:["Turn on company miles","Zakelijke kilometers aanzetten","Şirket millerini aç"], co_off:["Turn off","Uitzetten","Kapat"],
+  co_name:["Company name","Bedrijfsnaam","Şirket adı"], co_method:["Show","Tonen","Göster"],
+  co_both:["Both","Beide","İkisi de"], co_mRate:["Rate per {u}","Tarief per {u}","{u} başına oran"], co_mActual:["Actual costs","Werkelijke kosten","Gerçek maliyet"],
+  co_rate:["Your rate per {u} (leave empty for the official rate)","Je tarief per {u} (leeg = officieel tarief)","{u} başına oranınız (resmi oran için boş bırakın)"],
+  co_trips:["Company drives","Zakelijke ritten","Şirket sürüşleri"], co_none:["No company drives in this period yet.","Nog geen zakelijke ritten in deze periode.","Bu dönemde henüz şirket sürüşü yok."],
+  co_add:["Add a company drive","Zakelijke rit toevoegen","Şirket sürüşü ekle"], co_trip:["Company drive","Zakelijke rit","Şirket sürüşü"],
+  co_isCo:["This drive was for the company","Deze rit was voor het bedrijf","Bu sürüş şirket içindi"],
+  co_purpose:["Business purpose","Zakelijk doel","İş amacı"], co_purposePh:["Client visit, supplies, bank…","Klantbezoek, inkoop, bank…","Müşteri ziyareti, malzeme, banka…"],
+  co_dest:["Where to","Bestemming","Nereye"], co_destPh:["Name or address","Naam of adres","Ad veya adres"],
+  co_errPurpose:["Add the business purpose. The log needs it.","Vul het zakelijke doel in. Dat hoort in het overzicht.","İş amacını yazın. Kayıt için gereklidir."],
+  co_optA:["Option A: rate per {u}","Optie A: tarief per {u}","Seçenek A: {u} başına oran"], co_optB:["Option B: actual costs","Optie B: werkelijke kosten","Seçenek B: gerçek maliyet"],
+  co_official:["Official rate","Officieel tarief","Resmi oran"], co_officialOld:["Official rate (latest known; check the current one)","Officieel tarief (laatst bekende; controleer het huidige)","Resmi oran (bilinen son oran; günceli kontrol edin)"],
+  co_fuel:["Fuel or charging","Brandstof of laden","Yakıt veya şarj"], co_dep:["Depreciation","Afschrijving","Değer kaybı"], co_maint:["Maintenance and tyres","Onderhoud en banden","Bakım ve lastik"], co_fixed:["Insurance and other fixed costs (share)","Verzekering en andere vaste kosten (aandeel)","Sigorta ve diğer sabit giderler (pay)"],
+  co_noIns:["Insurance is not entered for this vehicle, so it is not included.","Verzekering is niet ingevuld voor dit voertuig en telt dus niet mee.","Bu araç için sigorta girilmemiş, bu yüzden dahil edilmedi."],
+  co_oneOnly:["Use one option, not both. The rate per {u} already covers depreciation, fuel, insurance and repairs.","Gebruik één optie, niet beide. Het tarief per {u} dekt al afschrijving, brandstof, verzekering en reparaties.","İkisini birden değil, tek seçeneği kullanın. {u} başına oran değer kaybı, yakıt, sigorta ve onarımı zaten kapsar."],
+  co_advice:["Estimates for planning, not tax advice. How reimbursement works depends on how the company is taxed; check with your accountant.","Schattingen voor planning, geen belastingadvies. Hoe vergoeding werkt hangt af van de rechtsvorm; vraag je boekhouder.","Planlama amaçlı tahminlerdir, vergi tavsiyesi değildir. Geri ödemenin nasıl işlediği şirketin vergilendirilme biçimine bağlıdır; muhasebecinize danışın."],
+  co_owed:["The company owes you","Het bedrijf is je verschuldigd","Şirketin size borcu"], co_missing:["{n} drive(s) have no purpose yet","{n} rit(ten) zonder doel","{n} sürüşün amacı henüz yok"],
+  co_markA:["Mark reimbursed (rate)","Vergoed (tarief)","Ödendi olarak işaretle (oran)"], co_markB:["Mark reimbursed (actual costs)","Vergoed (werkelijke kosten)","Ödendi olarak işaretle (gerçek maliyet)"],
+  co_confirm:["Mark reimbursed","Als vergoed markeren","Ödendi olarak işaretle"],
+  co_paid:["Reimbursed {a} on {d}","{a} vergoed op {d}","{d} tarihinde {a} ödendi"], co_undo:["Undo","Ongedaan maken","Geri al"],
+  co_unmarked:["Other personal drives in this period","Andere privéritten in deze periode","Bu dönemdeki diğer kişisel sürüşler"], co_mark:["Company","Zakelijk","Şirket"],
+  co_csv:["Download log (CSV)","Overzicht downloaden (CSV)","Kaydı indir (CSV)"], co_print:["Print or save as PDF","Afdrukken of opslaan als PDF","Yazdır veya PDF kaydet"],
   add_title:["Add","Toevoegen","Ekle"], mg_records:["Records","Administratie","Kayıtlar"], mg_tools:["Tools","Hulpmiddelen","Yardımcı araçlar"], mg_account:["Account","Account","Hesap"],
   h_costsTax:["Costs & tax","Kosten en belasting","Giderler ve vergi"], h_details:["Show details","Details tonen","Ayrıntıları göster"], h_less:["Hide details","Details verbergen","Ayrıntıları gizle"],
   ob_stepOf:["{a} of {b}","{a} van {b}","{a} / {b}"], ob_skipCar:["Skip for now","Nu overslaan","Şimdilik geç"],
@@ -2393,7 +2417,8 @@ function App() {
       row(T("addIncome"), "offer", C.accent, () => setModal({ type: "earn", app: working ? t.mode : undefined })),
       row(T("addExpense"), "receipt", C.amber, () => setModal({ type: "pickExpense" })),
       row(T("scanReceipt"), "camera", C.purple, () => setModal({ type: "expense", scan: true })),
-      row(T("checkOfferT"), "check", C.blue, () => { setModal(null); setView("offer"); })), () => setModal(null));
+      row(T("checkOfferT"), "check", C.blue, () => { setModal(null); setView("offer"); }),
+      st.companyOn ? row(T("co_trip"), "pin", C.sub, () => setModal({ type: "trip", trip: newCompanyTrip() })) : null), () => setModal(null));
   }
 
   function LocInfoModal() {
@@ -2472,7 +2497,7 @@ function App() {
   // Simple-mode "More": every tool, one big row each
   const SimpleMore = () => e("div", { style: { maxWidth: 560, margin: "0 auto" } },
     e("h1", { style: S.h1 }, T("more")),
-    [["mg_records", [["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["reports", "share"]]],
+    [["mg_records", [["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["reports", "share"], ["company", "pin"]]],
      ["mg_tools", [["offer", "offer"], ["map", "pin"], ["coach", "coach"], ["compare", "swap"], ["insights", "chart"]]],
      ["mg_account", [["settings", "gear"]]]].map(g => e("section", { key: g[0], "aria-label": T(g[0]), style: { marginBottom: 14 } },
       e("h2", { style: { fontSize: 14, fontWeight: 800, color: C.sub, margin: "0 4px 6px" } }, T(g[0])),
@@ -3680,7 +3705,7 @@ function App() {
   const MoreView = () => e("div", null,
     e("div", { style: S.h1 }, T("more")),
     e("div", { className: "grid2" },
-      [["insights", "chart"], ["reports", "share"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]].map(x =>
+      [["insights", "chart"], ["reports", "share"], ["company", "list"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]].map(x =>
         e("div", { key: x[0], className: "tap", style: Object.assign({}, S.card, { cursor: "pointer", textAlign: "center", padding: 22, marginBottom: 0 }), onClick: () => setView(x[0]) },
           e("div", { style: { color: C.accent, display: "flex", justifyContent: "center", marginBottom: 8 } }, e(Icon, { n: x[1], s: 26 })),
           e("div", { style: { fontWeight: 700 } }, T(x[0]))))));
@@ -3728,12 +3753,14 @@ function App() {
     const save = () => {
       if (earnOnly && !(["pay", "tips", "bonus", "cancel", "adjust"].some(k => num(f[k]) !== 0))) { setErr(T("errIncome")); return; }
       if ((noGps || f.gpsMissing) && !(num(f.km) > 0) && !pers) { setErr(T("errMiles")); return; }
+      if (pers && f.company && !String(f.purpose || "").trim()) { setErr(T("co_errPurpose")); return; }
       const s = new Date(f.date + "T" + (f.t1 || "12:00")); let en = new Date(f.date + "T" + (f.t2 || f.t1 || "12:00")); if (en < s) en = new Date(en.getTime() + 86400000);
       const rec = Object.assign({}, f, { app: f.app, kind: pers ? "personal" : f.kind === "personal" ? "order" : f.kind,
         km: earnOnly && f.km === "" ? 0 : +toKm(f.km).toFixed(3), pay: pers ? "" : (f.pay === "" ? "" : num(f.pay)), tips: pers ? "" : (f.tips === "" ? "" : num(f.tips)),
         bonus: pers || f.bonus === "" || f.bonus == null ? "" : num(f.bonus), cancel: pers || f.cancel === "" || f.cancel == null ? "" : num(f.cancel), adjust: pers || f.adjust === "" || f.adjust == null ? "" : num(f.adjust), cash: !pers && !!f.cash,
         orders: earnOnly ? num(f.orders) : "", start: short ? f.start : s.toISOString(), end: short ? f.end : en.toISOString() });
       delete rec.t1; delete rec.t2; if (rec.source === "gap") rec.source = "edited";
+      if (!pers || !rec.company) { delete rec.company; delete rec.dest; if (pers) delete rec.purpose; }
       if (rec.gpsMissing && num(rec.km) > 0) { rec.gpsMissing = false; rec.source = "manual-miles"; }
       if (!earnOnly && !(num(rec.km) > 0) && !pers && rec.kind === "order") rec.gpsMissing = true;
       if (draftKey) LS.del(draftKey);
@@ -3759,7 +3786,7 @@ function App() {
       e("div", { style: { display: "flex", gap: 8 } },
         e("button", { style: S.btn("ghost"), onClick: () => setModal(null) }, T("skip")),
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
-    return ModalShell(f.gpsMissing && isNew === false && f.kind === "order" ? T("rideDone") + " · " + f.app : isNew ? (earnOnly ? T("addIncome") : T("addTrip")) : T("edit"), e("div", null,
+    return ModalShell(f.gpsMissing && isNew === false && f.kind === "order" ? T("rideDone") + " · " + f.app : isNew ? (earnOnly ? T("addIncome") : f.company ? T("co_trip") : T("addTrip")) : T("edit"), e("div", null,
       f.source === "gap" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginBottom: 10 }) }, T("gapNote")) : null,
       noGps || f.gpsMissing ? e("div", { role: "alert", style: { color: C.amber, fontWeight: 700, fontSize: 15, lineHeight: 1.45, marginBottom: 12 } }, "⚠ " + T("noGpsRide")) : null,
       draft && draft.f && !init ? e("div", { style: Object.assign({}, S.small, { color: C.accent, marginBottom: 8 }) }, T("draftKept")) : null,
@@ -3772,6 +3799,10 @@ function App() {
         earnOnly ? Field(T("orders"), e("input", { style: S.input, inputMode: "numeric", value: f.orders, onChange: ev => set("orders", ev.target.value) }))
                  : Field(T("end"), e("input", { type: "time", style: S.input, value: f.t2, onChange: ev => set("t2", ev.target.value) }))),
       Field(T("distance") + " (" + unit + ")", e("input", { autoFocus: !!(noGps || f.gpsMissing), style: Object.assign({}, S.input, noGps || f.gpsMissing ? { borderColor: C.amber, fontSize: 20, fontWeight: 800 } : {}), inputMode: "decimal", value: f.km, onChange: ev => set("km", ev.target.value) })),
+      pers && st.companyOn ? e("label", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 12, minHeight: 48 } },
+        e("input", { type: "checkbox", style: { width: 24, height: 24 }, checked: !!f.company, onChange: ev => set("company", ev.target.checked) }), T("co_isCo") + (st.companyName ? " (" + st.companyName + ")" : "")) : null,
+      pers && f.company ? Field(T("co_purpose"), e("input", { style: S.input, value: f.purpose || "", placeholder: T("co_purposePh"), onChange: ev => set("purpose", ev.target.value) })) : null,
+      pers && f.company ? Field(T("co_dest") + " (" + T("optional") + ")", e("input", { style: S.input, value: f.dest || "", placeholder: T("co_destPh"), onChange: ev => set("dest", ev.target.value) })) : null,
       pers || earnOnly ? null : Field(T("purpose") + " (" + T("optional") + ")", e("input", { style: S.input, value: f.purpose || "", placeholder: tripPurpose(Object.assign({}, f, { purpose: "" })), onChange: ev => set("purpose", ev.target.value) })),
       pers ? null : payRow,
       pers ? null : moreRow,
@@ -3845,7 +3876,7 @@ function App() {
     const exps = data.expenses.filter(x => x.date >= a && x.date <= b).sort((p, q) => p.date.localeCompare(q.date));
     const bizMi = sum(trips.filter(t => t.app !== PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.km)), persMi = sum(trips.filter(t => t.app === PERSONAL), t => num(t.km)) + sum(legacy, s => num(s.personalKm));
     const mileRows = () => [["Date", "Start", "End", "App", "Business or personal", "Business purpose", "Start place (lat/lon)", "End place (lat/lon)", "Type", "Distance (" + unit + ")", "Source"]].concat(
-      trips.map(t => [t.date, tHM(t.start), tHM(t.end), t.app === PERSONAL ? "" : t.app, t.app === PERSONAL ? "Personal" : "Business", tripPurpose(t), placeText(t.loc), placeText(t.endLoc), t.kind, +dist(num(t.km)).toFixed(2), t.source || ""]),
+      trips.map(t => [t.date, tHM(t.start), tHM(t.end), t.app === PERSONAL ? "" : t.app, t.app === PERSONAL ? (t.company ? "Company" : "Personal") : "Business", tripPurpose(t), placeText(t.loc), placeText(t.endLoc), t.kind, +dist(num(t.km)).toFixed(2), t.source || ""]),
       legacy.map(s => [s.date, tHM(s.start), tHM(s.end), (s.platforms || []).map(p => p.name).join(" / "), "Business", "Gig work session", placeText(s.loc), "", "shift", +dist(num(s.km)).toFixed(2), "shift"]));
     const incRows = () => [["Date", "App", "Type", "Pay", "Tips", "Bonus", "Cancellation", "Adjustment", "Total", "Cash"]].concat(
       data.trips.filter(t => t.date >= a && t.date <= b && tripEarn(t) !== 0).map(t => [t.date, t.app, t.kind, num(t.pay), num(t.tips), num(t.bonus), num(t.cancel), num(t.adjust), +tripEarn(t).toFixed(2), t.cash ? "yes" : ""]),
@@ -3876,6 +3907,92 @@ function App() {
         btn(T("rp_csvMiles"), "list", () => downloadFile(fname("mileage.csv").replace(".mileage.csv", "-mileage.csv"), toCSV(mileRows()), "text/csv")),
         btn(T("rp_csvMoney"), "receipt", () => downloadFile(fname("csv").replace(".csv", "-income-expenses.csv"), toCSV(incRows().concat([[]], expRows())), "text/csv"))),
       e("div", { className: "no-print", style: Object.assign({}, S.small, { fontSize: 13, lineHeight: 1.5 }) }, T("rp_note")));
+  };
+
+  // ── Company miles: personal-car drives made for a company, and what the company owes (rate per mile, or actual costs) ──
+  const newCompanyTrip = () => ({ id: genId(), kind: "personal", app: PERSONAL, company: true, purpose: "", dest: "", date: dISO(new Date()), start: new Date(Date.now() - 30 * 60000).toISOString(), end: new Date().toISOString(), km: "", vehicleId: defaultVid(), source: "manual" });
+  const CompanyView = () => {
+    const [per, setPer] = useState("month");
+    const today = dISO(new Date()), y = new Date().getFullYear(), us = st.country === "US", u = unit;
+    if (!st.companyOn) return e("div", { style: { maxWidth: 560, margin: "0 auto" } },
+      e("h1", { style: S.h1 }, T("company")),
+      e("section", { style: Object.assign({}, S.card, { padding: 20 }) },
+        e("p", { style: { fontSize: 17, lineHeight: 1.5, color: C.sub, margin: "0 0 16px" } }, T("co_intro")),
+        BigBtn(T("co_on"), () => saveSettings({ companyOn: true }))));
+    const ranges = { month: periodRange("month"), lastMonth: (() => { const d = new Date(); d.setDate(0); return periodRange("month", d); })(), year: [y + "-01-01", today], lastYear: [(y - 1) + "-01-01", (y - 1) + "-12-31"] };
+    const [a, b] = ranges[per];
+    const inP = data.trips.filter(t => t.app === PERSONAL && t.date >= a && t.date <= b).sort((p, q) => (p.start || "").localeCompare(q.start || ""));
+    const ct = inP.filter(t => t.company), other = inP.filter(t => !t.company && num(t.km) > 0);
+    const km = sum(ct, t => num(t.km)), method = st.companyMethod || "both";
+    const custom = st.companyRate !== "" && st.companyRate != null && num(st.companyRate) > 0;
+    const off = t => mileageRate(us ? "US" : st.country, t.date);
+    const rateOf = t => custom ? dist(num(t.km)) * num(st.companyRate) : (us ? num(t.km) / KM_PER_MI : num(t.km)) * off(t).rate;
+    const rateAmt = sum(ct, rateOf), unconfirmed = !custom && ct.some(t => !off(t).confirmed);
+    const shownRate = custom ? num(st.companyRate) : (() => { const r = mileageRate(us ? "US" : st.country, b > today ? today : b).rate; return us ? (u === "mi" ? r : r / KM_PER_MI) : (u === "km" ? r : r * KM_PER_MI); })();
+    // actual costs: the same per-distance figures the Vehicles screen shows, times the company distance
+    const insOf = v => { const r = data.expenses.filter(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === v.id)).sort((p, q) => q.date.localeCompare(p.date))[0]; return r ? monthlyOf(r) : num(v.insurance); };
+    const insMiss = v => v.type === "car" && (v.insurance === "" || v.insurance == null) && !data.expenses.some(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === v.id));
+    const part = { fuel: 0, dep: 0, maint: 0, fixed: 0 }; let noIns = false;
+    const actOf = t => { const v = vmap[t.vehicleId] || vmap[defaultVid()]; if (!v) return 0; const c = vehicleCost(v), k = num(t.km), ann = annualKmOf(v.id);
+      const fx = ann > 0 ? (insOf(v) + num(v.rent) + num(v.otherFixed)) * 12 / ann : 0; if (insMiss(v)) noIns = true;
+      part.fuel += k * c.energy; part.dep += k * c.dep; part.maint += k * (c.parts + c.battery); part.fixed += k * fx; return k * (c.total + fx); };
+    const actAmt = sum(ct, actOf);
+    const missing = ct.filter(t => !String(t.purpose || "").trim()).length;
+    const monthKey = per === "month" || per === "lastMonth" ? a.slice(0, 7) : null, paid = monthKey ? (st.companyPaid || {})[monthKey] : null;
+    const setPaid = v => { const p = Object.assign({}, st.companyPaid || {}); if (v) p[monthKey] = v; else delete p[monthKey]; saveSettings({ companyPaid: p }); };
+    const rows = () => [["Company mileage log", (st.companyName || "") , a + " to " + b], [],
+      ["Date", "Start", "End", "Start place (lat/lon)", "End place (lat/lon)", "Destination", "Business purpose", "Vehicle", "Distance (" + u + ")", "Rate amount", "Actual-cost amount (estimate)"]].concat(
+      ct.map(t => [t.date, tHM(t.start), tHM(t.end), placeText(t.loc), placeText(t.endLoc), t.dest || "", t.purpose || "", vmap[t.vehicleId] ? vName(vmap[t.vehicleId]) : "", +dist(num(t.km)).toFixed(2), +rateOf(t).toFixed(2), +actOf(t).toFixed(2)]),
+      [[], ["Total distance (" + u + ")", +dist(km).toFixed(1)], ["Rate per " + u, +shownRate.toFixed(3), custom ? "own rate" : "official rate"], ["Option A: rate x distance", +rateAmt.toFixed(2)], ["Option B: actual costs (estimate)", +actAmt.toFixed(2)],
+       ["Note", "Use one option, not both. Estimates for planning, not tax advice."]]);
+    const opt = (title, tag, amt, lines) => e("section", { "aria-label": title, style: Object.assign({}, S.card, { padding: 18 }) },
+      e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } }, e("h2", { style: { fontSize: 17, fontWeight: 800, margin: 0 } }, title), tag),
+      e("div", { style: { fontSize: 13, color: C.sub, marginTop: 8 } }, T("co_owed")),
+      e("div", { style: { fontSize: 38, fontWeight: 900, letterSpacing: "-1px", color: C.accent, fontVariantNumeric: "tabular-nums" } }, money(amt)), lines);
+    const tripRow = (t, isCo) => e("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: "1px solid " + C.border } },
+      e("button", { className: "tap", onClick: () => setModal({ type: "trip", trip: t }), style: { flex: 1, minWidth: 0, textAlign: "left", background: "none", border: "none", color: C.text, cursor: "pointer", font: "inherit", padding: 0, minHeight: 48 } },
+        e("div", { style: { fontSize: 16, fontWeight: 700 } }, t.date + " · " + fmtDist(num(t.km), 1)),
+        e("div", { style: { fontSize: 14, color: isCo && !String(t.purpose || "").trim() ? C.amber : C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          isCo ? (String(t.purpose || "").trim() ? t.purpose + (t.dest ? " · " + t.dest : "") : "⚠ " + T("co_errPurpose")) : tHM(t.start) + "–" + tHM(t.end))),
+      isCo ? e("div", { style: { fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, money(method === "actual" ? actOf(Object.assign({}, t)) : rateOf(t)))
+        : e("button", { className: "tap", onClick: () => setModal({ type: "trip", trip: Object.assign({}, t, { company: true }) }), style: Object.assign(S.btn("ghost"), { minHeight: 44, fontSize: 15 }) }, "+ " + T("co_mark")));
+    const tripList = ct.map(t => tripRow(t, true));   // built before the totals are shown so the cost parts are summed once
+    Object.assign(part, { fuel: 0, dep: 0, maint: 0, fixed: 0 }); const actTotal = sum(ct, actOf);
+    return e("div", { className: "print-area", style: { maxWidth: 760, margin: "0 auto" } },
+      e("h1", { style: S.h1 }, T("company") + (st.companyName ? " · " + st.companyName : "")),
+      e("div", { className: "no-print", style: { marginBottom: 12 } }, Chips([["month", T("month")], ["lastMonth", T("rp_lastMonth")], ["year", T("year")], ["lastYear", T("rp_lastYear")]], per, setPer)),
+      e("section", { style: S.card },
+        e("div", { style: Object.assign({}, S.small, { fontSize: 14, marginBottom: 6 }) }, a + " – " + b),
+        Line(T("co_trips"), String(ct.length)), Line(T("distance"), fmtDist(km, 1), { bold: true }),
+        missing ? e("div", { role: "note", style: { color: C.amber, fontWeight: 700, fontSize: 15, marginTop: 8 } }, "⚠ " + fill(T("co_missing"), { n: missing })) : null),
+      method !== "actual" ? opt(fill(T("co_optA"), { u }), Tag(custom ? "user" : unconfirmed ? "estimate" : "verified"), rateAmt,
+        e("div", { style: { fontSize: 15, color: C.sub, marginTop: 6, lineHeight: 1.5 } }, fmtDist(km, 1) + " × " + money(shownRate, 3) + " · " + (custom ? T("tg_user") : unconfirmed ? T("co_officialOld") : T("co_official")))) : null,
+      method !== "rate" ? opt(T("co_optB"), Tag("estimate"), actTotal, e("div", { style: { marginTop: 8 } },
+        Line(T("co_fuel"), money(part.fuel)), Line(T("co_dep"), money(part.dep)), Line(T("co_maint"), money(part.maint)), Line(T("co_fixed"), money(part.fixed)),
+        noIns ? e("div", { role: "note", style: { color: C.amber, fontWeight: 700, fontSize: 14, marginTop: 8 } }, "⚠ " + T("co_noIns")) : null)) : null,
+      e("div", { role: "note", style: { fontSize: 15, lineHeight: 1.5, color: C.text, background: C.warnBg, border: "1px solid " + C.warnBorder, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
+        (method === "both" ? fill(T("co_oneOnly"), { u }) + " " : "") + T("co_advice")),
+      monthKey && ct.length ? e("section", { className: "no-print", style: S.card },
+        paid ? e("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } },
+            e("div", { role: "status", style: { fontSize: 16, fontWeight: 800, color: C.accent } }, "✓ " + fill(T("co_paid"), { a: money(paid.amount), d: paid.at })),
+            e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 44 }), onClick: () => setPaid(null) }, T("co_undo")))
+          : e("div", { style: { display: "grid", gap: 8 } },
+            method !== "actual" ? e("button", { className: "tap", style: Object.assign(S.btn(), { minHeight: 56, fontSize: 16 }), onClick: () => askConfirm(T("co_markA") + ": " + money(rateAmt) + "?", () => setPaid({ amount: +rateAmt.toFixed(2), method: "rate", at: today }), { okLabel: T("co_confirm"), plain: true }) }, T("co_markA") + " · " + money(rateAmt)) : null,
+            method !== "rate" ? e("button", { className: "tap", style: Object.assign(S.btn(method === "actual" ? undefined : "ghost"), { minHeight: 56, fontSize: 16 }), onClick: () => askConfirm(T("co_markB") + ": " + money(actTotal) + "?", () => setPaid({ amount: +actTotal.toFixed(2), method: "actual", at: today }), { okLabel: T("co_confirm"), plain: true }) }, T("co_markB") + " · " + money(actTotal)) : null)) : null,
+      e("section", { style: S.card },
+        e("h2", { style: S.h2 }, T("co_trips")),
+        ct.length ? tripList : e("div", { style: { fontSize: 15, color: C.sub, padding: "6px 0 10px" } }, T("co_none")),
+        e("div", { className: "no-print", style: { marginTop: 12 } }, BigBtn("+ " + T("co_add"), () => setModal({ type: "trip", trip: newCompanyTrip() }), { kind: "ghost", style: { fontSize: 16, minHeight: 56 } }))),
+      other.length ? e("section", { className: "no-print", style: S.card }, e("h2", { style: S.h2 }, T("co_unmarked")), other.slice(-20).reverse().map(t => tripRow(t, false))) : null,
+      e("div", { className: "no-print", style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 12 } },
+        e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 56, fontSize: 16 }), onClick: () => downloadFile("kept-company-miles-" + a + ".csv", toCSV(rows()), "text/csv") }, T("co_csv")),
+        e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 56, fontSize: 16 }), onClick: () => { try { window.print(); } catch (x) {} } }, T("co_print"))),
+      e("section", { className: "no-print", style: S.card },
+        e("h2", { style: S.h2 }, T("settings")),
+        Field(T("co_name"), e("input", { style: S.input, defaultValue: st.companyName || "", onBlur: ev => saveSettings({ companyName: ev.target.value.trim() }) })),
+        Field(T("co_method"), Chips([["both", T("co_both")], ["rate", fill(T("co_mRate"), { u })], ["actual", T("co_mActual")]], method, v => saveSettings({ companyMethod: v }))),
+        Field(fill(T("co_rate"), { u }), e("input", { style: S.input, inputMode: "decimal", placeholder: shownRate ? String(+(custom ? 0 : shownRate).toFixed(3)) : "", defaultValue: custom ? st.companyRate : "", onBlur: ev => saveSettings({ companyRate: ev.target.value.trim() === "" ? "" : num(ev.target.value) }) })),
+        e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { minHeight: 48, marginTop: 4 }), onClick: () => saveSettings({ companyOn: false }) }, T("co_off"))));
   };
 
   // keep the current vehicle or switch: the driver's own distance, a real insurance quote, typed price and loan terms
@@ -3992,7 +4109,7 @@ function App() {
           onKeyDown: ev => { if (ev.key === "Enter" && okEnabled) { close(); d.ok(v); } } }) : null,
         e("div", { style: { display: "flex", gap: 10 } },
           e("button", { autoFocus: !(d.typed || d.input), style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 17 }), onClick: close }, T("cancel")),
-          e("button", { disabled: !okEnabled, style: Object.assign(d.input ? S.btn() : S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 17 }), onClick: () => { close(); d.ok(v); } }, d.okLabel || (d.input ? T("save") : T("delete"))))));
+          e("button", { disabled: !okEnabled, style: Object.assign(d.input || d.plain ? S.btn() : S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 17 }), onClick: () => { close(); d.ok(v); } }, d.okLabel || (d.input ? T("save") : T("delete"))))));
   }
 
   function NavModal() {
@@ -4648,7 +4765,7 @@ function App() {
   const VoiceModalC = stable("VoiceModal", VoiceModal);
   const VIEWS = { home: simple ? stable("simpleHome", SimpleHome) : stable("home", HomeView), money: stable("money", HomeView), shifts: stable("shifts", ShiftsView), expenses: stable("expenses", ExpensesView),
     insights: stable("insights", InsightsView), coach: stable("coach", CoachView), vehicles: stable("vehicles", VehiclesView), compare: stable("compare", CompareView),
-    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: simple ? stable("simpleMore", SimpleMore) : stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView), reports: stable("reports", ReportsView) };
+    tax: stable("tax", TaxView), settings: stable("settings", SettingsView), more: simple ? stable("simpleMore", SimpleMore) : stable("more", MoreView), offer: stable("offer", OfferView), map: stable("map", MapView), log: stable("log", TripsView), reports: stable("reports", ReportsView), company: stable("company", CompanyView) };
 
   if (LIVE_MISCONFIG) return e("main", { role: "alert", style: { minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: C.bg } },
     e("div", { style: { maxWidth: 440, textAlign: "center" } }, e(LogoMark, { s: 56 }),
