@@ -99,7 +99,7 @@ const CONFIG = {
               apps:[], onboarded:false, autoTrack:true, uiMode:"simple", saveLoc:true, theme:"auto", textScale:1 },
 
   languages: [ ["en","English"], ["nl","Nederlands"], ["tr","Türkçe"] ],
-  countries: [ ["US","United States (1099)"], ["NL","Netherlands (ZZP)"], ["OTHER","Other — flat set-aside %"] ],
+  countries: [ ["US","United States"], ["NL","Netherlands"], ["OTHER","Other — flat set-aside %"] ],
   currencies: ["USD","EUR","GBP","TRY"],
 
   // one-tap platforms + searchable extras; anything else can be typed in
@@ -4220,10 +4220,10 @@ function App() {
         e("div", { style: { fontSize: 26, fontWeight: 900, letterSpacing: "-0.5px", marginBottom: 6 } }, titles[step][0]),
         e("div", { style: { color: C.muted, fontSize: 14, marginBottom: 20, lineHeight: 1.45 } }, titles[step][1]),
         e("div", { style: { flex: 1 } }, body),
-        cloud && step === 0 && (CONFIG.apiUrl || LS.get("kept_device_data", null)) ? e("div", { style: { display: "grid", gap: 8, marginTop: 16 } },
+        cloud && step === 0 && LS.get("kept_device_data", null) ? e("div", { style: { display: "grid", gap: 8, marginTop: 16 } },
           LS.get("kept_device_data", null) ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 15 }), onClick: () => setModal({ type: "import", src: "device" }) },
             fill(T("im_devBtn"), { n: COLLS.reduce((k, c) => k + ((LS.get("kept_device_data", {})[c]) || []).filter(r => !r.derived).length, 0) })) : null,
-          CONFIG.apiUrl ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, fontSize: 15 }), onClick: () => setModal({ type: "import", src: "pin" }) }, T("im_pinBtn")) : null) : null,
+          null) : null,
         CONFIG.staging && step === 0 ? e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { width: "100%", minHeight: 52, marginTop: 16, fontSize: 15, borderStyle: "dashed" }),
           onClick: () => { const smp = sampleData(ctry); smp.vehicles.forEach(x => upsert("vehicles", x)); smp.trips.forEach(x => upsert("trips", x)); smp.expenses.forEach(x => upsert("expenses", x));
             saveSettings({ apps: ["Uber", "Uber Eats", "DoorDash"], country: "US", state: "VA", onboarded: true, defaultVehicleId: smp.vehicles[0].id, name: "Sample driver" }); setView("home"); } }, T("stg_sample")) : null,
