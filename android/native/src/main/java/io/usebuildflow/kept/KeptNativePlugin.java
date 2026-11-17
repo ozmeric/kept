@@ -81,6 +81,8 @@ public class KeptNativePlugin extends Plugin implements TrackingService.Events {
             cfg.put("apps", call.getArray("apps", new JSArray()));
             cfg.put("unit", call.getString("unit", "mi"));
             cfg.put("lang", call.getString("lang", "en"));
+            cfg.put("companyOn", call.getBoolean("companyOn", false));
+            cfg.put("companyName", call.getString("companyName", ""));
             JSObject rules = call.getObject("rules", new JSObject());
             cfg.put("rules", rules);
         } catch (JSONException ignored) {}
@@ -111,6 +113,25 @@ public class KeptNativePlugin extends Plugin implements TrackingService.Events {
     @PluginMethod public void setMode(PluginCall call) {
         TrackingService.command(getContext(), TrackingService.ACTION_MODE, call.getString("mode", TrackingService.PERSONAL), null);
         call.resolve();
+    }
+
+    /** Company drive (personal car, for a company): one tap to start, one to end. */
+    @PluginMethod public void companyStart(PluginCall call) {
+        if (getPermissionState("location") != PermissionState.GRANTED) { call.reject("location"); return; }
+        TrackingService.command(getContext(), TrackingService.ACTION_CO_START, null, null);
+        call.resolve();
+    }
+
+    @PluginMethod public void companyEnd(PluginCall call) {
+        TrackingService.command(getContext(), TrackingService.ACTION_CO_DONE, null, null);
+        call.resolve();
+    }
+
+    /** Start times of drives the driver marked "company" on the reminder after the web app had already saved them. Returned once. */
+    @PluginMethod public void takeCompanyMarks(PluginCall call) {
+        JSObject o = new JSObject();
+        try { o.put("starts", new JSArray(TripStore.takeCompanyMarks(getContext()).toString())); } catch (JSONException e) { o.put("starts", new JSArray()); }
+        call.resolve(o);
     }
 
     @PluginMethod public void startRide(PluginCall call) {

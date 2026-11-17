@@ -647,6 +647,10 @@ const I18N = {
   mdl_type:["Type your model","Typ je model","Modelinizi yazın"], mdl_loading:["Loading models…","Modellen laden…","Modeller yükleniyor…"], mdl_src:["Model list: fueleconomy.gov","Modellijst: fueleconomy.gov","Model listesi: fueleconomy.gov"],
   ob_co:["I drive for a company (mine or my employer's)","Ik rijd voor een bedrijf (van mij of mijn werkgever)","Bir şirket için sürüyorum (kendi şirketim veya işverenim)"],
   ob_coS:["Log company drives and see what the company owes you. Works with or without gig apps.","Leg zakelijke ritten vast en zie wat het bedrijf je verschuldigd is. Met of zonder bezorg-apps.","Şirket sürüşlerini kaydedin ve şirketin size borcunu görün. Diğer uygulamalarla veya tek başına kullanılabilir."],
+  cd_start:["Start company drive","Start zakelijke rit","Şirket sürüşünü başlat"], cd_end:["End company drive","Zakelijke rit beëindigen","Şirket sürüşünü bitir"],
+  cd_on:["Company drive","Zakelijke rit","Şirket sürüşü"], cd_none:["No miles were recorded for this drive. Enter them yourself.","Er zijn geen kilometers vastgelegd voor deze rit. Vul ze zelf in.","Bu sürüş için mil kaydedilmedi. Kendiniz girin."],
+  cd_what:["What was this drive for?","Waar was deze rit voor?","Bu sürüş ne içindi?"], cd_missed:["Forgot to press Start? Add the drive yourself","Start vergeten? Voeg de rit zelf toe","Başlat'a basmayı unuttunuz mu? Sürüşü kendiniz ekleyin"],
+  cd_gig:["Stop working first, then start a company drive.","Stop eerst met werken en start dan een zakelijke rit.","Önce çalışmayı durdurun, sonra şirket sürüşünü başlatın."],
   company:["Company miles","Zakelijke kilometers","Şirket milleri"],
   co_intro:["Drive your own car for a company you own or work for? Mark those drives here and Kept works out what the company owes you, with a log you can hand to the bookkeeper.","Rijd je met je eigen auto voor een bedrijf? Markeer die ritten hier en Kept rekent uit wat het bedrijf je verschuldigd is, met een overzicht voor de boekhouder.","Kendi aracınızla sahibi olduğunuz veya çalıştığınız bir şirket için mi sürüyorsunuz? Bu sürüşleri burada işaretleyin; Kept şirketin size ne kadar borçlu olduğunu hesaplar ve muhasebeciye verebileceğiniz bir kayıt hazırlar."],
   co_on:["Turn on company miles","Zakelijke kilometers aanzetten","Şirket millerini aç"], co_off:["Turn off","Uitzetten","Kapat"],
@@ -1913,7 +1917,8 @@ function App() {
     const s = new Date(t.order && t.orderStart ? Math.min(t.segStart, t.orderStart) : t.segStart);
     const rec = Object.assign({ id: genId(), date: dISO(s), start: s.toISOString(), end: new Date(Math.max(endTs, s.getTime())).toISOString(), km: +(t.segKm || 0).toFixed(3),
       app: t.mode, kind, pay: "", tips: "", vehicleId: defaultVid(), loc: dataRef.current.settings.saveLoc === false ? null : (t.startPos || null),
-      endLoc: dataRef.current.settings.saveLoc === false || !t.pos ? null : { lat: +t.pos.lat.toFixed(5), lon: +t.pos.lon.toFixed(5) }, source: "gps" }, extra || {});
+      endLoc: dataRef.current.settings.saveLoc === false || !t.pos ? null : { lat: +t.pos.lat.toFixed(5), lon: +t.pos.lon.toFixed(5) }, source: "gps" },
+      t.mode === PERSONAL && t.company ? { company: true, purpose: "" } : {}, extra || {});
     upsert("trips", rec);
     return rec;
   };
@@ -1983,9 +1988,30 @@ function App() {
     const t = trackRef.current || blankTrack(m);
     if (t.mode === m && !t.order && t.on) return;
     if (t.on) recordSeg(t, Date.now());
-    commit(restart(t, { mode: m, order: false, on: true }));
+    commit(restart(t, { mode: m, order: false, on: true, company: false }));
     if (watchRef.current == null) startWatch();
     if (m !== PERSONAL) LS.set("kept_lastPlatform", m);
+  };
+  // company drive: one tap to start, one to end. Miles are counted as a personal-car drive marked "company".
+  const startCompany = () => {
+    const cur = trackRef.current;
+    if (cur && cur.on && cur.mode && cur.mode !== PERSONAL) { showToast(T("cd_gig")); return; }
+    if (nativeRef.current) {
+      if (!LS.get("kept_locOk", false)) { setModal({ type: "locInfo" }); return; }
+      LS.del("kept_nativePaused");
+      nativeRef.current.companyStart({}).catch(() => nativeRef.current.startTracking({}).catch(() => {})); return; }
+    const t = cur || blankTrack(PERSONAL);
+    if (t.on) recordSeg(t, Date.now());
+    commit(restart(t, { mode: PERSONAL, order: false, on: true, company: true }));
+    if (watchRef.current == null) startWatch();
+  };
+  const askCompanyPurpose = rec => setModal({ type: "trip", trip: Object.assign({}, rec, { company: true }) });
+  const endCompany = () => {
+    if (nativeRef.current) { LS.set("kept_coAsk", Date.now()); nativeRef.current.companyEnd({}).catch(() => {}); return; }
+    const t = trackRef.current; if (!t || !t.company) return;
+    const rec = recordSeg(t, Date.now()); commit(restart(t, { company: false }));
+    if (rec) askCompanyPurpose(rec);
+    else { showToast(T("cd_none")); setModal({ type: "trip", trip: newCompanyTrip() }); }
   };
   const startRide = () => {
     if (nativeRef.current) { nativeRef.current.startRide({}).catch(() => {}); return; }
@@ -2045,6 +2071,13 @@ function App() {
         }
         return fresh; } catch (x) { return []; }
     };
+    // drives answered "yes, company" on the reminder after they were already saved here
+    // (a mark whose trip is not loaded yet is kept on this phone and tried again)
+    const applyMarks = () => {
+      const run = extra => { const all = LS.get("kept_coMarks", []).concat(extra || []);
+        const left = all.filter(iso => { const tr = dataRef.current.trips.find(x => x.start === iso && x.app === PERSONAL); if (!tr) return true; if (!tr.company) upsert("trips", Object.assign({}, tr, { company: true })); return false; });
+        if (left.length || all.length) LS.set("kept_coMarks", left.slice(-50)); };
+      if (n.takeCompanyMarks) n.takeCompanyMarks().then(r => run((r && r.starts) || [])).catch(() => run()); else run(); };
     let revived = 0;
     const onStatus = s => {
       commit(Object.assign({}, trackRef.current || blankTrack(PERSONAL), s || {}, { native: true }));
@@ -2052,15 +2085,18 @@ function App() {
       if (s && s.on && s.running === false && Date.now() - revived > 30000) { revived = Date.now();
         n.startTracking({}).then(() => showToast(T("trk_resumed"))).catch(() => {}); }
     };
-    const subs = [n.addListener("status", onStatus), n.addListener("tripsChanged", () => drain()),
+    const subs = [n.addListener("status", onStatus), n.addListener("tripsChanged", () => drain().then(list => { applyMarks();
+        const at = LS.get("kept_coAsk", 0), c = list.filter(x => x.company).pop();
+        if (at && Date.now() - at < 60000) { LS.del("kept_coAsk"); if (c) askCompanyPurpose(c); } })),
       n.addListener("rideCompleted", ev => drain().then(list => { const tr = list.find(x => x.id === (ev && ev.id)) || list[list.length - 1]; if (tr && tr.kind === "order") setModal({ type: "earn", trip: tr }); }))];
-    n.configure({ apps: st.apps || [], unit, rules: st.notifRules || {}, lang: st.lang || "en" }).catch(() => {});
+    n.configure({ apps: st.apps || [], unit, rules: st.notifRules || {}, lang: st.lang || "en", companyOn: !!st.companyOn, companyName: st.companyName || "" }).catch(() => {});
+    applyMarks();
     n.getStatus().then(x => { onStatus(x); if (x && !x.on && st.autoTrack !== false && !LS.get("kept_nativePaused", false) && LS.get("kept_locOk", false)) n.startTracking({}).catch(() => {}); }).catch(() => {});
     drain();
-    const vis = () => { if (document.visibilityState === "visible") { drain(); n.getStatus().then(onStatus).catch(() => {}); } };
+    const vis = () => { if (document.visibilityState === "visible") { drain().then(applyMarks); n.getStatus().then(onStatus).catch(() => {}); } };
     document.addEventListener("visibilitychange", vis);
     return () => { subs.forEach(p => Promise.resolve(p).then(h => h && h.remove && h.remove()).catch(() => {})); document.removeEventListener("visibilitychange", vis); };
-  }, [authed, (st.apps || []).join("|"), JSON.stringify(st.notifRules || {})]);
+  }, [authed, (st.apps || []).join("|"), JSON.stringify(st.notifRules || {}), !!st.companyOn, st.companyName || ""]);
   // Android home-screen widget: today's take-home in the driver's own language and currency
   const todayKept = useMemo(() => { try { const t = dISO(new Date()); return appBreakdown(data, t, t, setAsideRate(data)).kept; } catch (x) { return 0; } }, [data]);
   useEffect(() => {
@@ -2276,6 +2312,15 @@ function App() {
     : t.mode === PERSONAL ? "personal" : t.order ? "order" : "between";
   const gpsWords = t => !t || !t.on ? T("gps_paused") : t.native ? T("gps_native") : t.gps === "ok" ? fill(T("gps_ok"), { a: t.acc || "?" }) : t.gps === "wait" ? T("g_wait")
     : t.gps === "weak" ? T("gps_weak") : t.gps === "denied" ? T("gps_blocked") : t.gps === "none" ? T("gps_none") : T("gps_blocked");
+  // company drive: the one-tap Start / End control (Home and Company miles)
+  const CompanyDrive = big => { const t = track || {}, on = !!(t.on && t.company && t.mode === PERSONAL);
+    return on
+      ? e("div", null,
+          e("div", { role: "status", style: { fontSize: 15, color: C.sub, marginBottom: 6 } }, T("cd_on") + (st.companyName ? " · " + st.companyName : "")),
+          e("div", { style: { fontSize: 36, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginBottom: 12 } }, fmtDist(num(t.segKm), 1),
+            e("span", { style: { fontSize: 17, color: C.sub, fontWeight: 700, marginLeft: 12 } }, fmtDur((Date.now() - (t.segStart || Date.now())) / 60000))),
+          BigBtn("■  " + T("cd_end"), endCompany, { kind: "danger", style: { minHeight: 76, fontSize: 21 } }))
+      : BigBtn("▶  " + T("cd_start"), startCompany, big ? { style: { minHeight: 76, fontSize: 21 } } : { kind: "ghost", style: { fontSize: 17, minHeight: 60 } }); };
   const StateRow = t => { const k = trackState(t), col = k === "off" ? C.amber : k === "personal" ? C.muted : appColor(t.mode);
     return e("div", { role: "status", style: { display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: C.sub, marginBottom: 12 } },
       e("span", { "aria-hidden": true, style: { width: 12, height: 12, borderRadius: 12, background: col, flexShrink: 0 } }),
@@ -2334,7 +2379,8 @@ function App() {
         StateRow(t),
         !working
           ? e("div", null,
-              BigBtn("▶  " + T("startWorking"), () => myApps.length === 1 ? startWorking(myApps[0]) : setModal({ type: "pickApp" }), { style: { minHeight: 76, fontSize: 22 } }),
+              t.company || (st.companyOn && !(st.apps || []).length) ? null : BigBtn("▶  " + T("startWorking"), () => myApps.length === 1 ? startWorking(myApps[0]) : setModal({ type: "pickApp" }), { style: { minHeight: 76, fontSize: 22 } }),
+              st.companyOn || t.company ? e("div", { style: { marginTop: t.company || !(st.apps || []).length ? 0 : 10 } }, CompanyDrive(!(st.apps || []).length)) : null,
               e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } }, t.on ? T("personalToday") + ": " + fmtDist(persKm, 1) : T("trackingPaused")),
               !t.on ? e("div", { style: { marginTop: 10 } }, BigBtn(T("resume"), () => setTracking(true), { kind: "ghost", style: { fontSize: 16, minHeight: 56 } })) : null)
           : e("div", null,
@@ -3790,7 +3836,7 @@ function App() {
       e("div", { style: { display: "flex", gap: 8 } },
         e("button", { style: S.btn("ghost"), onClick: () => setModal(null) }, T("skip")),
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: save }, T("save")))), () => setModal(null));
-    return ModalShell(f.gpsMissing && isNew === false && f.kind === "order" ? T("rideDone") + " · " + f.app : isNew ? (earnOnly ? T("addIncome") : f.company ? T("co_trip") : T("addTrip")) : T("edit"), e("div", null,
+    return ModalShell(f.gpsMissing && isNew === false && f.kind === "order" ? T("rideDone") + " · " + f.app : isNew ? (earnOnly ? T("addIncome") : f.company ? T("co_trip") : T("addTrip")) : (init && init.company && !init.purpose ? T("cd_what") : T("edit")), e("div", null,
       f.source === "gap" ? e("div", { style: Object.assign({}, S.small, { color: C.amber, marginBottom: 10 }) }, T("gapNote")) : null,
       noGps || f.gpsMissing ? e("div", { role: "alert", style: { color: C.amber, fontWeight: 700, fontSize: 15, lineHeight: 1.45, marginBottom: 12 } }, "⚠ " + T("noGpsRide")) : null,
       draft && draft.f && !init ? e("div", { style: Object.assign({}, S.small, { color: C.accent, marginBottom: 8 }) }, T("draftKept")) : null,
@@ -3964,6 +4010,10 @@ function App() {
     Object.assign(part, { fuel: 0, dep: 0, maint: 0, fixed: 0 }); const actTotal = sum(ct, actOf);
     return e("div", { className: "print-area", style: { maxWidth: 760, margin: "0 auto" } },
       e("h1", { style: S.h1 }, T("company") + (st.companyName ? " · " + st.companyName : "")),
+      e("section", { className: "no-print", "aria-label": T("cd_on"), style: Object.assign({}, S.card, { padding: 18 }) },
+        CompanyDrive(true), GpsNote(track || {}, true),
+        e("button", { className: "tap", onClick: () => setModal({ type: "trip", trip: newCompanyTrip() }),
+          style: { display: "block", width: "100%", background: "none", border: "none", color: C.accent, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 48, marginTop: 8, font: "inherit" } }, T("cd_missed"))),
       e("div", { className: "no-print", style: { marginBottom: 12 } }, Chips([["month", T("month")], ["lastMonth", T("rp_lastMonth")], ["year", T("year")], ["lastYear", T("rp_lastYear")]], per, setPer)),
       e("section", { style: S.card },
         e("div", { style: Object.assign({}, S.small, { fontSize: 14, marginBottom: 6 }) }, a + " – " + b),
