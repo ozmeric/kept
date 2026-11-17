@@ -12,6 +12,11 @@ public class ActionReceiver extends BroadcastReceiver {
     public static final String PERSONAL = "io.usebuildflow.kept.act.PERSONAL";
     public static final String START_FOR_APP = "io.usebuildflow.kept.act.START_FOR_APP";   // extra "mode"
     public static final String UNDO_RIDE = "io.usebuildflow.kept.act.UNDO_RIDE";           // extra "mode"
+    public static final String CO_START = "io.usebuildflow.kept.act.CO_START";             // company drive: start / end
+    public static final String CO_DONE = "io.usebuildflow.kept.act.CO_DONE";
+    public static final String CO_YES = "io.usebuildflow.kept.act.CO_YES";                 // reminder answered; extra "seg"
+    public static final String CO_NO = "io.usebuildflow.kept.act.CO_NO";
+    public static final String EXTRA_SEG = "seg";
 
     @Override public void onReceive(Context c, Intent i) {
         String a = i.getAction();
@@ -31,6 +36,23 @@ public class ActionReceiver extends BroadcastReceiver {
                 TrackingService.command(c, TrackingService.ACTION_MODE, mode, null);
                 TrackingService.command(c, TrackingService.ACTION_RIDE_START, null, "notification");
                 break;
+            case CO_START:
+                TrackingService.command(c, TrackingService.ACTION_CO_START, null, null);
+                break;
+            case CO_DONE:
+                TrackingService.command(c, TrackingService.ACTION_CO_DONE, null, null);
+                break;
+            case CO_YES: {
+                long seg = i.getLongExtra(EXTRA_SEG, 0);
+                // tracking still running: the service decides (current drive, or one that already ended). Otherwise mark the saved trip.
+                if (TrackingService.running) TrackingService.command(c, TrackingService.ACTION_CO_MARK, null, String.valueOf(seg));
+                else if (seg > 0) TripStore.markCompany(c, TrackingService.iso(seg));
+                TrackingService.cancelCompanyAsk(c);
+                return;
+            }
+            case CO_NO:
+                TrackingService.cancelCompanyAsk(c);
+                return;
             case UNDO_RIDE:
                 // an auto-started ride that wasn't one: the miles so far stay as "online"
                 TrackingService.command(c, TrackingService.ACTION_RIDE_CANCEL, null, null);

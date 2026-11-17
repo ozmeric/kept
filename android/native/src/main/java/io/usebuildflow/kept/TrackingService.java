@@ -42,6 +42,9 @@ public class TrackingService extends Service implements LocationSource.Sink {
     public static final String ACTION_RIDE_START = "io.usebuildflow.kept.RIDE_START";
     public static final String ACTION_RIDE_DONE = "io.usebuildflow.kept.RIDE_DONE";
     public static final String ACTION_RIDE_CANCEL = "io.usebuildflow.kept.RIDE_CANCEL";
+    public static final String ACTION_CO_START = "io.usebuildflow.kept.CO_START";   // one-tap company drive
+    public static final String ACTION_CO_DONE = "io.usebuildflow.kept.CO_DONE";
+    public static final String ACTION_CO_MARK = "io.usebuildflow.kept.CO_MARK";     // "yes" on the reminder; source = segment start (ms)
     public static final String EXTRA_MODE = "mode";
     public static final String EXTRA_SOURCE = "source";
     public static final String PERSONAL = "personal";
@@ -52,6 +55,9 @@ public class TrackingService extends Service implements LocationSource.Sink {
     static final int NOTIF_RIDE = 4102;
     static final String CH_ALERT = "kept_alerts";
     static final int NOTIF_STOPPED = 4103;
+    static final int NOTIF_COMPANY = 4104;
+    private static final double ASK_KM = 0.4;                         // ask "company drive?" once a drive is clearly under way
+    private static final long CO_AUTO_END_MS = 4 * 60 * 60 * 1000L;   // a forgotten company drive ends after 4 h without movement
     private static final long PERSIST_MS = 15_000L;      // state is written to storage at most this often between events
     /** True while the service is alive in this process (the web app compares it with the saved "on" state). */
     static volatile boolean running = false;
@@ -119,6 +125,7 @@ public class TrackingService extends Service implements LocationSource.Sink {
         switch (action) {
             case ACTION_STOP:
                 closeSegment(now, null);
+                s.remove("company"); s.remove("companySeg");
                 put("on", false); put("order", false);
                 save();
                 stopUpdates();
@@ -130,8 +137,29 @@ public class TrackingService extends Service implements LocationSource.Sink {
                 if (m == null) m = PERSONAL;
                 if (!m.equals(s.optString("mode")) || s.optBoolean("order")) {
                     closeSegment(now, null);
+                    s.remove("company");
                     restart(now); put("mode", m); put("order", false);
                 }
+                break;
+            }
+            case ACTION_CO_START:     // company drive: personal-car miles for a company, from now until CO_DONE
+                closeSegment(now, null);
+                restart(now); put("mode", PERSONAL); put("order", false); s.remove("orderStart");
+                put("company", true);
+                cancelCompanyAsk(this);
+                break;
+            case ACTION_CO_DONE:
+                if (s.optBoolean("company") || s.optBoolean("companySeg")) {
+                    closeSegment(now, null);
+                    s.remove("company");
+                    restart(now);
+                }
+                break;
+            case ACTION_CO_MARK: {    // the driver answered "yes" on the reminder
+                long seg = 0;
+                try { seg = Long.parseLong(String.valueOf(intent.getStringExtra(EXTRA_SOURCE))); } catch (NumberFormatException ignored) {}
+                if (seg > 0 && seg == s.optLong("segStart") && PERSONAL.equals(s.optString("mode"))) put("companySeg", true);
+                else if (seg > 0) { TripStore.markCompany(this, iso(seg)); if (events != null) events.onTripsChanged(); }
                 break;
             }
             case ACTION_RIDE_START:
@@ -227,10 +255,25 @@ public class TrackingService extends Service implements LocationSource.Sink {
         put("segKm", s.optDouble("segKm", 0) + d / 1000);
         put("lastMove", now);
         setLast(lat, lon, now);
+        maybeAskCompany();
         tick();
     }
 
+    /** Once per drive, when company miles are on: ask whether this personal drive is for the company. */
+    private void maybeAskCompany() {
+        if (s.optBoolean("coAsked") || s.optDouble("segKm", 0) < ASK_KM) return;
+        put("coAsked", true);
+        if (!PERSONAL.equals(s.optString("mode")) || s.optBoolean("company") || s.optBoolean("companySeg")) return;
+        JSONObject cfg = TripStore.config(this);
+        if (!cfg.optBoolean("companyOn")) return;
+        showCompanyAsk(s.optLong("segStart"), cfg);
+    }
+
     private void checkIdle(long now) {
+        if (s.optBoolean("company") && now - s.optLong("lastMove", now) > CO_AUTO_END_MS) {
+            closeSegment(s.optLong("lastMove", now), null);
+            s.remove("company"); restart(now); save();
+        }
         if (!s.optBoolean("on") || s.optBoolean("order")) return;
         if (s.optDouble("segKm", 0) >= 0.1 && now - s.optLong("lastMove", now) > IDLE_MS) {
             closeSegment(s.optLong("lastMove", now), null);
@@ -258,6 +301,7 @@ public class TrackingService extends Service implements LocationSource.Sink {
             t.put("km", Math.round(km * 1000) / 1000.0);
             t.put("app", mode);
             t.put("kind", kind);
+            if (PERSONAL.equals(mode) && (s.optBoolean("company") || s.optBoolean("companySeg"))) t.put("company", true);
             t.put("source", source != null ? source : (order && s.has("orderSource") ? s.optString("orderSource") : "native"));
             if (s.has("startLat")) {
                 JSONObject l = new JSONObject();
@@ -279,6 +323,7 @@ public class TrackingService extends Service implements LocationSource.Sink {
 
     private void restart(long now) {
         put("segStart", now); put("segKm", 0d); put("lastMove", now);
+        s.remove("companySeg"); s.remove("coAsked");
         if (s.has("lastLat")) { put("startLat", round5(s.optDouble("lastLat"))); put("startLon", round5(s.optDouble("lastLon"))); }
         else { s.remove("startLat"); s.remove("startLon"); }
     }
@@ -303,7 +348,7 @@ public class TrackingService extends Service implements LocationSource.Sink {
 
     private void publish() {
         // redraw the notification and the widget only when what they show changes (every ~0.1 km), not on every GPS fix
-        String sig = s.optBoolean("on") + "|" + s.optString("mode") + "|" + s.optBoolean("order") + "|" + Math.round(s.optDouble("segKm", 0) * 10) + "|" + s.optString("gps");
+        String sig = s.optBoolean("on") + "|" + s.optString("mode") + "|" + s.optBoolean("order") + "|" + s.optBoolean("company") + s.optBoolean("companySeg") + "|" + Math.round(s.optDouble("segKm", 0) * 10) + "|" + s.optString("gps");
         if (!sig.equals(uiSig)) {
             uiSig = sig;
             updateNotification();
@@ -322,6 +367,7 @@ public class TrackingService extends Service implements LocationSource.Sink {
             out.put("on", st.optBoolean("on"));
             out.put("mode", st.optString("mode", PERSONAL));
             out.put("order", st.optBoolean("order"));
+            out.put("company", st.optBoolean("company") || st.optBoolean("companySeg"));
             if (st.has("orderStart")) out.put("orderStart", st.optLong("orderStart"));
             out.put("segKm", st.optDouble("segKm", 0));
             out.put("segStart", st.optLong("segStart", System.currentTimeMillis()));
@@ -384,7 +430,10 @@ public class TrackingService extends Service implements LocationSource.Sink {
         boolean mi = !"km".equals(TripStore.config(this).optString("unit", "mi"));
         double d = s.optDouble("segKm", 0) / (mi ? 1.609344 : 1);
         String dist = String.format(Locale.US, "%.1f %s", d, mi ? "mi" : "km");
-        String title = PERSONAL.equals(mode) ? "Kept · Personal" : order ? "Kept · On a ride · " + mode : "Kept · Online · " + mode;
+        boolean company = PERSONAL.equals(mode) && (s.optBoolean("company") || s.optBoolean("companySeg"));
+        JSONObject cfg = TripStore.config(this);
+        boolean tr = "tr".equals(cfg.optString("lang", "en"));
+        String title = company ? (tr ? "Kept · Şirket sürüşü" : "Kept · Company drive") : PERSONAL.equals(mode) ? "Kept · Personal" : order ? "Kept · On a ride · " + mode : "Kept · Online · " + mode;
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CH_TRACK)
                 .setSmallIcon(R.drawable.ic_kept_notify)
                 .setContentTitle(title)
@@ -392,6 +441,8 @@ public class TrackingService extends Service implements LocationSource.Sink {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(openApp(this));
+        if (company) b.addAction(0, tr ? "Şirket sürüşünü bitir" : "End company drive", action(this, ActionReceiver.CO_DONE, 14));
+        else if (PERSONAL.equals(mode) && cfg.optBoolean("companyOn")) b.addAction(0, tr ? "Şirket sürüşü başlat" : "Start company drive", action(this, ActionReceiver.CO_START, 15));
         if (order) b.addAction(0, "Complete ride", action(this, ActionReceiver.RIDE_DONE, 11));
         else if (!PERSONAL.equals(mode)) b.addAction(0, "Start ride", action(this, ActionReceiver.RIDE_START, 12));
         if (!PERSONAL.equals(mode) && !order) b.addAction(0, "Go personal", action(this, ActionReceiver.PERSONAL, 13));
@@ -414,6 +465,34 @@ public class TrackingService extends Service implements LocationSource.Sink {
     private void updateNotification() {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (s.optBoolean("on")) nm.notify(NOTIF_TRACK, buildTrackNotification());
+    }
+
+    /** "Is this a company drive?" with Yes / No. Yes marks this drive, also when it is answered after the drive ended. */
+    private void showCompanyAsk(long segStart, JSONObject cfg) {
+        try {
+            boolean tr = "tr".equals(cfg.optString("lang", "en"));
+            String name = cfg.optString("companyName", "");
+            String title = tr ? "Bu bir şirket sürüşü mü?" : "Is this a company drive?";
+            String text = name.isEmpty() ? (tr ? "Evet derseniz bu sürüş şirket milleri olarak kaydedilir." : "Tap Yes to log this drive as company miles.")
+                    : (tr ? "Evet derseniz bu sürüş " + name + " için kaydedilir." : "Tap Yes to log this drive for " + name + ".");
+            Intent yes = new Intent(this, ActionReceiver.class).setAction(ActionReceiver.CO_YES).putExtra(ActionReceiver.EXTRA_SEG, segStart);
+            Intent no = new Intent(this, ActionReceiver.class).setAction(ActionReceiver.CO_NO);
+            int f = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
+            Notification n = new NotificationCompat.Builder(this, CH_RIDES)
+                    .setSmallIcon(R.drawable.ic_kept_notify)
+                    .setContentTitle(title).setContentText(text)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+                    .setAutoCancel(true)
+                    .setContentIntent(openApp(this))
+                    .addAction(0, tr ? "Evet, şirket" : "Yes, company", PendingIntent.getBroadcast(this, 16, yes, f))
+                    .addAction(0, tr ? "Hayır" : "No", PendingIntent.getBroadcast(this, 17, no, f))
+                    .build();
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(NOTIF_COMPANY, n);
+        } catch (Exception e) { CrashLog.record(e); }
+    }
+
+    static void cancelCompanyAsk(Context c) {
+        try { ((NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE)).cancel(NOTIF_COMPANY); } catch (Exception ignored) {}
     }
 
     private void showRideDone(String tripId) {

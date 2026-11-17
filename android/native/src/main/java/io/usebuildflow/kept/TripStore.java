@@ -55,6 +55,29 @@ public final class TripStore {
         sp(c).edit().putString("trips", keep.toString()).apply();
     }
 
+    // ── "this drive was for the company" (answered on the reminder notification) ──
+    /** Marks the saved trip that started at startIso. If the web app already took that trip, the mark waits for it in "coMarks". */
+    public static synchronized void markCompany(Context c, String startIso) {
+        JSONArray a = arr(c, "trips");
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject t = a.optJSONObject(i);
+            if (t != null && startIso.equals(t.optString("start")) && "personal".equals(t.optString("app"))) {
+                try { t.put("company", true); } catch (JSONException ignored) {}
+                sp(c).edit().putString("trips", a.toString()).apply();
+                return;
+            }
+        }
+        JSONArray m = arr(c, "coMarks");
+        m.put(startIso);
+        sp(c).edit().putString("coMarks", m.toString()).apply();
+    }
+
+    public static synchronized JSONArray takeCompanyMarks(Context c) {
+        JSONArray m = arr(c, "coMarks");
+        if (m.length() > 0) sp(c).edit().putString("coMarks", "[]").apply();
+        return m;
+    }
+
     // ── live state ──
     public static synchronized JSONObject state(Context c) { return obj(c, "state"); }
 

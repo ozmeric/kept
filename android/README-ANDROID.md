@@ -56,6 +56,12 @@ Trips recorded in the background stay on the phone until the account confirms th
 - **After a phone restart or an app update**, tracking resumes by itself if location is set to "Allow all the time"; otherwise Kept shows a notice to tap (an Android rule).
 - **Crash reporting** (Firebase Crashlytics) switches on when `google-services.json` is supplied: add the Firebase Android app (package `io.usebuildflow.kept`), download the file, and store it base64-encoded as the GitHub secret `GOOGLE_SERVICES_JSON`.
 
+## Company drives (Nov 2026)
+- **One tap:** "Start company drive" / "End company drive" in the app and on Kept's ongoing notification (when Company miles is on). Miles between the two taps are saved as a personal-car drive marked *company*.
+- **Reminder:** once a personal drive is clearly under way (about a quarter mile), Kept asks "Is this a company drive?" with Yes / No. Yes marks that drive, also when it is answered after the drive ended.
+- A company drive that is never ended stops by itself after 4 hours without movement.
+- Kept asks for the business purpose when the drive ends in the app; drives marked from the notification show "no purpose yet" on the Company miles screen.
+
 ## Tuning ride detection (learn mode)
 Gig apps word their notifications differently and change them over time. The built-in keywords are a starting point:
 - Starts a ride: *accepted, new order, head to pickup, pick up…*
