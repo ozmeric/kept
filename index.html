@@ -643,6 +643,8 @@ const I18N = {
   li_p3:["Your location is not used for ads and is not sold.","Je locatie wordt niet gebruikt voor advertenties en niet verkocht.","Konumunuz reklam için kullanılmaz ve satılmaz."],
   li_next:["Next, Android asks for permission. Choose “Allow all the time” so miles count with the screen off.","Hierna vraagt Android om toestemming. Kies ‘Altijd toestaan’ zodat kilometers ook met het scherm uit tellen.","Ardından Android izin ister. Ekran kapalıyken de mil sayılması için “Her zaman izin ver”i seçin."],
   li_ok:["Continue","Doorgaan","Devam"], li_no:["Not now","Niet nu","Şimdi değil"],
+  mdl_pick:["Choose model…","Kies model…","Model seçin…"], mdl_other:["My model isn't listed (type it)","Mijn model staat er niet bij (zelf typen)","Modelim listede yok (kendim yazacağım)"],
+  mdl_type:["Type your model","Typ je model","Modelinizi yazın"], mdl_loading:["Loading models…","Modellen laden…","Modeller yükleniyor…"], mdl_src:["Model list: fueleconomy.gov","Modellijst: fueleconomy.gov","Model listesi: fueleconomy.gov"],
   ob_co:["I drive for a company (mine or my employer's)","Ik rijd voor een bedrijf (van mij of mijn werkgever)","Bir şirket için sürüyorum (kendi şirketim veya işverenim)"],
   ob_coS:["Log company drives and see what the company owes you. Works with or without gig apps.","Leg zakelijke ritten vast en zie wat het bedrijf je verschuldigd is. Met of zonder bezorg-apps.","Şirket sürüşlerini kaydedin ve şirketin size borcunu görün. Diğer uygulamalarla veya tek başına kullanılabilir."],
   company:["Company miles","Zakelijke kilometers","Şirket milleri"],
@@ -4192,7 +4194,9 @@ function App() {
             Field(T("make"), v.type === "car"
               ? e("select", { style: S.input, value: v.make, onChange: ev => setv("make", ev.target.value) }, e("option", { value: "" }, T("make") + "…"), MAKES.map(m => e("option", { key: m, value: m }, m)), e("option", { value: "Other" }, T("otherApp")))
               : e("input", { style: S.input, value: v.make, onChange: ev => setv("make", ev.target.value) }))),
-          Field(T("model") + " (" + T("optional") + ")", e("input", { style: S.input, value: v.model, placeholder: v.type === "car" ? "Camry, RAV4, Model 3…" : "", onChange: ev => setv("model", ev.target.value) })),
+          Field(T("model") + " (" + T("optional") + ")", v.type === "car"
+            ? e(ModelPickC, { year: v.year, make: v.make, value: v.model, onChange: x => setv("model", x), placeholder: "Camry, RAV4, Model 3…" })
+            : e("input", { style: S.input, value: v.model, onChange: ev => setv("model", ev.target.value) })),
           v.type === "car" ? e("div", null,
             e("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
               [["midsize", "b_car"], ["smallsuv", "b_suv"], ["pickup", "b_pickup"], ["minivan", "b_van"]].map(b => Tile(v.body === b[0], T(b[1]), () => setv("body", b[0])))),
@@ -4345,6 +4349,32 @@ function App() {
         e("button", { style: Object.assign(S.btn(), { flex: 1 }), onClick: () => { if (!(num(f.amount) > 0)) { setErr(T("errAmount")); return; } const rec = Object.assign({}, f, { amount: num(f.amount), qty: f.qty === "" || f.qty == null ? "" : num(f.qty), qtyUnit: cat.qty ? qtyUnit : "", recurring: f.recurring ? num(f.recurring) : "" }); upsert("expenses", rec); learn(rec); setModal(null); showToast(T("saved")); } }, T("save")))), () => setModal(null));
   }
 
+  // model picker: the official model list for the chosen year and make, with "not listed" as the last choice.
+  // Falls back to a plain text box when there is no list (no connection, unknown make, non-US vehicle).
+  function ModelPick({ year, make, value, onChange, placeholder }) {
+    const key = String(year || "") + "|" + String(make || "");
+    const cache = (window.__keptModels = window.__keptModels || {});
+    const [list, setList] = useState(cache[key] || null), [busy, setBusy] = useState(false), [custom, setCustom] = useState(false);
+    useEffect(() => {
+      let live = true; setCustom(false);
+      if (!HAS_SVC || !/^(19|20)\d\d$/.test(String(year || "")) || !make || make === "Other") { setList(null); return; }
+      if (cache[key]) { setList(cache[key]); return; }
+      setList(null); setBusy(true);
+      svc("mpg", { step: "model", year: String(year), make }).then(r => { const items = ((r && r.items) || []).map(m => String(m.value || m.text || "")).filter(Boolean); cache[key] = items; if (live) setList(items); })
+        .catch(() => { if (live) setList(null); }).finally(() => { if (live) setBusy(false); });
+      return () => { live = false; };
+    }, [key]);
+    const text = e("input", { "aria-label": T("mdl_type"), style: S.input, value: value || "", placeholder: placeholder || "", onChange: ev => onChange(ev.target.value) });
+    if (busy) return e("div", null, e("select", { style: S.input, disabled: true, "aria-busy": true }, e("option", null, T("mdl_loading"))));
+    if (!list || !list.length) return text;
+    const other = custom || (!!value && list.indexOf(value) < 0);
+    return e("div", null,
+      e("select", { "aria-label": T("model"), style: S.input, value: other ? "__other" : (value || ""), onChange: ev => { const v = ev.target.value; if (v === "__other") { setCustom(true); onChange(""); } else { setCustom(false); onChange(v); } } },
+        e("option", { value: "" }, T("mdl_pick")), list.map(m => e("option", { key: m, value: m }, m)), e("option", { value: "__other" }, T("mdl_other"))),
+      other ? e("div", { style: { marginTop: 8 } }, e("input", { "aria-label": T("mdl_type"), autoFocus: custom, style: S.input, value: value || "", placeholder: T("mdl_type"), onChange: ev => onChange(ev.target.value) })) : null,
+      e("div", { style: Object.assign({}, S.small, { fontSize: 13, marginTop: 4 }) }, T("mdl_src")));
+  }
+
   function MpgLookup({ onPick }) {
     const [yr, setYr] = useState(String(new Date().getFullYear() - 4));
     const [makes, setMakes] = useState([]); const [make, setMake] = useState("");
@@ -4458,7 +4488,9 @@ function App() {
         e("div", { style: { display: "grid", gridTemplateColumns: "90px 1fr 1fr", gap: 10, alignItems: "end" } },
           Field(T("yearModel"), e("input", { style: S.input, inputMode: "numeric", value: f.year, onChange: ev => set("year", ev.target.value.replace(/\D/g, "").slice(0, 4)) })),
           Field(T("make"), e("input", { style: S.input, list: "kept-makes", placeholder: "Toyota", value: f.make || "", onChange: ev => set("make", ev.target.value) })),
-          Field(T("model"), e("input", { style: S.input, placeholder: "Camry", value: f.model || "", onChange: ev => set("model", ev.target.value) }))),
+          Field(T("model"), f.type === "car"
+            ? e(ModelPickC, { year: f.year, make: f.make, value: f.model || "", onChange: x => set("model", x), placeholder: "Camry" })
+            : e("input", { style: S.input, value: f.model || "", onChange: ev => set("model", ev.target.value) }))),
         e("datalist", { id: "kept-makes" }, MAKES.map(m => e("option", { key: m, value: m }))),
         e("div", { className: "grid2" },
           Field(T("body"), e("select", { style: S.input, value: f.body || "midsize", onChange: ev => setBody(ev.target.value) }, CONFIG.bodyTypes.map(b => e("option", { key: b[0], value: b[0] }, b[1])))),
@@ -4764,6 +4796,7 @@ function App() {
   const PickAppModalC = stable("PickAppModal", PickAppModal);
   const PickExpenseModalC = stable("PickExpenseModal", PickExpenseModal);
   const AddModalC = stable("AddModal", AddModal);
+  const ModelPickC = stable("ModelPick", ModelPick);
   const LocInfoModalC = stable("LocInfoModal", LocInfoModal);
   const SummaryModalC = stable("SummaryModal", SummaryModal);
   const ExplainModalC = stable("ExplainModal", ExplainModal);
