@@ -643,6 +643,8 @@ const I18N = {
   li_p3:["Your location is not used for ads and is not sold.","Je locatie wordt niet gebruikt voor advertenties en niet verkocht.","Konumunuz reklam için kullanılmaz ve satılmaz."],
   li_next:["Next, Android asks for permission. Choose “Allow all the time” so miles count with the screen off.","Hierna vraagt Android om toestemming. Kies ‘Altijd toestaan’ zodat kilometers ook met het scherm uit tellen.","Ardından Android izin ister. Ekran kapalıyken de mil sayılması için “Her zaman izin ver”i seçin."],
   li_ok:["Continue","Doorgaan","Devam"], li_no:["Not now","Niet nu","Şimdi değil"],
+  ob_co:["I drive for a company (mine or my employer's)","Ik rijd voor een bedrijf (van mij of mijn werkgever)","Bir şirket için sürüyorum (kendi şirketim veya işverenim)"],
+  ob_coS:["Log company drives and see what the company owes you. Works with or without gig apps.","Leg zakelijke ritten vast en zie wat het bedrijf je verschuldigd is. Met of zonder bezorg-apps.","Şirket sürüşlerini kaydedin ve şirketin size borcunu görün. Diğer uygulamalarla veya tek başına kullanılabilir."],
   company:["Company miles","Zakelijke kilometers","Şirket milleri"],
   co_intro:["Drive your own car for a company you own or work for? Mark those drives here and Kept works out what the company owes you, with a log you can hand to the bookkeeper.","Rijd je met je eigen auto voor een bedrijf? Markeer die ritten hier en Kept rekent uit wat het bedrijf je verschuldigd is, met een overzicht voor de boekhouder.","Kendi aracınızla sahibi olduğunuz veya çalıştığınız bir şirket için mi sürüyorsunuz? Bu sürüşleri burada işaretleyin; Kept şirketin size ne kadar borçlu olduğunu hesaplar ve muhasebeciye verebileceğiniz bir kayıt hazırlar."],
   co_on:["Turn on company miles","Zakelijke kilometers aanzetten","Şirket millerini aç"], co_off:["Turn off","Uitzetten","Kapat"],
@@ -4136,6 +4138,7 @@ function App() {
     const [loc, setLoc] = useState("");
     const [showTypes, setShowTypes] = useState(false);
     const [skipCar, setSkipCar] = useState(false);
+    const [co, setCo] = useState(!!st.companyOn);
     const setv = (k, x) => setV(o => Object.assign({}, o, { [k]: x }));
     const toggle = n => setApps(a => a.indexOf(n) >= 0 ? a.filter(x => x !== n) : a.concat([n]));
     const askLoc = () => { if (!navigator.geolocation) { setLoc("no"); return; } setLoc("…");
@@ -4149,23 +4152,30 @@ function App() {
         rec = applyAutoDep(rec, 0, 0);
         upsert("vehicles", rec); vid = rec.id;
       }
-      const patch = { apps: apps.length ? apps : ["Uber", "DoorDash"], country: ctry, state: ctry === "US" ? state : st.state, onboarded: true, defaultVehicleId: vid || (data.vehicles[0] || {}).id || "" };
+      const coOnly = co && !apps.length;
+      const patch = { apps: apps.length ? apps : coOnly ? [] : ["Uber", "DoorDash"], companyOn: co || !!st.companyOn, country: ctry, state: ctry === "US" ? state : st.state, onboarded: true, defaultVehicleId: vid || (data.vehicles[0] || {}).id || "" };
       if (ctry !== st.country) Object.assign(patch, ctry === "NL" ? { currency: "EUR", unit: "km" } : ctry === "US" ? { currency: "USD", unit: "mi" } : {});
       saveSettings(patch);
-      setView("home");
+      setView(coOnly ? "company" : "home");
     };
     const Tile = (on, label, onClick, icon) => e("div", { className: "tap", style: { flex: 1, minWidth: 0, padding: "14px 6px", borderRadius: 14, textAlign: "center", cursor: "pointer", fontWeight: 700, fontSize: 14,
       background: on ? C.accentDim : C.card2, border: "1.5px solid " + (on ? C.accent : C.border), color: on ? C.accent : C.sub }, onClick }, icon ? e("div", { style: { fontSize: 22, marginBottom: 4 } }, icon) : null, label);
     const years = []; for (let y = new Date().getFullYear() + 1; y >= 1995; y--) years.push(String(y));
     const titles = [[T("ob1"), T("ob1s")], [T("ob2"), T("ob2s")], [T("ob3"), T("ob3s")]];
-    const canNext = step === 0 ? apps.length > 0 : step === 1 ? (hasVeh || v.type !== "car" || !!v.make) : true;
+    const canNext = step === 0 ? (apps.length > 0 || co) : step === 1 ? (hasVeh || v.type !== "car" || !!v.make) : true;
     const body = step === 0
       ? e("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
           CONFIG.quickApps.concat(apps.filter(a => CONFIG.quickApps.indexOf(a) < 0)).map(n => e("div", { key: n, className: "tap", onClick: () => toggle(n),
             style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: 14, cursor: "pointer", fontWeight: 700, fontSize: 15,
               background: apps.indexOf(n) >= 0 ? C.accentDim : C.card2, border: "1.5px solid " + (apps.indexOf(n) >= 0 ? C.accent : C.border), color: apps.indexOf(n) >= 0 ? C.text : C.sub } },
             Dot(n, 12), n, apps.indexOf(n) >= 0 ? e("span", { style: { color: C.accent } }, "✓") : null)),
-          e("div", { style: { minWidth: 130 } }, platformSelect("", n => { if (apps.indexOf(n) < 0) setApps(a => a.concat([n])); }, { padding: "12px 30px 12px 14px", borderRadius: 14 }, T("otherApp"))))
+          e("div", { style: { minWidth: 130 } }, platformSelect("", n => { if (apps.indexOf(n) < 0) setApps(a => a.concat([n])); }, { padding: "12px 30px 12px 14px", borderRadius: 14 }, T("otherApp"))),
+          e("button", { type: "button", className: "tap", "aria-pressed": co, onClick: () => setCo(!co),
+            style: { width: "100%", display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "14px 16px", marginTop: 8, borderRadius: 16, cursor: "pointer", font: "inherit",
+              background: co ? C.accentDim : C.card2, border: "1.5px solid " + (co ? C.accent : C.border), color: C.text } },
+            e("span", { "aria-hidden": true, style: { color: C.accent, display: "flex" } }, e(Icon, { n: "pin", s: 24 })),
+            e("span", { style: { flex: 1 } }, e("span", { style: { display: "block", fontWeight: 800, fontSize: 16 } }, T("ob_co")), e("span", { style: { display: "block", fontSize: 14, color: C.sub, lineHeight: 1.4, marginTop: 2 } }, T("ob_coS"))),
+            co ? e("span", { "aria-hidden": true, style: { color: C.accent, fontWeight: 900, fontSize: 18 } }, "✓") : null))
       : step === 1
       ? (hasVeh ? e("div", null,
             data.vehicles.filter(x => x.active !== false).map(x => e("div", { key: x.id, className: "tap", onClick: () => setPickVid(x.id),
