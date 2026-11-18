@@ -647,6 +647,7 @@ const I18N = {
   mdl_type:["Type your model","Typ je model","Modelinizi yazın"], mdl_loading:["Loading models…","Modellen laden…","Modeller yükleniyor…"], mdl_src:["Model list: fueleconomy.gov","Modellijst: fueleconomy.gov","Model listesi: fueleconomy.gov"],
   ob_co:["I drive for a company (mine or my employer's)","Ik rijd voor een bedrijf (van mij of mijn werkgever)","Bir şirket için sürüyorum (kendi şirketim veya işverenim)"],
   ob_coS:["Log company drives and see what the company owes you. Works with or without gig apps.","Leg zakelijke ritten vast en zie wat het bedrijf je verschuldigd is. Met of zonder bezorg-apps.","Şirket sürüşlerini kaydedin ve şirketin size borcunu görün. Diğer uygulamalarla veya tek başına kullanılabilir."],
+  co_tab:["Company","Zakelijk","Şirket"],
   ch_today:["Company owes you today","Het bedrijf is je vandaag verschuldigd","Şirketin bugün size borcu"], ch_milesToday:["Company miles today","Zakelijke afstand vandaag","Bugünkü şirket mesafesi"],
   ch_month:["This month","Deze maand","Bu ay"], ch_open:["Open company miles","Zakelijke kilometers openen","Şirket millerini aç"],
   ch_none:["No company drives yet today. Tap Start company drive when you leave.","Nog geen zakelijke ritten vandaag. Tik op Start zakelijke rit als je vertrekt.","Bugün henüz şirket sürüşü yok. Yola çıkarken Şirket sürüşünü başlat'a dokunun."],
@@ -4913,8 +4914,9 @@ function App() {
   //  LAYOUT
   // ════════════════════════════════════════════════════════════════
   const NAV = [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]];
-  const MOBILE = simple ? [["home", "home"], ["money", "chart"], ["add", "plus"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
-  if (simple) NAV.splice(0, NAV.length, ["home", "home"], ["money", "chart"], ["vehicles", "car"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["more", "more"]);
+  const coOnlyNav = !!st.companyOn && !(st.apps || []).length;      // company-miles-only drivers: no earnings tab
+  const MOBILE = simple ? [["home", "home"], coOnlyNav ? ["company", "list"] : ["money", "chart"], ["add", "plus"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
+  if (simple) NAV.splice(0, NAV.length, ["home", "home"], coOnlyNav ? ["company", "list"] : ["money", "chart"], ["vehicles", "car"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["more", "more"]);
   const inMore = view === "more" || (MOBILE.every(m => m[0] !== view) && view !== "home");
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
 
@@ -4942,7 +4944,7 @@ function App() {
     e("div", Object.assign({ style: { flex: 1, display: "flex", minHeight: 0 } }, behind),
       e("div", { className: "desktop-sidebar", style: S.sidebar },
         e("div", { style: S.sideLabel }, st.name || CONFIG.appName),
-        e("nav", { "aria-label": "Main" }, NAV.map(n => e("button", { key: n[0], "aria-current": view === n[0] ? "page" : undefined, className: "navbtn", style: Object.assign({}, S.sideItem(view === n[0]), { display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", borderLeft: S.sideItem(view === n[0]).borderLeft, textAlign: "left", fontSize: 15, minHeight: 46 }), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 20 }), T(n[0]))))),
+        e("nav", { "aria-label": "Main" }, NAV.map(n => e("button", { key: n[0], "aria-current": view === n[0] ? "page" : undefined, className: "navbtn", style: Object.assign({}, S.sideItem(view === n[0]), { display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", borderLeft: S.sideItem(view === n[0]).borderLeft, textAlign: "left", fontSize: 15, minHeight: 46 }), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 20 }), T(n[0] === "company" ? "company" : n[0]))))),
       e("main", { className: "app-content", style: S.content }, e("div", { style: S.inner },
         syncState === "offline" ? e("div", { role: "status", style: { marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, lineHeight: 1.45 } }, "⚡ " + T("offlineMsg")) : null,
         e(VIEWS[view] || VIEWS.home)))),
@@ -4952,7 +4954,7 @@ function App() {
           e("button", { className: "tap", "aria-label": T("add_title"), onClick: () => setModal({ type: "add" }),
             style: { width: 56, height: 56, borderRadius: 56, border: "none", background: C.fill, color: C.onAccent, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: C.shadow } }, e(Icon, { n: "plus", s: 28, w: 2.8 })));
         return e("button", { key: n[0], "aria-current": on ? "page" : undefined, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 60, padding: "8px 0 6px", background: "none", border: "none", color: on ? C.accent : C.muted, fontSize: 13, fontWeight: on ? 800 : 600, cursor: "pointer" }, onClick: () => setView(n[0]) },
-          e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0])); })),
+          e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0] === "company" ? "co_tab" : n[0])); })),
     modal && modal.type === "shift" ? e(ShiftModalC, { key: (modal.shift && modal.shift.id) || "new", init: modal.shift, fromTracking: modal.fromTracking }) : null,
     modal && modal.type === "expense" ? e(ExpenseModalC, { key: (modal.expense && modal.expense.id) || (modal.scan ? "scan" : "new" + ((modal.preset && modal.preset.category) || "")), init: modal.expense, scan: modal.scan, preset: modal.preset }) : null,
     modal && modal.type === "vehicle" ? e(VehicleModalC, { key: (modal.vehicle && modal.vehicle.id) || "new", init: modal.vehicle }) : null,
