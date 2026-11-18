@@ -647,6 +647,11 @@ const I18N = {
   mdl_type:["Type your model","Typ je model","Modelinizi yazın"], mdl_loading:["Loading models…","Modellen laden…","Modeller yükleniyor…"], mdl_src:["Model list: fueleconomy.gov","Modellijst: fueleconomy.gov","Model listesi: fueleconomy.gov"],
   ob_co:["I drive for a company (mine or my employer's)","Ik rijd voor een bedrijf (van mij of mijn werkgever)","Bir şirket için sürüyorum (kendi şirketim veya işverenim)"],
   ob_coS:["Log company drives and see what the company owes you. Works with or without gig apps.","Leg zakelijke ritten vast en zie wat het bedrijf je verschuldigd is. Met of zonder bezorg-apps.","Şirket sürüşlerini kaydedin ve şirketin size borcunu görün. Diğer uygulamalarla veya tek başına kullanılabilir."],
+  co_tab:["Company","Zakelijk","Şirket"],
+  ch_today:["Company owes you today","Het bedrijf is je vandaag verschuldigd","Şirketin bugün size borcu"], ch_milesToday:["Company miles today","Zakelijke afstand vandaag","Bugünkü şirket mesafesi"],
+  ch_month:["This month","Deze maand","Bu ay"], ch_open:["Open company miles","Zakelijke kilometers openen","Şirket millerini aç"],
+  ch_none:["No company drives yet today. Tap Start company drive when you leave.","Nog geen zakelijke ritten vandaag. Tik op Start zakelijke rit als je vertrekt.","Bugün henüz şirket sürüşü yok. Yola çıkarken Şirket sürüşünü başlat'a dokunun."],
+  ch_rate:["At {r} per {u}","Tegen {r} per {u}","{u} başına {r} üzerinden"], ch_actual:["Actual costs (estimate)","Werkelijke kosten (schatting)","Gerçek maliyet (tahmin)"],
   cd_start:["Start company drive","Start zakelijke rit","Şirket sürüşünü başlat"], cd_end:["End company drive","Zakelijke rit beëindigen","Şirket sürüşünü bitir"],
   cd_on:["Company drive","Zakelijke rit","Şirket sürüşü"], cd_none:["No miles were recorded for this drive. Enter them yourself.","Er zijn geen kilometers vastgelegd voor deze rit. Vul ze zelf in.","Bu sürüş için mil kaydedilmedi. Kendiniz girin."],
   cd_what:["What was this drive for?","Waar was deze rit voor?","Bu sürüş ne içindi?"], cd_missed:["Forgot to press Start? Add the drive yourself","Start vergeten? Voeg de rit zelf toe","Başlat'a basmayı unuttunuz mu? Sürüşü kendiniz ekleyin"],
@@ -2343,8 +2348,42 @@ function App() {
   };
   const insMissing = () => { const v = vmap[defaultVid()]; return !!v && v.type === "car" && (v.insurance === "" || v.insurance == null) && !data.expenses.some(x => x.recurring && x.category === "insurance"); };
 
+  // what the company owes for company drives in a period: rate x distance (official or own rate), or actual costs
+  const companySums = (from, to) => {
+    const us = st.country === "US", custom = st.companyRate !== "" && st.companyRate != null && num(st.companyRate) > 0;
+    const ct = data.trips.filter(t => t.app === PERSONAL && t.company && t.date >= from && t.date <= to);
+    const rateOf = t => custom ? dist(num(t.km)) * num(st.companyRate) : (us ? num(t.km) / KM_PER_MI : num(t.km)) * mileageRate(us ? "US" : st.country, t.date).rate;
+    const actOf = t => { const v = vmap[t.vehicleId] || vmap[defaultVid()]; if (!v) return 0; const c = vehicleCost(v), ann = annualKmOf(v.id);
+      const r = data.expenses.filter(x => x.recurring && x.category === "insurance" && (!x.vehicleId || x.vehicleId === v.id)).sort((p, q) => q.date.localeCompare(p.date))[0];
+      const ins = r ? monthlyOf(r) : num(v.insurance), fx = ann > 0 ? (ins + num(v.rent) + num(v.otherFixed)) * 12 / ann : 0;
+      return num(t.km) * (c.total + fx); };
+    const r = mileageRate(us ? "US" : st.country, to > dISO(new Date()) ? dISO(new Date()) : to).rate;
+    return { n: ct.length, km: sum(ct, t => num(t.km)), rate: sum(ct, rateOf), actual: sum(ct, actOf), noPurpose: ct.filter(t => !String(t.purpose || "").trim()).length,
+      perUnit: custom ? num(st.companyRate) : us ? (unit === "mi" ? r : r / KM_PER_MI) : (unit === "km" ? r : r * KM_PER_MI), custom };
+  };
+  // Home for drivers who use Kept only for company miles: reimbursement, not earnings
+  const CompanyHomeCard = () => {
+    const today = dISO(new Date()), [m1] = periodRange("month"), d = companySums(today, today), mo = companySums(m1, today);
+    const actual = st.companyMethod === "actual", amt = x => actual ? x.actual : x.rate;
+    const tile = (label, val) => e("div", { style: { background: C.card2, border: "1px solid " + C.border, borderRadius: 14, padding: "12px 14px" } },
+      e("div", { style: { fontSize: 14, color: C.sub, fontWeight: 600, marginBottom: 6 } }, label),
+      e("div", { style: { fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums" } }, val));
+    return e("section", { "aria-label": T("ch_today"), style: Object.assign({}, S.card, { padding: 20 }) },
+      e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } },
+        e("div", { style: { fontSize: 16, color: C.sub, fontWeight: 700 } }, T("ch_today") + (st.companyName ? " · " + st.companyName : "")), Tag(actual ? "estimate" : d.custom ? "user" : "verified")),
+      e("div", { style: { fontSize: 46, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.15, margin: "4px 0 6px", fontVariantNumeric: "tabular-nums", color: d.n ? C.accent : C.text } }, money(amt(d))),
+      e("div", { style: { fontSize: 14, color: C.sub, marginBottom: 14 } }, actual ? T("ch_actual") : fill(T("ch_rate"), { r: money(d.perUnit, 3), u: unit })),
+      e("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+        tile(T("ch_milesToday"), fmtDist(d.km, 1)), tile(T("ch_month"), money(amt(mo)))),
+      !d.n ? e("div", { style: { fontSize: 15, color: C.sub, lineHeight: 1.5, marginTop: 12 } }, T("ch_none")) : null,
+      mo.noPurpose ? e("div", { role: "note", style: { color: C.amber, fontWeight: 700, fontSize: 15, marginTop: 10 } }, "⚠ " + fill(T("co_missing"), { n: mo.noPurpose })) : null,
+      actual && insMissing() ? e("button", { className: "tap", onClick: () => setView("vehicles"),
+        style: { display: "block", width: "100%", textAlign: "left", marginTop: 12, padding: "10px 12px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 48 } }, "⚠ " + T("insMissingHome")) : null,
+      e("button", { className: "tap", style: { background: "none", border: "none", color: C.accent, fontWeight: 800, fontSize: 15, padding: "12px 0 0", cursor: "pointer", minHeight: 44 }, onClick: () => setView("company") }, T("ch_open") + " →"));
+  };
   const SimpleHome = () => {
     const [det, setDet] = useState(false);
+    const coOnly = !!st.companyOn && !(st.apps || []).length;
     const t = track || {}, today = dISO(new Date()), rate = setAsideRate(data);
     const B = appBreakdown(data, today, today, rate), P = B.P;
     const working = t.on && t.mode && t.mode !== PERSONAL;
@@ -2381,7 +2420,7 @@ function App() {
           ? e("div", null,
               t.company || (st.companyOn && !(st.apps || []).length) ? null : BigBtn("▶  " + T("startWorking"), () => myApps.length === 1 ? startWorking(myApps[0]) : setModal({ type: "pickApp" }), { style: { minHeight: 76, fontSize: 22 } }),
               st.companyOn || t.company ? e("div", { style: { marginTop: t.company || !(st.apps || []).length ? 0 : 10 } }, CompanyDrive(!(st.apps || []).length)) : null,
-              e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } }, t.on ? T("personalToday") + ": " + fmtDist(persKm, 1) : T("trackingPaused")),
+              e("div", { style: { fontSize: 15, color: C.muted, marginTop: 12, textAlign: "center" } }, t.on ? (coOnly ? T("ch_milesToday") + ": " + fmtDist(companySums(today, today).km + (t.company ? num(t.segKm) : 0), 1) : T("personalToday") + ": " + fmtDist(persKm, 1)) : T("trackingPaused")),
               !t.on ? e("div", { style: { marginTop: 10 } }, BigBtn(T("resume"), () => setTracking(true), { kind: "ghost", style: { fontSize: 16, minHeight: 56 } })) : null)
           : e("div", null,
               e("div", { style: { fontSize: 15, color: C.sub, marginBottom: 14 } }, T("working") + " " + fmtDur((Date.now() - workFrom) / 60000) + " · " + T("workMiles") + " " + fmtDist(workKm, 1)),
@@ -2396,8 +2435,8 @@ function App() {
                 e("button", { className: "tap", style: Object.assign(S.btn("ghost"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: () => setModal({ type: "pickApp", switching: true }) }, T("switchApp")),
                 e("button", { className: "tap", style: Object.assign(S.btn("danger"), { flex: 1, minHeight: 56, fontSize: 16 }), onClick: stopWorking }, "■ " + T("stopWorking"))) : null),
         GpsNote(t, true)),
-      // 1. today's money: take-home + four clearly labelled parts
-      e("section", { "aria-label": T("todayProfit"), style: Object.assign({}, S.card, { padding: 20 }) },
+      // 1. today's money: take-home + four clearly labelled parts (company-only drivers: what the company owes)
+      coOnly ? e(CompanyHomeCardC) : e("section", { "aria-label": T("todayProfit"), style: Object.assign({}, S.card, { padding: 20 }) },
         e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } },
           e("div", { style: { fontSize: 16, color: C.sub, fontWeight: 700 } }, has ? T("takeHomeToday") : T("earnedToday")), has ? Tag("estimate") : null),
         e("div", { style: { fontSize: 46, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.15, margin: "4px 0 14px", fontVariantNumeric: "tabular-nums", color: has ? (B.kept < 0 ? C.red : C.accent) : C.text } },
@@ -4846,6 +4885,7 @@ function App() {
   const PickAppModalC = stable("PickAppModal", PickAppModal);
   const PickExpenseModalC = stable("PickExpenseModal", PickExpenseModal);
   const AddModalC = stable("AddModal", AddModal);
+  const CompanyHomeCardC = stable("CompanyHomeCard", CompanyHomeCard);
   const ModelPickC = stable("ModelPick", ModelPick);
   const LocInfoModalC = stable("LocInfoModal", LocInfoModal);
   const SummaryModalC = stable("SummaryModal", SummaryModal);
@@ -4874,8 +4914,9 @@ function App() {
   //  LAYOUT
   // ════════════════════════════════════════════════════════════════
   const NAV = [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["insights", "chart"], ["map", "pin"], ["offer", "offer"], ["coach", "coach"], ["vehicles", "car"], ["compare", "swap"], ["settings", "gear"]];
-  const MOBILE = simple ? [["home", "home"], ["money", "chart"], ["add", "plus"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
-  if (simple) NAV.splice(0, NAV.length, ["home", "home"], ["money", "chart"], ["vehicles", "car"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["more", "more"]);
+  const coOnlyNav = !!st.companyOn && !(st.apps || []).length;      // company-miles-only drivers: no earnings tab
+  const MOBILE = simple ? [["home", "home"], coOnlyNav ? ["company", "list"] : ["money", "chart"], ["add", "plus"], ["vehicles", "car"], ["more", "more"]] : [["home", "home"], ["log", "list"], ["expenses", "receipt"], ["tax", "tax"], ["more", "more"]];
+  if (simple) NAV.splice(0, NAV.length, ["home", "home"], coOnlyNav ? ["company", "list"] : ["money", "chart"], ["vehicles", "car"], ["expenses", "receipt"], ["log", "list"], ["tax", "tax"], ["offer", "offer"], ["more", "more"]);
   const inMore = view === "more" || (MOBILE.every(m => m[0] !== view) && view !== "home");
   const syncDot = localMode ? null : e("div", { title: syncState, style: { width: 8, height: 8, borderRadius: 8, background: syncState === "offline" ? C.amber : syncState === "syncing" ? C.blue : C.accent } });
 
@@ -4903,7 +4944,7 @@ function App() {
     e("div", Object.assign({ style: { flex: 1, display: "flex", minHeight: 0 } }, behind),
       e("div", { className: "desktop-sidebar", style: S.sidebar },
         e("div", { style: S.sideLabel }, st.name || CONFIG.appName),
-        e("nav", { "aria-label": "Main" }, NAV.map(n => e("button", { key: n[0], "aria-current": view === n[0] ? "page" : undefined, className: "navbtn", style: Object.assign({}, S.sideItem(view === n[0]), { display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", borderLeft: S.sideItem(view === n[0]).borderLeft, textAlign: "left", fontSize: 15, minHeight: 46 }), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 20 }), T(n[0]))))),
+        e("nav", { "aria-label": "Main" }, NAV.map(n => e("button", { key: n[0], "aria-current": view === n[0] ? "page" : undefined, className: "navbtn", style: Object.assign({}, S.sideItem(view === n[0]), { display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", borderLeft: S.sideItem(view === n[0]).borderLeft, textAlign: "left", fontSize: 15, minHeight: 46 }), onClick: () => setView(n[0]) }, e(Icon, { n: n[1], s: 20 }), T(n[0] === "company" ? "company" : n[0]))))),
       e("main", { className: "app-content", style: S.content }, e("div", { style: S.inner },
         syncState === "offline" ? e("div", { role: "status", style: { marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: C.warnBg, border: "1px solid " + C.warnBorder, color: C.amber, fontWeight: 700, fontSize: 15, lineHeight: 1.45 } }, "⚡ " + T("offlineMsg")) : null,
         e(VIEWS[view] || VIEWS.home)))),
@@ -4913,7 +4954,7 @@ function App() {
           e("button", { className: "tap", "aria-label": T("add_title"), onClick: () => setModal({ type: "add" }),
             style: { width: 56, height: 56, borderRadius: 56, border: "none", background: C.fill, color: C.onAccent, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: C.shadow } }, e(Icon, { n: "plus", s: 28, w: 2.8 })));
         return e("button", { key: n[0], "aria-current": on ? "page" : undefined, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 60, padding: "8px 0 6px", background: "none", border: "none", color: on ? C.accent : C.muted, fontSize: 13, fontWeight: on ? 800 : 600, cursor: "pointer" }, onClick: () => setView(n[0]) },
-          e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0])); })),
+          e(Icon, { n: n[1], s: 22 }), T(n[0] === "home" && simple ? "homeTab" : n[0] === "company" ? "co_tab" : n[0])); })),
     modal && modal.type === "shift" ? e(ShiftModalC, { key: (modal.shift && modal.shift.id) || "new", init: modal.shift, fromTracking: modal.fromTracking }) : null,
     modal && modal.type === "expense" ? e(ExpenseModalC, { key: (modal.expense && modal.expense.id) || (modal.scan ? "scan" : "new" + ((modal.preset && modal.preset.category) || "")), init: modal.expense, scan: modal.scan, preset: modal.preset }) : null,
     modal && modal.type === "vehicle" ? e(VehicleModalC, { key: (modal.vehicle && modal.vehicle.id) || "new", init: modal.vehicle }) : null,
